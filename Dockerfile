@@ -13,7 +13,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /opt/tagwerk
 
 # Install dependencies first so this layer is cached between code changes.
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE ./
 COPY app ./app
 RUN pip install .
 

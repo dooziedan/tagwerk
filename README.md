@@ -52,3 +52,7 @@ All settings are environment variables (the fields in the Unraid template):
 - [Changelog](CHANGELOG.md)
 
 The REST API is documented at `/docs` on any running instance.
+
+## License
+
+[GNU AGPL-3.0-or-later](LICENSE). You may use, modify and share Tagwerk. If you distribute a modified version, or let others use one over a network, you must make its source code available under the same license.

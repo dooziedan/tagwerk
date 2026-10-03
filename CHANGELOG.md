@@ -5,7 +5,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-10-03
+## [0.1.0] - 2026-10-04
 
 ### Added
 - Project setup: FastAPI app, start page with a setup check for the music and app data folders.
@@ -14,3 +14,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Unraid container template (`unraid/tagwerk.xml`).
 - CI (lint + tests), image publishing to GHCR, Dependabot.
 - Documentation: README, architecture, development guide, roadmap, decision records.
+- Licensed under AGPL-3.0-or-later; source code link in the page footer.
