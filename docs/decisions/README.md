@@ -9,6 +9,7 @@ A new decision gets the next number. A decision that is replaced is marked "Supe
 | [0002](0002-unraid-deployment.md) | Single container, Unraid conventions, images on GHCR | Accepted |
 | [0003](0003-review-before-write.md) | Files are only changed through review → apply, with snapshots | Accepted |
 | [0004](0004-license.md) | License AGPL-3.0-or-later | Accepted |
+| [0005](0005-reading-tags.md) | One common tag format, Picard conventions, honest about bad data | Accepted |
 
 Template:
 

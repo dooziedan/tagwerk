@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if not status.ok %}
+<article class="setup-problem">
+  <header><strong>Setup problem</strong></header>
+  <ul>
+    {% if not status.music_dir_found %}
+    <li>❌ Music library <code>{{ status.music_dir }}</code> not found. Check the <em>Music Library</em> path in your container settings.</li>
+    {% endif %}
+    {% if not status.config_dir_writable %}
+    <li>❌ App data <code>{{ status.config_dir }}</code> is not writable. Check the <em>App Data</em> path and PUID/PGID.</li>
+    {% endif %}
+    {% if not status.database_ok %}
+    <li>❌ The database could not be opened: <code>{{ status.database_error }}</code></li>
+    {% endif %}
+  </ul>
+</article>
+{% endif %}
+
+<div class="page-head">
+  <h1>Library</h1>
+  {% include "partials/scan_status.html" %}
+</div>
+
+{% if stats is none %}
+{# Database unavailable: the setup problem above explains why. #}
+{% elif stats.tracks == 0 %}
+<article>
+  <p><strong>No tracks yet.</strong> Click <em>Scan library</em> to read your music folder. Scanning only reads your files, it never changes them.</p>
+</article>
+{% else %}
+
+<section class="kpis" aria-label="Library totals">
+  <article class="kpi"><span class="kpi-value">{{ stats.tracks | number }}</span><span class="kpi-label">Tracks</span></article>
+  <article class="kpi" title="Album artist, or track artist where no album artist is set"><span class="kpi-value">{{ stats.artists | number }}</span><span class="kpi-label">Artists</span></article>
+  <article class="kpi"><span class="kpi-value">{{ stats.albums | number }}</span><span class="kpi-label">Albums</span></article>
+  <article class="kpi"><span class="kpi-value">{{ stats.total_size | filesize }}</span><span class="kpi-label">Size</span></article>
+  <article class="kpi"><span class="kpi-value">{{ stats.total_duration | duration }}</span><span class="kpi-label">Playing time</span></article>
+</section>
+
+<div class="grid-2">
+  <article>
+    <header><strong>Formats</strong></header>
+    <ul class="bars">
+      {% for bar in stats.formats %}
+      <li title="{{ bar.label }}: {{ bar.count | number }} tracks ({{ bar.percent }}%), {{ bar.size | filesize }}">
+        <span class="bar-label">{{ bar.label }}</span>
+        <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
+        <span class="bar-value">{{ bar.count | number }} <small>· {{ bar.size | filesize }}</small></span>
+      </li>
+      {% endfor %}
+    </ul>
+  </article>
+
+  <article>
+    <header><strong>Missing tags</strong> <small class="muted">share of readable tracks</small></header>
+    <ul class="bars">
+      {% for bar in stats.missing %}
+      <li title="{{ bar.count | number }} tracks without {{ bar.label | lower }} ({{ bar.percent }}%)">
+        <span class="bar-label">{{ bar.label }}</span>
+        <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
+        <span class="bar-value">{{ bar.count | number }} <small>· {{ bar.percent }}%</small></span>
+      </li>
+      {% endfor %}
+    </ul>
+    <footer>
+      <ul class="notes">
+        <li>{{ stats.untagged | plural('file') }} without any tags.</li>
+        <li>{{ stats.invalid_mbids | plural('file') }} with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>
+        {% if stats.unreadable %}<li>⚠️ {{ stats.unreadable | plural('file') }} could not be read.</li>{% endif %}
+      </ul>
+    </footer>
+  </article>
+</div>
+
+<p class="muted"><small>Last scan: <time data-local datetime="{{ stats.last_scan | isoutc }}">{{ stats.last_scan | isoutc }}</time></small></p>
+{% endif %}
+{% endblock %}

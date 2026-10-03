@@ -5,20 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tagwerk{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
 </head>
 <body>
   <header class="container">
     <nav>
-      <ul><li><strong>Tagwerk</strong></li></ul>
-      <ul><li><a href="/docs">API</a></li></ul>
+      <ul><li><a href="/" class="brand"><strong>Tagwerk</strong></a></li></ul>
+      <ul>
+        <li><a href="/">Dashboard</a></li>
+        <li><a href="/docs">API</a></li>
+      </ul>
     </nav>
   </header>
   <main class="container">
     {% block content %}{% endblock %}
   </main>
   <footer class="container">
-    <small>Tagwerk v{{ status.version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
+    <small>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
   </footer>
+  <script>
+    // Show <time data-local> timestamps (stored in UTC) in the browser's local time.
+    function localTimes(root) {
+      root.querySelectorAll("time[data-local]").forEach((el) => {
+        const date = new Date(el.getAttribute("datetime"));
+        if (!isNaN(date)) el.textContent = date.toLocaleString();
+      });
+    }
+    document.addEventListener("DOMContentLoaded", () => localTimes(document));
+    document.addEventListener("htmx:afterSwap", (e) => localTimes(e.detail.target));
+  </script>
 </body>
 </html>

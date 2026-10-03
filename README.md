@@ -2,12 +2,16 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: early development (v0.1).** The container runs and checks its setup. The library features below are on the [roadmap](docs/roadmap.md).
+> **Status: early development (v0.2).** Scanning and the library dashboard work. Editing, Navidrome and MusicBrainz are next on the [roadmap](docs/roadmap.md).
 
-## What it will do
+## Features
 
-- **Dashboard:** artists, albums, tracks, formats, total size and duration, tracks with missing tags.
-- **Tag editing:** MP3, FLAC, WAV and AIFF, one album or one track at a time.
+- ✅ **Library scan:** reads MP3, FLAC, WAV, AIFF and M4A (ID3, Vorbis comments, MP4 tags, RIFF INFO). Read-only, and unchanged files are skipped on rescans.
+- ✅ **Dashboard:** tracks, artists, albums, size, playing time, formats, missing tags, and MusicBrainz fields holding other IDs (e.g. Discogs).
+
+Planned:
+
+- **Tag editing:** one album or one track at a time.
 - **MusicBrainz lookup:** tags and cover art filled in automatically, and every value stays editable.
 - **Navidrome integration:** Navidrome's stats next to your library's, and a rescan triggered after changes.
 - **Safe by design:** changes are staged, shown as *old → new*, and written only when you click Apply. The previous tags are kept so every change can be undone.

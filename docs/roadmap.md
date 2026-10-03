@@ -7,13 +7,14 @@ Project skeleton, Docker image with PUID/PGID, Unraid template, CI, documentatio
 **Done when:** the container runs on Unraid and the start page shows both folders as OK.
 Verified 2026-10-04 on Unraid 7.3.2.
 
-## Phase 1: Library scan + dashboard
+## Phase 1: Library scan + dashboard ✅ (v0.2.0)
 - Database with Alembic migrations.
-- Read tags from MP3, FLAC, WAV and AIFF into one common format.
+- Read tags from MP3, FLAC, WAV, AIFF and M4A into one common format (RIFF INFO fallback for WAV).
 - Scan the music folder (skip unchanged files) as a background job with progress.
 - Dashboard: counts of artists, albums and tracks; format chart; size and duration; tracks missing tags.
 
 **Done when:** the dashboard numbers match a test folder. WAV/AIFF tags are checked against Navidrome early.
+Verified 2026-10-04: file count, size and playing time match `ffprobe` on the test folder. Still open: compare WAV/AIFF with Navidrome on the real library.
 
 ## Phase 2: Browse + manual editing
 - Artists → albums → tracks, with search and filters (e.g. "missing year").

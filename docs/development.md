@@ -33,6 +33,21 @@ docker compose up --build
 
 Then open http://localhost:8000 (API docs at http://localhost:8000/docs).
 
+## Database changes
+
+The app migrates its database on start. After changing `app/models.py`, create a migration and commit it:
+
+```sh
+CONFIG_DIR=dev/config .venv/bin/alembic upgrade head          # bring your dev DB up to date first
+CONFIG_DIR=dev/config .venv/bin/alembic revision --autogenerate -m "add rating column"
+```
+
+Review the generated file in `app/migrations/versions/`. A test fails if the models and migrations ever drift apart. Never edit a migration that was already released.
+
+## Test audio files
+
+`tests/fixtures/` holds tiny tagged files in every supported format, made by `tests/fixtures/generate.py` (needs ffmpeg). Regenerate them only when adding cases.
+
 ## Checks
 
 ```sh

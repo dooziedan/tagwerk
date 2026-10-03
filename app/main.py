@@ -1,52 +1,40 @@
-"""FastAPI application: creates the app and registers pages and API routes."""
+"""FastAPI application: creates the app, prepares the database and registers the routes."""
 
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
 from app import __version__
-from app.config import Settings, get_settings
+from app.config import get_settings
+from app.db import migrate
+from app.routes import dashboard, scan, system
 
-BASE_DIR = Path(__file__).parent
-SettingsDep = Annotated[Settings, Depends(get_settings)]
-
-app = FastAPI(title="Tagwerk", version=__version__)
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=BASE_DIR / "templates")
+log = logging.getLogger("app")
 
 
-@app.get("/health", tags=["system"])
-def health() -> dict[str, str]:
-    """Used by the Docker HEALTHCHECK (shown as healthy/unhealthy on Unraid)."""
-    return {"status": "ok"}
-
-
-@app.get("/api/status", tags=["system"])
-def status(settings: SettingsDep) -> dict:
-    """Basic info about the running instance and its mounted folders."""
-    return {
-        "version": __version__,
-        "music_dir": str(settings.music_dir),
-        "music_dir_found": settings.music_dir.is_dir(),
-        "config_dir": str(settings.config_dir),
-        "config_dir_writable": _is_writable(settings.config_dir),
-    }
-
-
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
-def index(request: Request, settings: SettingsDep):
-    return templates.TemplateResponse(request, "index.html", {"status": status(settings)})
-
-
-def _is_writable(path: Path) -> bool:
-    probe = path / ".write-test"
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    # Keep running even if the database can't be created, so the setup check can say why.
+    app.state.db_error = None
     try:
-        probe.touch()
-        probe.unlink()
-        return True
-    except OSError:
-        return False
+        settings.config_dir.mkdir(parents=True, exist_ok=True)
+        migrate(settings.database_url)
+    except Exception as exc:
+        log.exception("Database setup failed")
+        app.state.db_error = f"{type(exc).__name__}: {exc}"
+    yield
+
+
+app = FastAPI(title="Tagwerk", version=__version__, lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.include_router(system.router)
+app.include_router(dashboard.router)
+app.include_router(scan.router)
