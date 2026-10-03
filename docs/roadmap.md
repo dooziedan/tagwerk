@@ -2,9 +2,10 @@
 
 Each phase ends with something that can be run and tried. Phases are tracked as GitHub milestones.
 
-## Phase 0: Setup 🚧 (v0.1.0)
+## Phase 0: Setup ✅ (v0.1.0)
 Project skeleton, Docker image with PUID/PGID, Unraid template, CI, documentation.
 **Done when:** the container runs on Unraid and the start page shows both folders as OK.
+Verified 2026-10-04 on Unraid 7.3.2.
 
 ## Phase 1: Library scan + dashboard
 - Database with Alembic migrations.
