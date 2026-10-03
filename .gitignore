@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Local config and test data (never commit music or secrets)
+.env
+dev/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,16 @@
+# Local development. On Unraid, install via the template in unraid/tagwerk.xml instead.
+services:
+  tagwerk:
+    build: .
+    image: tagwerk:dev
+    container_name: tagwerk
+    ports:
+      - "8000:8000"
+    environment:
+      PUID: "${PUID:-1000}"   # your user on the dev PC; Unraid uses 99
+      PGID: "${PGID:-1000}"   # your group on the dev PC; Unraid uses 100
+      UMASK: "022"
+    volumes:
+      - ./dev/config:/config
+      - "${MUSIC_PATH:-./dev/music}:/music"   # point MUSIC_PATH at a TEST COPY of a few albums
+    restart: unless-stopped

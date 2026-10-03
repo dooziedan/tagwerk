@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tagwerk{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}">
+  <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
+</head>
+<body>
+  <header class="container">
+    <nav>
+      <ul><li><strong>Tagwerk</strong></li></ul>
+      <ul><li><a href="/docs">API</a></li></ul>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container"><small>Tagwerk v{{ status.version }}</small></footer>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Tagwerk is running</h1>
+<p>Your self-hosted music library manager. The dashboard arrives in Phase 1.</p>
+
+<article>
+  <header>Setup check</header>
+  <ul>
+    <li>
+      Music library (<code>{{ status.music_dir }}</code>):
+      {% if status.music_dir_found %}✅ found{% else %}❌ not found, check the Music path in your container settings{% endif %}
+    </li>
+    <li>
+      App data (<code>{{ status.config_dir }}</code>):
+      {% if status.config_dir_writable %}✅ writable{% else %}❌ not writable, check the Config path and PUID/PGID{% endif %}
+    </li>
+  </ul>
+</article>
+{% endblock %}

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Tagwerk</Name>
+  <Repository>ghcr.io/dooziedan/tagwerk:latest</Repository>
+  <Registry>https://github.com/dooziedan/tagwerk/pkgs/container/tagwerk</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/dooziedan/tagwerk/issues</Support>
+  <Project>https://github.com/dooziedan/tagwerk</Project>
+  <Overview>Self-hosted music library manager: library dashboard, tag editing (MP3, FLAC, WAV, AIFF), MusicBrainz lookup and Navidrome integration. Changes are reviewed before they are written to your files.</Overview>
+  <Category>MediaApp:Music Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/dooziedan/tagwerk/main/unraid/tagwerk.xml</TemplateURL>
+  <Icon/>
+  <Config Name="WebUI Port" Target="8000" Default="8000" Mode="tcp" Description="Port for the web interface." Type="Port" Display="always" Required="true" Mask="false">8000</Config>
+  <Config Name="Music Library" Target="/music" Default="" Mode="rw" Description="Your music share, e.g. /mnt/user/music. Use the same folder your Navidrome container uses. Read-write so tags can be edited." Type="Path" Display="always" Required="true" Mask="false"></Config>
+  <Config Name="App Data" Target="/config" Default="/mnt/user/appdata/tagwerk" Mode="rw" Description="Database and settings. Keep appdata on a pool (exclusive share) so SQLite works reliably." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/tagwerk</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID the app runs as (Unraid default 99 = nobody)." Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID the app runs as (Unraid default 100 = users)." Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="022" Mode="" Description="Permission mask for newly created files." Type="Variable" Display="advanced" Required="false" Mask="false">022</Config>
+</Container>
