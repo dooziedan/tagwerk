@@ -8,7 +8,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/dooziedan/tagwerk/issues</Support>
   <Project>https://github.com/dooziedan/tagwerk</Project>
-  <Overview>Self-hosted music library manager: library dashboard, tag editing (MP3, FLAC, WAV, AIFF), MusicBrainz lookup and Navidrome integration. Changes are reviewed before they are written to your files.</Overview>
+  <Overview>Self-hosted music library manager: library dashboard, tag editing (MP3, FLAC, WAV, AIFF, M4A), MusicBrainz lookup and Navidrome integration. Changes are reviewed before they are written to your files.</Overview>
   <Category>MediaApp:Music Tools:</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/dooziedan/tagwerk/main/unraid/tagwerk.xml</TemplateURL>

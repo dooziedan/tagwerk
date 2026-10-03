@@ -1,0 +1,23 @@
+{# Scan button and progress. While a scan runs, it polls itself every second. #}
+{% set p = job.progress %}
+{% if job.running %}
+<div id="scan" class="scan" hx-get="/partials/scan?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
+  <progress {% if p.total %}value="{{ p.processed }}" max="{{ p.total }}"{% endif %}></progress>
+  <small>
+    {% if p.total %}Scanning… {{ p.processed | number }} / {{ p.total | number }} files{% else %}Looking for audio files…{% endif %}
+    {% if p.current %}<br><span class="muted current-file">{{ p.current }}</span>{% endif %}
+  </small>
+</div>
+{% else %}
+<div id="scan" class="scan">
+  <button hx-post="/partials/scan" hx-target="#scan" hx-swap="outerHTML">Scan library</button>
+  {% if job.status == "done" %}
+  <small class="muted">
+    Last scan: {{ p.added | number }} added, {{ p.updated | number }} updated,
+    {{ p.unchanged | number }} unchanged, {{ p.removed | number }} removed{% if p.errors %}, ⚠️ {{ p.errors | number }} errors{% endif %}.
+  </small>
+  {% elif job.status == "failed" %}
+  <small>❌ Scan failed: {{ job.error }}</small>
+  {% endif %}
+</div>
+{% endif %}

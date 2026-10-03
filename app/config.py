@@ -6,7 +6,9 @@ for example ``MUSIC_DIR=/music``. On Unraid these are the fields in the containe
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
+from fastapi import Depends
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +21,14 @@ class Settings(BaseSettings):
     config_dir: Path = Path("/config")
     log_level: str = "info"
 
+    @property
+    def database_url(self) -> str:
+        return f"sqlite:///{self.config_dir / 'tagwerk.db'}"
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+SettingsDep = Annotated[Settings, Depends(get_settings)]
