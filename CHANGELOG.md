@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-10-04
+
 ### Added
 - **Duplicates in the inbox**: tracks that look like one you already have (identical file, same MusicBrainz recording, or same artist and title with about the same length; the mix name counts) are marked **In library** and get their own tab. The track's page compares both copies (where, format, bitrate, length, size).
 - **Move to trash** for inbox files, on the track's page or for ticked tracks in the list. Deleted files wait in `.tagwerk-trash` inside the import folder; **Recently deleted** on the Inbox page restores them, and they are removed for good after 30 days. Library files are never deleted.
