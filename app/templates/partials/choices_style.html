@@ -1,0 +1,21 @@
+{# Mode and key notation (wizard step "How you work"; also in Settings). #}
+<fieldset>
+  <legend><strong>What do you mainly use your music for?</strong></legend>
+  <div class="choice-cards">
+    {% for value, label in modes.items() %}
+    <label class="choice-card{% if prefs.mode == value %} selected{% endif %}">
+      <input type="radio" name="mode" value="{{ value }}" {% if prefs.mode == value %}checked{% endif %}>
+      <strong>{{ label }}</strong>
+      <small class="muted">{% if value == "dj" %}Preparing sets: tempo, keys, label, comment and audio quality come first.{% else %}A well-kept collection: albums, years, cover art and lyrics come first.{% endif %}</small>
+    </label>
+    {% endfor %}
+  </div>
+  <small class="muted">This only changes what Tagwerk shows and checks; your files are the same either way. Switch any time with DJ / Collector at the top.</small>
+</fieldset>
+<fieldset>
+  <legend><strong>How should keys be shown?</strong></legend>
+  {% for value, label in notations.items() %}
+  <label><input type="radio" name="key_notation" value="{{ value }}" {% if prefs.key_notation == value %}checked{% endif %}> {{ label }}</label>
+  {% endfor %}
+  <small class="muted">Only how Tagwerk shows keys. Keys written into files always use standard notation (Am, F#), which every program reads.</small>
+</fieldset>

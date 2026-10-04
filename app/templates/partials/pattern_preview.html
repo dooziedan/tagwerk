@@ -1,0 +1,7 @@
+{# Live preview of a folder or filename pattern on a few real tracks. #}
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>
+{% elif rows %}
+<ul class="preview-list">
+  {% for original, result in rows %}<li><span class="muted">{{ original }}</span><span aria-hidden="true">→</span><code>{{ result }}</code></li>{% endfor %}
+</ul>
+{% else %}<p class="muted"><small>Examples appear here once there are tracks in the library or inbox.</small></p>{% endif %}

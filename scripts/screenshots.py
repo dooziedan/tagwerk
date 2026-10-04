@@ -65,6 +65,8 @@ def main(base: str, out: Path) -> int:
         "tracks": "/tracks",
         "fields": "/fields",
         "settings": "/settings",
+        "changes": "/changes",
+        "setup": "/setup",
     }
     if track:
         pages["track"] = f"/tracks/{track}"

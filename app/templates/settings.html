@@ -64,6 +64,42 @@
   <button type="submit">Save</button>
 </form>
 
+<section id="import" class="settings-section">
+  <h2>Import</h2>
+  <form method="post" action="/settings/choices/import">
+    {% include "partials/choices_folders.html" %}
+    {% include "partials/choices_automation.html" %}
+    <button type="submit">Save import settings</button>
+  </form>
+</section>
+
+<section id="genres" class="settings-section">
+  <h2>Genre map</h2>
+  <p class="muted">How Tagwerk tidies genres and picks the main genre: one rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines.</p>
+  <form method="post" action="/settings/genres">
+    <textarea name="genre_map" rows="14" spellcheck="false" class="genre-map"{% if errors.genre_map %} aria-invalid="true"{% endif %}>{{ genre_text }}</textarea>
+    {% if errors.genre_map %}<small class="form-error">{{ errors.genre_map }}</small>{% endif %}
+    <div class="button-row">
+      <button type="submit">Save genre map</button>
+      {% if genre_map_custom %}<button type="submit" name="reset" value="1" class="outline secondary" formnovalidate>Back to the built-in map</button>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section id="final" class="settings-section">
+  <h2>Final tracks &amp; filenames</h2>
+  <form method="post" action="/settings/choices/final">
+    {% include "partials/choices_final.html" %}
+    <button type="submit">Save</button>
+  </form>
+</section>
+
+<section id="setup" class="settings-section">
+  <h2>Setup wizard</h2>
+  <p class="muted">Go through the first-start questions again. Your current choices are filled in.</p>
+  <form method="post" action="/settings/setup-again"><button class="outline secondary">Run setup again</button></form>
+</section>
+
 <section id="navidrome" class="settings-section">
   <h2>Navidrome</h2>
   {% if navidrome.configured %}
@@ -82,4 +118,5 @@
   <p class="muted">To set it up on Unraid, edit the Tagwerk container and fill in <strong>Navidrome URL</strong> (your server's IP and Navidrome's port, e.g. <code>http://192.168.1.10:4533</code>, or <code>http://navidrome:4533</code> if both containers share a custom Docker network; not <code>localhost</code>), <strong>Navidrome User</strong> and <strong>Navidrome Password</strong>. The user needs admin rights in Navidrome.</p>
   {% endif %}
 </section>
+{% include "partials/choices_script.html" %}
 {% endblock %}

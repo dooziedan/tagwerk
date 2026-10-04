@@ -23,6 +23,10 @@
 {% if write.running or (write.status in ("done", "failed") and write.progress.action == "import") %}
 {% with job = write %}{% include "partials/write_status.html" %}{% endwith %}
 {% endif %}
+{% set auto = job.auto_import %}
+{% if auto and auto.written %}
+<p class="notice">🤖 Tagwerk imported {{ auto.written | plural('complete track') }} automatically{% if auto.failed %}; {{ auto.failed }} stayed here{% endif %}. <a href="/changes/history/{{ auto.changeset_id }}">Details and undo</a> · <a href="/settings#import">Change this</a></p>
+{% endif %}
 {% set q = "" if show == "all" else "?show=" ~ show %}
 <nav class="view-tabs" aria-label="Show">
   {% for key, label, count in views if key != "unreadable" or count or key == show %}

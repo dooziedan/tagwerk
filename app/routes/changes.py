@@ -1,4 +1,5 @@
-"""Editing tags: edit forms, the review page (pending changes), apply, history and undo."""
+"""Editing tags: edit forms, the review page (pending changes and new genre folders), apply,
+history and undo."""
 
 import json
 from dataclasses import replace
@@ -11,7 +12,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, col, select
 from starlette.datastructures import FormData, UploadFile
 
-from app import changes, preferences, writer
+from app import changes, folders, preferences, writer
 from app.config import Settings, SettingsDep
 from app.db import SessionDep
 from app.images import MAX_SIZE, ImageError, image_info
@@ -105,6 +106,41 @@ def undo_api(changeset_id: int, settings: SettingsDep, session: SessionDep) -> d
     if not write_job.undo(settings, changeset_id):
         raise HTTPException(409, "Another scan or write is running")
     return {"status": "running"}
+
+
+class FolderRequest(BaseModel):
+    genre: str
+
+
+@router.get("/api/folders", tags=["changes"])
+def folders_api(session: SessionDep, settings: SettingsDep) -> list[dict]:
+    """Proposed genre folders: tracks in _Unsorted whose main genre has no folder yet."""
+    return [
+        {
+            "genre": p.genre,
+            "folder": p.folder,
+            "exists": p.exists,
+            "moves": [
+                {"track_id": m.track.id, "from": m.track.path, "to": m.target} for m in p.moves
+            ],  # fmt: skip
+        }
+        for p in folders.proposals(session, settings.music_dir)
+    ]
+
+
+@router.post("/api/folders/create", status_code=202, tags=["changes"])
+def create_folder_api(body: FolderRequest, settings: SettingsDep) -> dict:
+    """Create the proposed folder for a genre and move its tracks in (background job)."""
+    if not write_job.create_folder(settings, body.genre):
+        raise HTTPException(409, "Another scan or write is running")
+    return {"status": "running"}
+
+
+@router.post("/api/folders/keep", tags=["changes"])
+def keep_unsorted_api(body: FolderRequest, session: SessionDep) -> dict:
+    """Keep a genre's tracks in _Unsorted: no folder is proposed for it any more."""
+    folders.keep_unsorted(session, body.genre)
+    return {"kept_unsorted": preferences.load(session).kept_unsorted}
 
 
 # --- Edit forms -----------------------------------------------------------------------------
@@ -277,7 +313,13 @@ def _selected(request: Request, session: Session, f: TrackFilter) -> list[Track]
 
 
 @router.get("/changes", response_class=HTMLResponse, include_in_schema=False)
-def changes_page(request: Request, session: SessionDep, staged: int | None = None, error: str = ""):
+def changes_page(
+    request: Request,
+    session: SessionDep,
+    settings: SettingsDep,
+    staged: int | None = None,
+    error: str = "",
+):
     prefs = preferences.load(session)
     return templates.TemplateResponse(
         request,
@@ -285,6 +327,7 @@ def changes_page(request: Request, session: SessionDep, staged: int | None = Non
         {
             "prefs": prefs,
             "items": changes.pending(session),
+            "folders": folders.proposals(session, settings.music_dir),
             "labels": writer.LABELS,
             "job": write_job,
             "busy": busy(),
@@ -306,6 +349,28 @@ async def apply_changes(request: Request, session: SessionDep, settings: Setting
         return RedirectResponse("/changes", status_code=303)
     if not write_job.apply(settings):
         return RedirectResponse("/changes?error=busy", status_code=303)
+    return RedirectResponse("/changes", status_code=303)
+
+
+@router.post("/changes/folders/create", include_in_schema=False)
+async def create_folder(request: Request, settings: SettingsDep):
+    genre = str((await request.form()).get("genre", ""))
+    if genre and not write_job.create_folder(settings, genre):
+        return RedirectResponse("/changes?error=busy", status_code=303)
+    return RedirectResponse("/changes", status_code=303)
+
+
+@router.post("/changes/folders/keep", include_in_schema=False)
+async def keep_unsorted(request: Request, session: SessionDep):
+    genre = str((await request.form()).get("genre", ""))
+    if genre:
+        folders.keep_unsorted(session, genre)
+    return RedirectResponse("/changes", status_code=303)
+
+
+@router.post("/changes/folders/propose-again", include_in_schema=False)
+def propose_again(session: SessionDep):
+    folders.keep_unsorted(session, None)
     return RedirectResponse("/changes", status_code=303)
 
 

@@ -9,18 +9,22 @@ database keeps the results.
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from app import navidrome
+from sqlmodel import Session, select
+
+from app import folders, navidrome, preferences
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
 from app.images import ImageStore
-from app.importer import import_tracks
+from app.importer import import_tracks, ready_for_auto_import
 from app.inbox import scan_inbox
+from app.models import InboxTrack
 from app.scanner import ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
@@ -89,10 +93,11 @@ class ScanJob(Job):
 
 
 class InboxJob(Job):
-    """Reads the import inbox (read-only)."""
+    """Reads the import inbox. With automation "auto" it also imports complete tracks."""
 
     def __init__(self) -> None:
         super().__init__("inbox", progress=ScanProgress())
+        self.auto_import: WriteProgress | None = None  # the last automatic import, if any
 
     def start(self, settings: Settings) -> bool:
         progress = ScanProgress()
@@ -100,9 +105,31 @@ class InboxJob(Job):
         def work() -> None:
             if not settings.import_dir.is_dir():
                 raise FileNotFoundError(f"Import folder not found: {settings.import_dir}")
-            scan_inbox(get_engine(settings.database_url), settings.import_dir, progress)
+            engine = get_engine(settings.database_url)
+            scan_inbox(engine, settings.import_dir, progress)
+            self._auto_import(settings, engine)
 
         return self._start(work, progress)
+
+    def _auto_import(self, settings: Settings, engine) -> None:
+        with Session(engine) as session:
+            if preferences.load(session).automation != "auto":
+                return
+            now = time.time()
+            ids = [
+                t.id
+                for t in session.exec(select(InboxTrack))
+                if ready_for_auto_import(session, t, settings.music_dir, now)
+            ]
+        if not ids:
+            return
+        progress = WriteProgress(action="import")
+        import_tracks(
+            engine, settings.import_dir, settings.music_dir, ids, progress, image_store(settings)
+        )
+        self.auto_import = progress
+        log.info("Imported %d complete inbox tracks automatically", progress.written)
+        navidrome.rescan_after_write(settings, progress.written)
 
 
 class WriteJob(Job):
@@ -149,6 +176,17 @@ class WriteJob(Job):
 
         return self._start(work, progress)
 
+    def create_folder(self, settings: Settings, genre: str) -> bool:
+        """Create a proposed genre folder and move its tracks in (see app/folders.py)."""
+        progress = WriteProgress(action="folder")
+        engine = get_engine(settings.database_url)
+
+        def work() -> None:
+            folders.create_folder(engine, settings.music_dir, genre, progress)
+            navidrome.rescan_after_write(settings, progress.written)
+
+        return self._start(work, progress)
+
 
 def image_store(settings: Settings) -> ImageStore:
     """Uploaded covers and the covers saved for undo."""
@@ -158,6 +196,26 @@ def image_store(settings: Settings) -> ImageStore:
 scan_job = ScanJob()
 inbox_job = InboxJob()
 write_job = WriteJob()
+
+
+def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.Thread:
+    """Check the inbox every few minutes in the background (new files, automatic imports).
+
+    Skipped while another job runs; the next round tries again.
+    """
+
+    def loop() -> None:
+        while True:
+            time.sleep(every)
+            try:
+                if settings.import_dir.is_dir():
+                    inbox_job.start(settings)
+            except Exception:
+                log.exception("Background inbox check failed")
+
+    thread = threading.Thread(target=loop, name="inbox-timer", daemon=True)
+    thread.start()
+    return thread
 
 
 def busy() -> bool:

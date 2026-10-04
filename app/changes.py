@@ -232,9 +232,10 @@ def undo_changeset(
 
     A file that changed again after the change was applied is skipped, so newer edits
     (from Tagwerk or another tool) are never overwritten. Imported files also move back
-    into the inbox.
+    into the inbox; files moved into a new genre folder go back to _Unsorted.
     """
-    from app.importer import move_back  # imports app.changes itself
+    from app import folders  # both import app.changes themselves
+    from app.importer import move_back
 
     with Session(engine) as session:
         changeset = session.get(ChangeSet, changeset_id)
@@ -256,7 +257,9 @@ def undo_changeset(
                     )
                 if entry.snapshot:
                     writer.undo(path, json.loads(entry.snapshot), images)
-                if entry.moved_from:
+                if entry.moved_from and changeset.kind == "folder":
+                    folders.move_back(session, entry, music_dir)
+                elif entry.moved_from:
                     if import_dir is None or not import_dir.is_dir():
                         raise writer.WriteError("the import folder isn't available")
                     move_back(session, entry, import_dir, music_dir)
@@ -279,6 +282,8 @@ def undo_changeset(
             )
         ).one()
         if remaining == 0:
+            if changeset.kind == "folder":
+                folders.finish_undo(session, changeset, music_dir)
             changeset.undone_at = datetime.now(UTC)
             session.add(changeset)
             session.commit()

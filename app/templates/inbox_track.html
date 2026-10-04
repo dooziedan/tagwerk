@@ -18,7 +18,7 @@
     <p class="track-sub">{{ summary.artist or "Unknown artist" }}</p>
     <p class="muted"><small>{{ t.format | upper }}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <code>{{ t.path }}</code></small></p>
     {% if summary.missing %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}
-    {% if not t.error %}<p class="muted"><small>On import goes to <code>{{ plan.destination }}</code></small></p>{% endif %}
+    {% if not t.error %}<p class="muted"><small>On import goes to <code>{{ plan.destination }}</code>{% if plan.new_genre %}: {{ plan.new_genre }} has no folder yet. After the import, the Changes page proposes one for you to review.{% endif %}</small></p>{% endif %}
   </div>
 </div>
 

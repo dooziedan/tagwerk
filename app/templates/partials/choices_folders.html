@@ -1,0 +1,40 @@
+{# Where imported tracks go (wizard step "Import folders"; also Settings → Import). #}
+<fieldset class="live-preview" data-kind="folder" data-target="folder-preview">
+  <legend><strong>Where should imported tracks go in your library?</strong></legend>
+  {% for value, label in layouts.items() %}
+  <label class="layout-option">
+    <input type="radio" name="folder_layout" value="{{ value }}" {% if prefs.folder_layout == value %}checked{% endif %}>
+    <strong>{{ label }}</strong>
+    <small class="muted">
+      {%- if value == "genre" %} House/, Drum &amp; Bass/, … by the main genre (Liquid goes to Drum &amp; Bass). Easy to browse in a file explorer.
+      {%- elif value == "artist" %} Fisher/, Calibre/, … one folder per artist.
+      {%- elif value == "date" %} 2026/2026-10/ … by the month the track was imported; like monthly crates.
+      {%- else %} Your own folders from tags, e.g. <code>{genre}/{added_year}</code>.{% endif %}
+    </small>
+  </label>
+  {% endfor %}
+
+  <div class="layout-detail" data-for="genre"{% if prefs.folder_layout != "genre" %} hidden{% endif %}>
+    <p><strong>Your main genres</strong> <small class="muted">Tick the genres that get their own folder; other genres go to <code>_Unsorted</code>. Tick none to use the genre folders already in your library. A new genre folder is only created after you OK it on the Changes page.</small></p>
+    <div class="genre-picks">
+      {% for genre, count in main_genres %}
+      <label><input type="checkbox" name="genre_folders" value="{{ genre }}" {% if genre in prefs.genre_folders %}checked{% endif %}> {{ genre }}{% if count %} <span class="muted genre-count">({{ count }})</span>{% endif %}</label>
+      {% endfor %}
+    </div>
+    <label>More main genres <small class="muted">(comma-separated)</small>
+      <input type="text" name="more_genres" placeholder="e.g. Breaks, Disco" autocomplete="off">
+    </label>
+  </div>
+  <div class="layout-detail" data-for="custom"{% if prefs.folder_layout != "custom" %} hidden{% endif %}>
+    <label>Folder pattern
+      <input type="text" name="folder_pattern" value="{{ prefs.folder_pattern }}" autocomplete="off"
+             {% if errors.folder_pattern %}aria-invalid="true"{% endif %}>
+    </label>
+    <small class="muted">Use / for subfolders. Placeholders: {% for p in folder_placeholders %}<code>{{ "{" ~ p ~ "}" }}</code> {% endfor %}</small>
+    {% if errors.folder_pattern %}<small class="form-error">{{ errors.folder_pattern }}</small>{% endif %}
+  </div>
+
+  <p class="preview-title"><small class="muted">Examples from your tracks:</small></p>
+  <div id="folder-preview">{% with rows = folder_preview, error = none %}{% include "partials/pattern_preview.html" %}{% endwith %}</div>
+  <small class="muted">Filenames stay exactly as they are; only the folder is chosen.</small>
+</fieldset>

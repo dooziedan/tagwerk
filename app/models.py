@@ -97,7 +97,10 @@ class ChangeSet(SQLModel, table=True):
     failed: int = 0
     fields: str = ""  # e.g. "BPM, Key"
     undone_at: datetime | None = None
-    kind: str = Field(default="edit", sa_column_kwargs={"server_default": "edit"})  # edit, import
+    kind: str = Field(default="edit", sa_column_kwargs={"server_default": "edit"})  # edit, import,
+    # folder (a new genre folder, see app/folders.py)
+    # JSON, what else undo has to know. Folder changes: {"folder", "created", "added_genre"}.
+    details: str | None = None
 
 
 class ChangeEntry(SQLModel, table=True):
@@ -112,7 +115,8 @@ class ChangeEntry(SQLModel, table=True):
     mtime_after: float | None = None  # file time right after writing, to detect later edits
     error: str | None = None
     undone: bool = False
-    # Imports: where the file was in the inbox (relative to IMPORT_DIR). Undo moves it back.
+    # Where the file was before it moved; undo moves it back. Imports: in the inbox (relative
+    # to IMPORT_DIR). Folder changes: in the library (relative to MUSIC_DIR).
     moved_from: str | None = None
 
 

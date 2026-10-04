@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from app import preferences, writer
-from app.config import SettingsDep
+from app import genres, preferences, writer
+from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep
 from app.importer import plan
@@ -31,7 +31,7 @@ def inbox_api(session: SessionDep) -> list[dict]:
     """Tracks in the import inbox: what each one is missing and what Tagwerk proposes."""
     result = []
     for t in session.exec(select(InboxTrack).order_by(InboxTrack.path)):
-        proposals = propose(t)
+        proposals = propose(t, genres.active(session))
         result.append(
             {
                 **t.model_dump(),
@@ -259,7 +259,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "position": next(i for i, t in enumerate(tracks, 1) if t.id == track.id),
             "total": len(tracks),
             "summary": _summary(session, track),
-            "plan": plan(session, track),
+            "plan": plan(session, track, get_settings().music_dir),
             "cover": _cover_field(session, track),
             "busy": _blocked(),
             "show": show,

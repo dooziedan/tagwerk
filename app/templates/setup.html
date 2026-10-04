@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Setup · Tagwerk{% endblock %}
+{% block content %}
+<div class="wizard">
+  <div class="wizard-head">
+    <ol class="wizard-steps" aria-label="Setup steps">
+      {% for key, title in steps %}
+      <li{% if loop.index0 == index %} aria-current="step"{% elif loop.index0 < index %} class="done"{% endif %}>
+        {% if loop.index0 < index %}<a href="/setup?step={{ key }}">{{ title }}</a>{% else %}<span>{{ title }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    <form method="post" action="/setup/skip"><button class="outline secondary small" title="Use the defaults; you can change everything in Settings">Skip setup</button></form>
+  </div>
+
+  <form method="post" action="/setup/{{ step }}" class="wizard-body">
+    {% if step == "welcome" %}
+    <h1>Welcome to Tagwerk</h1>
+    <p>A few questions to set Tagwerk up the way you work. It takes about two minutes, and <strong>everything you choose here can be changed later in Settings</strong>.</p>
+    <ul class="setup-checks">
+      <li>{{ "✅" if status.music_dir_found else "❌" }} <strong>Music library</strong> <code>{{ status.music_dir }}</code>{% if not status.music_dir_found %}: not found. Check the <em>Music Library</em> path in the container settings.{% endif %}</li>
+      <li>{{ "✅" if status.config_dir_writable else "❌" }} <strong>App data</strong> <code>{{ status.config_dir }}</code>{% if not status.config_dir_writable %}: not writable. Check the <em>App Data</em> path and PUID/PGID.{% endif %}</li>
+      <li>{{ "✅" if inbox_ready else "➖" }} <strong>Import inbox</strong>{% if inbox_ready %} <code>{{ import_dir }}</code>{% else %}: not set up (optional). Add an <em>Import Inbox</em> path in the container settings to use it.{% endif %}</li>
+      <li>{{ "✅" if navidrome_ready else "➖" }} <strong>Navidrome</strong>{% if navidrome_ready %}: connected settings found{% if navidrome_library %}, rescans “{{ navidrome_library }}”{% endif %}. <a href="/settings#navidrome">Test it</a> in Settings.{% else %}: not set up (optional). Tagwerk can ask Navidrome to rescan after changes.{% endif %}</li>
+    </ul>
+    <p class="muted"><small>Folders and Navidrome are container settings (the Unraid template). The questions that follow are stored in Tagwerk.</small></p>
+
+    {% elif step == "style" %}
+    <h1>How you work</h1>
+    {% include "partials/choices_style.html" %}
+
+    {% elif step == "folders" %}
+    <h1>Import folders</h1>
+    <p class="muted">When a track is imported from the inbox, it moves into your library. Here you choose the folder.</p>
+    {% include "partials/choices_folders.html" %}
+
+    {% elif step == "automation" %}
+    <h1>Independence</h1>
+    {% include "partials/choices_automation.html" %}
+
+    {% elif step == "final" %}
+    <h1>Final tracks</h1>
+    {% include "partials/choices_final.html" %}
+    <p class="muted"><small>Marking tracks as final comes in a coming version; your choice is kept until then.</small></p>
+
+    {% else %}
+    <h1>Ready</h1>
+    <p>Here's what you chose. Click a step above to change it, or change it any time in <a href="/settings">Settings</a>.</p>
+    <dl class="setup-summary">
+      <dt>How you work</dt><dd>{{ modes[prefs.mode] }} · keys as {{ notations[prefs.key_notation] }}</dd>
+      <dt>Import folders</dt><dd>{{ layouts[prefs.folder_layout] }}{% if prefs.folder_layout == "genre" %}: {% if prefs.genre_folders %}{{ prefs.genre_folders | join(", ") }}, others to _Unsorted{% else %}the genre folders you have; new ones after your OK{% endif %}{% elif prefs.folder_layout == "custom" %}: <code>{{ prefs.folder_pattern }}</code>{% endif %} · filenames unchanged</dd>
+      <dt>Independence</dt><dd>{{ automations[prefs.automation] }}</dd>
+      <dt>Final tracks</dt><dd>{% if prefs.rename_on_final %}renamed to <code>{{ prefs.filename_pattern }}</code>{% else %}names stay as they are{% endif %}</dd>
+    </dl>
+    {% if not prefs.backup_confirmed %}
+    <label class="backup-check"><input type="checkbox" name="backup"> I have a backup of my music <small class="muted">(Tagwerk keeps the old tags for undo, but a backup is the real safety net. You can confirm this later, before the first write.)</small></label>
+    {% endif %}
+    {% endif %}
+
+    <div class="wizard-actions">
+      {% if back %}<a href="/setup?step={{ back }}" role="button" class="secondary outline">‹ Back</a>{% endif %}
+      <button type="submit">{% if step == "done" %}Start using Tagwerk{% elif step == "welcome" %}Let's go ›{% else %}Continue ›{% endif %}</button>
+      <small class="muted">Step {{ index + 1 }} of {{ steps | length }}</small>
+    </div>
+  </form>
+</div>
+{% include "partials/choices_script.html" %}
+{% endblock %}

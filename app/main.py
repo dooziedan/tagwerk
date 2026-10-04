@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import get_settings
 from app.db import migrate
-from app.routes import changes, dashboard, fields, inbox, library, scan, settings, system
+from app.routes import changes, dashboard, fields, inbox, library, scan, settings, setup, system
 
 log = logging.getLogger("app")
 
@@ -30,6 +30,10 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.exception("Database setup failed")
         app.state.db_error = f"{type(exc).__name__}: {exc}"
+    if not app.state.db_error:
+        from app.jobs import check_inbox_regularly
+
+        check_inbox_regularly(settings)
     yield
 
 
@@ -39,6 +43,7 @@ app.include_router(system.router)
 app.include_router(dashboard.router)
 app.include_router(scan.router)
 app.include_router(settings.router)
+app.include_router(setup.router)
 app.include_router(fields.router)
 # Before library: /tracks/edit must not be taken for the track page /tracks/{id}.
 app.include_router(inbox.router)

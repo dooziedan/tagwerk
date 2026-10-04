@@ -1,0 +1,16 @@
+{# How independently Tagwerk handles the inbox (wizard step "Independence"; Settings → Import). #}
+<fieldset>
+  <legend><strong>How independently should Tagwerk handle new tracks?</strong></legend>
+  <div class="choice-cards">
+    <label class="choice-card{% if prefs.automation == "ask" %} selected{% endif %}">
+      <input type="radio" name="automation" value="ask" {% if prefs.automation == "ask" %}checked{% endif %}>
+      <strong>Always ask</strong>
+      <small class="muted">Nothing is imported until you press Import. Tagwerk prepares its suggestions; you check them.</small>
+    </label>
+    <label class="choice-card{% if prefs.automation == "auto" %} selected{% endif %}">
+      <input type="radio" name="automation" value="auto" {% if prefs.automation == "auto" %}checked{% endif %}>
+      <strong>Import complete tracks automatically</strong>
+      <small class="muted">Tracks that have everything (title, artist, genre, BPM, key, cover), where every suggestion is sure and the file hasn't changed for 2 minutes, are imported on their own. The rest waits for you. Every import can be undone.</small>
+    </label>
+  </div>
+</fieldset>
