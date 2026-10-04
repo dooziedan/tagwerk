@@ -1,6 +1,6 @@
 [project]
 name = "tagwerk"
-version = "0.6.0"
+version = "0.6.1"
 description = "Self-hosted music library manager: dashboard, tag editing, MusicBrainz lookup and Navidrome integration."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -14,6 +14,7 @@ dependencies = [
     "mutagen>=1.47",
     "sqlmodel>=0.0.22",
     "alembic>=1.14",
+    "python-multipart>=0.0.18",
 ]
 
 [project.optional-dependencies]

@@ -14,6 +14,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session, col, delete, func, select
 
 from app import writer
+from app.images import ImageStore
 from app.models import ChangeEntry, ChangeSet, PendingChange, Track
 from app.scanner import refresh_track
 
@@ -67,6 +68,36 @@ def stage(
     return count, {}
 
 
+def stage_cover(session: Session, track_ids: list[int], image_id: str | None) -> int:
+    """Save a cover art change: an image from the ImageStore, or None to remove the cover."""
+    count = 0
+    for track in session.exec(select(Track).where(col(Track.id).in_(track_ids))):
+        existing = session.exec(
+            select(PendingChange).where(
+                PendingChange.track_id == track.id, PendingChange.field == writer.COVER
+            )
+        ).first()
+        if image_id is None and not track.has_cover:
+            if existing:
+                session.delete(existing)
+            continue
+        if existing:
+            existing.new_value = image_id
+            existing.created_at = datetime.now(UTC)
+        else:
+            session.add(
+                PendingChange(
+                    track_id=track.id,
+                    field=writer.COVER,
+                    old_value=writer.current_value(track, writer.COVER),
+                    new_value=image_id,
+                )
+            )
+        count += 1
+    session.commit()
+    return count
+
+
 @dataclass
 class PendingTrack:
     track: Track
@@ -80,7 +111,7 @@ def pending(session: Session) -> list[PendingTrack]:
         .order_by(Track.path, PendingChange.id)
     ).all()
     grouped: dict[int, PendingTrack] = {}
-    order = list(writer.EDITABLE)
+    order = list(writer.LABELS)
     for change, track in rows:
         grouped.setdefault(track.id, PendingTrack(track, [])).changes.append(change)
     for item in grouped.values():
@@ -116,14 +147,16 @@ class WriteProgress:
     errors: list[str] = field(default_factory=list)  # "path: reason"
 
 
-def apply_pending(engine: Engine, music_dir: Path, progress: WriteProgress) -> None:
+def apply_pending(
+    engine: Engine, music_dir: Path, progress: WriteProgress, images: ImageStore | None = None
+) -> None:
     """Write all pending changes. Failed files keep their pending changes for another try."""
     with Session(engine) as session:
         items = pending(session)
         progress.total = len(items)
         labels = sorted(
-            {writer.EDITABLE[c.field] for item in items for c in item.changes},
-            key=list(writer.EDITABLE.values()).index,
+            {writer.LABELS[c.field] for item in items for c in item.changes},
+            key=list(writer.LABELS.values()).index,
         )
         changeset = ChangeSet(tracks=len(items), fields=", ".join(labels))
         session.add(changeset)
@@ -147,7 +180,7 @@ def apply_pending(engine: Engine, music_dir: Path, progress: WriteProgress) -> N
                     raise writer.WriteError(
                         "the file changed since the last scan; scan again, then apply"
                     )
-                snapshot = writer.write(path, values)
+                snapshot = writer.write(path, values, images)
                 entry.snapshot = json.dumps(snapshot)
                 refreshed = refresh_track(session, music_dir, track)
                 entry.mtime_after = refreshed.mtime
@@ -175,16 +208,24 @@ def _verify(track: Track, values: dict[str, str | None], system: str) -> str:
     """Compare what the file now says with what was written."""
     problems = []
     for name, expected in values.items():
+        if name == writer.COVER:
+            if track.has_cover != (expected is not None):
+                problems.append("Cover art " + ("is missing" if expected else "is still there"))
+            continue
         if expected is not None and name == "bpm" and system in ("id3", "mp4"):
             expected = str(round(float(expected)))  # stored as an integer in these formats
         actual = writer.current_value(track, name)
         if actual != expected:
-            problems.append(f"{writer.EDITABLE[name]} is {actual!r}, expected {expected!r}")
+            problems.append(f"{writer.LABELS[name]} is {actual!r}, expected {expected!r}")
     return "; ".join(problems)
 
 
 def undo_changeset(
-    engine: Engine, music_dir: Path, changeset_id: int, progress: WriteProgress
+    engine: Engine,
+    music_dir: Path,
+    changeset_id: int,
+    progress: WriteProgress,
+    images: ImageStore | None = None,
 ) -> None:
     """Restore the files of one applied ChangeSet from their snapshots.
 
@@ -213,7 +254,7 @@ def undo_changeset(
                         "the file changed after this change was applied; not undone, "
                         "so newer edits aren't lost"
                     )
-                writer.undo(path, json.loads(entry.snapshot))
+                writer.undo(path, json.loads(entry.snapshot), images)
                 track = session.get(Track, entry.track_id) if entry.track_id else None
                 if track:
                     refresh_track(session, music_dir, track)

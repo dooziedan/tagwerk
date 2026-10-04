@@ -10,12 +10,45 @@
 <h1>Edit: {{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>
 <p class="muted"><small><code>{{ t.path }}</code></small></p>
 {% endif %}
-<p class="notice">Nothing is written to your files yet. Saving creates <strong>pending changes</strong> you review and apply on the <a href="/changes">Changes</a> page.</p>
 
 {% if errors._form %}<p class="form-error" role="alert">{{ errors._form }}</p>{% endif %}
 
-<form method="post" action="{% if many %}/tracks/edit{% else %}/tracks/{{ tracks[0].id }}/edit{% endif %}" class="edit-form">
+<form method="post" enctype="multipart/form-data" action="{% if many %}/tracks/edit{% else %}/tracks/{{ tracks[0].id }}/edit{% endif %}" class="edit-form">
   {% if many %}{% for t in tracks %}<input type="hidden" name="ids" value="{{ t.id }}">{% endfor %}{% endif %}
+  {% set pc = pending.get("cover") %}
+  {% set shows_image = (pc and pc.new_value) or (not many and not pc and tracks[0].has_cover) %}
+  <div class="edit-row cover-row{% if many %} with-check{% endif %}">
+    {% if many %}<span></span>{% endif %}
+    <span class="edit-label">Cover art{% if pc %} <span class="badge">pending</span>{% endif %}</span>
+    <div class="cover-edit">
+      <input type="hidden" name="cover_action" id="cover-action" value="keep">
+      <label class="cover-pick" title="Choose a new cover">
+        <input type="file" name="cover_file" id="cover-file" class="visually-hidden" accept="image/jpeg,image/png" aria-label="Choose a new cover image"
+               {% if errors.cover %}aria-invalid="true" aria-describedby="e-cover"{% endif %}>
+        {% if pc and pc.new_value %}<img id="cover-img" class="cover" src="/images/{{ pc.new_value }}" alt="New cover art (pending)" width="120" height="120">
+        {% elif not many and tracks[0].has_cover and not pc %}<img id="cover-img" class="cover" src="/tracks/{{ tracks[0].id }}/cover?v={{ tracks[0].mtime }}" alt="Current cover art" width="120" height="120">
+        {% else %}<img id="cover-img" class="cover" alt="New cover art" width="120" height="120" hidden>{% endif %}
+        <div id="cover-none" class="cover cover-missing" aria-hidden="true"{% if shows_image %} hidden{% endif %}>♪</div>
+        <span class="cover-pen" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+      </label>
+      <div class="cover-side">
+        <small id="cover-status" class="cover-status" aria-live="polite">
+          {%- if many %}{{ with_cover }} of {{ tracks | length }} have cover art
+          {%- elif pc and pc.new_value is none %}Pending: will be removed
+          {%- elif pc %}Pending: new cover
+          {%- elif tracks[0].has_cover %}Embedded in the file
+          {%- else %}No cover art{% endif -%}
+        </small>
+        <div class="cover-buttons">
+          <button type="button" class="outline secondary small" id="cover-remove"{% if not many and not shows_image %} hidden{% endif %}>Remove</button>
+          <button type="button" class="outline secondary small" id="cover-reset" hidden>Reset</button>
+        </div>
+        {% if errors.cover %}<small id="e-cover" class="form-error">{{ errors.cover }}</small>{% endif %}
+        <small class="muted">JPEG or PNG · saved inside the music file</small>
+      </div>
+    </div>
+  </div>
+
   {% for name, label in fields %}
   <div class="edit-row{% if many %} with-check{% endif %}{% if errors[name] %} has-error{% endif %}">
     {% if many %}
@@ -32,7 +65,46 @@
     </div>
   </div>
   {% endfor %}
-  <p class="muted"><small>An empty field removes that tag{% if many %} (only where “Change” is ticked){% endif %}.</small></p>
-  <button type="submit">Save as pending change</button>
+  <div class="edit-actions">
+    <button type="submit">Save as pending change</button>
+    <small class="muted">An empty field removes that tag{% if many %} (only where “Change” is ticked){% endif %}. Nothing is written yet.</small>
+  </div>
 </form>
+<script>
+  // Cover art: "keep" until the user picks an image (click the cover) or removes it.
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const file = $("cover-file"), img = $("cover-img"), none = $("cover-none");
+    const action = $("cover-action"), status = $("cover-status");
+    const remove = $("cover-remove"), reset = $("cover-reset");
+    const initial = { src: img.getAttribute("src"), img: img.hidden, none: none.hidden,
+                      status: status.textContent, remove: remove.hidden };
+    function show(hasImage) { img.hidden = !hasImage; none.hidden = hasImage; }
+    function set(value, text) {
+      action.value = value;
+      status.textContent = text;
+      reset.hidden = value === "keep";
+      remove.hidden = value === "remove" || (value === "keep" && initial.remove);
+    }
+    file.addEventListener("cancel", () => file.blur());
+    file.addEventListener("change", function () {
+      file.blur();
+      if (!file.files.length) return;
+      img.src = URL.createObjectURL(file.files[0]);
+      show(true);
+      set("replace", "New: " + file.files[0].name);
+    });
+    remove.addEventListener("click", function () {
+      file.value = "";
+      show(false);
+      set("remove", {% if many %}"Will be removed from all {{ tracks | length }}"{% else %}"Will be removed"{% endif %});
+    });
+    reset.addEventListener("click", function () {
+      file.value = "";
+      if (initial.src) img.src = initial.src; else img.removeAttribute("src");
+      img.hidden = initial.img; none.hidden = initial.none;
+      set("keep", initial.status);
+    });
+  })();
+</script>
 {% endblock %}

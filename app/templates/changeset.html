@@ -20,9 +20,9 @@
     {% for name, (old, new) in diff.items() %}
     <tr>
       <th scope="row">{{ labels[name] }}</th>
-      <td class="old">{% if old is none %}<span class="muted">(empty)</span>{% else %}<del>{{ old }}</del>{% endif %}</td>
+      <td class="old">{% if old is none %}<span class="muted">(empty)</span>{% elif name == "cover" %}<span class="muted">(previous cover)</span>{% else %}<del>{{ old }}</del>{% endif %}</td>
       <td class="arrow" aria-hidden="true">→</td>
-      <td class="new">{% if new is none %}<span class="muted">(removed)</span>{% else %}<ins>{{ new }}</ins>{% endif %}</td>
+      <td class="new">{% if new is none %}<span class="muted">(removed)</span>{% elif name == "cover" %}<img class="diff-cover" src="/images/{{ new }}" alt="New cover art">{% else %}<ins>{{ new }}</ins>{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody></table>

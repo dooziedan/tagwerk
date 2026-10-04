@@ -86,6 +86,7 @@ a.wheel-seg, a.wheel-seg:hover { text-decoration: none; }
 .key-list summary { font-weight: 600; }
 .full-width { margin-top: var(--pico-spacing); }
 .grid-2 + .grid-2 { margin-top: var(--pico-spacing); }
+.grid-2 + article { margin-top: calc(var(--pico-spacing) * 2); }
 
 /* Tag fields page */
 .field-filters { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: center; }
@@ -133,7 +134,25 @@ main > details { margin: 0 0 var(--pico-spacing); }
 a.wheel-seg.empty { pointer-events: none; }
 
 /* Track page */
-.track-head { display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: var(--pico-spacing); }
+.track-head { position: relative; display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: var(--pico-spacing); }
+.track-head > div { min-width: 0; padding-right: 2.75rem; }
+/* "i" button, top right of the track header: rarely needed details (MusicBrainz IDs). */
+.info-pop { position: absolute; top: 0; right: 0; margin: 0; z-index: 3; }
+.info-pop > summary { list-style: none; display: flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; padding: 0; border-radius: 50%; color: var(--pico-muted-color); border: 1px solid var(--pico-muted-border-color); cursor: pointer; }
+.info-pop > summary::-webkit-details-marker { display: none; }
+.info-pop > summary::after { display: none; }
+.info-pop > summary:hover, .info-pop[open] > summary { color: var(--pico-primary); border-color: var(--pico-primary); }
+.info-alert { position: absolute; top: -0.2rem; right: -0.2rem; width: 1rem; height: 1rem; border-radius: 50%; font-size: 0.7rem; font-weight: 700; line-height: 1rem; text-align: center; color: #fff; background: var(--pico-del-color); }
+.info-panel { position: absolute; top: calc(100% + 0.5rem); right: 0; width: min(24rem, calc(100vw - 2rem)); padding: 1rem 1.25rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); }
+.info-panel table { margin: 0.5rem 0 0; }
+.info-panel tr, .info-panel th, .info-panel td { display: block; background: none; border: 0; padding: 0; }
+.info-panel tr + tr { margin-top: 0.6rem; }
+.info-panel th { font-size: 0.75rem; font-weight: 400; color: var(--pico-muted-color); }
+.info-panel td { font-family: var(--pico-font-family-monospace); font-size: 0.8rem; overflow-wrap: anywhere; }
+/* The other mode's fields, folded into the bottom of the main card. */
+.card-more { margin: 0.5rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--pico-muted-border-color); }
+.card-more > summary { font-size: 0.9rem; color: var(--pico-muted-color); }
+.card-more table { margin: 0.5rem 0 0; }
 .track-head h1 { margin-bottom: 0.25rem; }
 .track-sub { margin-bottom: 0.25rem; }
 .cover { width: 160px; height: 160px; object-fit: cover; border-radius: 6px; flex: none; background: var(--pico-muted-border-color); }
@@ -154,6 +173,32 @@ a.wheel-seg.empty { pointer-events: none; }
 /* Pico pulls a <small> right after an input upwards; here the hint sits below the input */
 .edit-form .edit-input input { margin-bottom: 0.25rem; }
 .edit-form .edit-input input + small { display: block; margin-top: 0; margin-bottom: 0.5rem; }
+/* The save bar stays at the bottom of the window; fields scrolled into view keep clear of it. */
+.edit-actions { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 1rem; padding: 0.75rem 0; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
+.edit-actions button { margin: 0; width: auto; }
+.edit-actions small { flex: 1 1 14rem; }
+.edit-form input, .edit-form fieldset { scroll-margin-bottom: 7rem; }
+/* Cover art row: the cover is the button (pen on hover; always shown on touch screens). */
+.cover-edit { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+.cover-side { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+.cover-side small { display: block; }
+.cover-side small[hidden], .cover-buttons [hidden], .cover-pick [hidden] { display: none; }
+.cover-status { font-weight: 600; overflow-wrap: anywhere; }
+.cover-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.cover-buttons button { margin: 0; width: auto; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cover-pick { position: relative; flex: none; display: block; cursor: pointer; border-radius: 6px; margin: 0; }
+.cover-pick .cover { display: block; width: 120px; height: 120px; object-fit: cover; }
+.cover-pick .cover-missing { display: flex; }
+.cover-pen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #fff; background: rgba(0, 0, 0, 0.45); opacity: 0; transition: opacity 0.15s; }
+/* Keyboard focus only (:focus-visible), so the highlight doesn't stick after a mouse click. */
+.cover-pick:hover .cover-pen, .cover-pick input:focus-visible ~ .cover-pen { opacity: 1; }
+.cover-pick input:focus-visible ~ .cover { outline: 2px solid var(--pico-primary); outline-offset: 2px; }
+@media (hover: none) {
+  .cover-pen { inset: auto 6px 6px auto; width: 32px; height: 32px; border-radius: 50%; opacity: 1; }
+  .cover-pen svg { width: 16px; height: 16px; }
+}
+.diff-cover { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; vertical-align: middle; }
 .has-error input { border-color: var(--pico-del-color); }
 .change-card header { font-size: 0.95rem; }
 .diff { margin: 0; font-size: 0.9rem; }
