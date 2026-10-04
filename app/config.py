@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # rescanned). Empty: all libraries are rescanned.
     navidrome_library: str = ""
 
+    # Optional: online identification (v0.8). Free keys the owner gets from the services:
+    # AcoustID (acoustid.org → new application) for identifying tracks by their sound,
+    # Discogs (discogs.com → Settings → Developers → personal token) for labels and catalogs.
+    acoustid_key: str = ""
+    discogs_token: str = ""
+
     @property
     def database_url(self) -> str:
         return f"sqlite:///{self.config_dir / 'tagwerk.db'}"

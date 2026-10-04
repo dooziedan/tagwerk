@@ -65,3 +65,14 @@ def client(settings):
         prefs = client.get("/api/settings").json() | {"setup_done": True}
         client.put("/api/settings", json=prefs)
         yield client
+
+
+@pytest.fixture(autouse=True)
+def offline(monkeypatch):
+    """Tests never ask real online sources; tests of app/sources/ feed them saved answers."""
+    from app.sources.base import Source, SourceError
+
+    def no_network(self, url, params=None, headers=None):
+        raise SourceError("offline during tests")
+
+    monkeypatch.setattr(Source, "get_json", no_network)

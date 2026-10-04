@@ -31,7 +31,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - Scope: Tagwerk manages the Unraid library (the owner's master). Rekordbox / the DJ SSD are out of scope. Plan: `docs/roadmap.md`.
 - Dashboard numbers and track lists share the conditions in `app/library.py`; a new dashboard number needs a `TrackFilter` URL, and `test_every_dashboard_number_matches_its_track_list` must keep passing.
 - Scans store tags as found on disk. Flag bad data (`mbid_invalid`, `error`), don't silently fix it.
-- Metadata sources implement the shared interface in `app/sources/` (from Phase 4).
+- Metadata sources implement the shared interface in `app/sources/base.py` ([ADR 0014](docs/decisions/0014-online-identification.md)). Standard-library HTTP with a User-Agent and the source's rate limit; keys come from env vars. Tests never go online (saved answers in `tests/fixtures/online/`).
 - The UI uses the same API routes as `/docs`. No JS build step: Jinja2 + htmx + Pico CSS, vendored in `app/static/`.
 - Every user-visible change: update `CHANGELOG.md` (Unreleased). New design decisions: add an ADR in `docs/decisions/`.
 - **Local preview first:** run every change locally (Docker, e.g. http://localhost:8003 with a demo library) and wait for the owner's OK before committing and pushing.

@@ -7,11 +7,12 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from app import genres, preferences, trash, writer
+from app import genres, identify, preferences, trash, writer
 from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import LibraryIndex, Match
+from app.images import ImageError
 from app.importer import plan
 from app.inbox import (
     missing,
@@ -22,12 +23,14 @@ from app.inbox import (
     scan_inbox,
     set_cover,
 )
-from app.jobs import inbox_job, run_now, scan_job, write_job
+from app.inbox import suggestions as inbox_suggestions
+from app.jobs import identify_job, image_store, inbox_job, run_now, scan_job, write_job
 from app.models import InboxTrack
-from app.proposals import propose, still_missing
+from app.proposals import still_missing
 from app.routes.changes import FIELD_ORDER, HINTS, KEEP_COVER, cover_choice
 from app.routes.scan import scan_state
 from app.scanner import ScanProgress
+from app.sources.base import SourceError
 from app.templating import templates
 
 router = APIRouter()
@@ -42,7 +45,7 @@ def inbox_api(session: SessionDep) -> list[dict]:
     result = []
     library = LibraryIndex.load(session)
     for t in session.exec(select(InboxTrack).order_by(InboxTrack.path)):
-        proposals = propose(t, genres.active(session))
+        proposals = list(inbox_suggestions(session, t).values())
         row = _summary(session, t, library)
         result.append(
             {
@@ -169,6 +172,9 @@ def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) ->
         edited = True
         has_cover = owner[writer.COVER] is not None
         missing = [m for m in missing if m != "Cover"] + ([] if has_cover else ["Cover"])
+    elif identify.cover_suggestion(session, track):  # a cover found online
+        changes += 1
+        missing = [m for m in missing if m != "Cover"]
     value = {f.field: f.value for f in fields}
     settings = get_settings()
     library = library or LibraryIndex.load(session)
@@ -245,6 +251,66 @@ def _start_import(ids: list[int], settings) -> RedirectResponse:
     if not write_job.import_tracks(settings, ids):
         return RedirectResponse("/inbox?error=busy", status_code=303)
     return RedirectResponse("/inbox", status_code=303)
+
+
+# --- Online lookups (app/identify.py) ---------------------------------------------------------
+
+
+@router.post("/api/inbox/{track_id}/lookup", status_code=202, tags=["inbox"])
+def inbox_lookup_api(track_id: int, session: SessionDep, settings: SettingsDep) -> dict:
+    """Ask the online sources about this track again (in the background)."""
+    _inbox_track(session, track_id)
+    identify_job.start(settings, [track_id], force=True)
+    return {"status": "running"}
+
+
+@router.get("/api/inbox/{track_id}/online", tags=["inbox"])
+def inbox_online_api(track_id: int, session: SessionDep) -> list[dict]:
+    """What each online source found for this track, best match first."""
+    _inbox_track(session, track_id)
+    return [
+        {"source": f.source, "error": f.error, "candidates": [c.as_dict() for c in f.candidates]}
+        for f in identify.results(session, track_id)
+    ]
+
+
+@router.post("/inbox/{track_id:int}/lookup", include_in_schema=False)
+async def inbox_lookup(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
+    _inbox_track(session, track_id)
+    show = _view((await request.form()).get("show"))
+    identify_job.start(settings, [track_id], force=True)
+    return RedirectResponse(_shown(f"/inbox/{track_id}", show) + "#online", status_code=303)
+
+
+@router.post("/inbox/{track_id:int}/online", include_in_schema=False)
+async def inbox_use_online(
+    request: Request, track_id: int, session: SessionDep, settings: SettingsDep
+):
+    """Take over one online result's values (and cover) as the owner's values."""
+    track = _inbox_track(session, track_id)
+    form = await request.form()
+    show = _view(form.get("show"))
+    found = {f.source: f for f in identify.results(session, track_id)}.get(form.get("source"))
+    n = int(form.get("n", 0)) if str(form.get("n", "0")).isdigit() else 0
+    if found is None or n >= len(found.candidates):
+        return RedirectResponse(_shown(f"/inbox/{track_id}", show), status_code=303)
+    candidate = found.candidates[n]
+    values = {k: v for k, v in candidate.values.items() if k in writer.EDITABLE and v}
+    if "genre" in values:
+        values["genre"] = "; ".join(genres.active(session).tidy([values["genre"]]))
+    errors = save_values(session, track, values)
+    if errors:  # an odd value (e.g. a date format): take over the others
+        save_values(session, track, {k: v for k, v in values.items() if k not in errors})
+    if candidate.cover_image or candidate.cover_url:
+        try:
+            image = candidate.cover_image or image_store(settings).put(
+                identify.download_image(candidate.cover_url)
+            )
+            set_cover(session, track, image)
+        except (SourceError, ImageError):
+            pass  # the values are taken over; the cover stays as it was
+    url = _shown(f"/inbox/{track_id}?kept=1", show)
+    return RedirectResponse(url, status_code=303)
 
 
 # --- Deleting (into the inbox trash) and restoring -------------------------------------------
@@ -404,6 +470,9 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "view_label": VIEWS[show][0],
             "deleted": request.query_params.get("deleted", ""),
             "keep_days": trash.KEEP_DAYS,
+            "online": identify.results(session, track.id),
+            "online_sources": [s.label for s in identify.enabled(get_settings(), prefs)],
+            "looking_up": identify_job.running,
         },
         status_code=status_code,
     )
@@ -413,17 +482,23 @@ def _cover_field(session, track: InboxTrack) -> dict:
     """The cover row: the owner's choice if any, else the cover in the file."""
     owner = owner_values(session, track.id)
     chosen = writer.COVER in owner
+    online = None if chosen else identify.cover_suggestion(session, track)
+    badge = "your choice" if chosen else None
     if chosen and owner[writer.COVER]:
         src, status = f"/images/{owner[writer.COVER]}", "New cover, written on import"
     elif chosen:
         src, status = None, "Removed on import"
     elif track.has_cover:
         src, status = f"/inbox/{track.id}/cover?v={track.mtime}", "Embedded in the file"
+    elif online:
+        src = f"/images/{online.image_id}"
+        status = f"Suggested · {online.reason}" + ("" if online.sure else " · check")
+        badge = "online"
     else:
         src, status = None, "No cover art"
     return {
         "src": src,
-        "badge": "your choice" if chosen else None,
+        "badge": badge,
         "status": status,
         "removable": bool(src),
         "remove_text": "Removed on import",

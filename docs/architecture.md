@@ -60,7 +60,8 @@ Files are never modified directly from a form or a lookup:
 | `app/naming.py` | Folder and filename patterns (`{artist} - {title} [{bpm} {key}]`): empty bracket parts vanish, share-safe characters | 0.7 |
 | `app/routes/setup.py` | The setup wizard; its `apply_choices` is shared with Settings, so a choice means the same in both | 0.7 |
 | `app/navigation.py` | Where "← Back" and "after saving" lead (only pages of the app) | 0.7 |
-| `app/sources/` | Metadata sources behind one interface (`base.py`) | Phase 4 |
+| `app/sources/` | Online metadata sources behind one interface (`base.py`): MusicBrainz, AcoustID (fpcalc), Discogs, iTunes, Deezer | 0.8 |
+| `app/identify.py` | Asks the sources about inbox tracks, scores the matches, stores them (`onlinelookup`) and turns agreement into suggestions and a cover ([ADR 0014](decisions/0014-online-identification.md)) | 0.8 |
 | `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |

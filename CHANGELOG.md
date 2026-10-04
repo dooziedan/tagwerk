@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Online identification** of inbox tracks: Tagwerk asks MusicBrainz, AcoustID (recognises a track by its sound), Discogs, Deezer and iTunes, and suggests what they find for empty fields: album, release date, genre, label, catalog number, BPM, and cover art. A value is **sure** when two sources agree (or the audio matches clearly), otherwise marked *check*; tags in the file always win. The track's review page shows every source's result with its match, a link, **Use these values** and **Look up again**.
+- **Settings → Online lookups**: switch each source on or off. AcoustID and Discogs need free keys (**AcoustID Key**, **Discogs Token** in the container settings); the others work without an account. Only artist, title and a fingerprint of the sound are sent.
+
+### Changed
+- CI installs ffmpeg, so the conversion tests run there too (they were skipped).
+
 ## [0.7.4] - 2026-10-04
 
 ### Added

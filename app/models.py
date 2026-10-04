@@ -199,3 +199,19 @@ class FinalTrack(SQLModel, table=True):
     # The filename before Tagwerk renamed it on marking (None: not renamed). Removing the mark
     # can go back to it.
     name_before: str | None = None
+
+
+class OnlineLookup(SQLModel, table=True):
+    """What one online source found for one inbox track (app/identify.py).
+
+    Lookups are slow and rate-limited, so results are kept: the review page shows them without
+    asking again. ``query`` is what was asked (artist, title, length); when the owner changes
+    the artist or title, the source is asked again.
+    """
+
+    track_id: int = Field(foreign_key="inboxtrack.id", primary_key=True, ondelete="CASCADE")
+    source: str = Field(primary_key=True)  # musicbrainz, acoustid, discogs, itunes, deezer
+    query: str  # JSON
+    candidates: str = "[]"  # JSON: list of app.sources.base.Candidate as dicts, best first
+    error: str | None = None  # the source couldn't be asked (network, key, rate limit)
+    looked_up_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

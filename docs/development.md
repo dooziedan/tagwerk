@@ -46,7 +46,7 @@ Review the generated file in `app/migrations/versions/`. A test fails if the mod
 
 ## Test audio files
 
-`tests/fixtures/` holds tiny tagged files in every supported format, made by `tests/fixtures/generate.py` (needs ffmpeg). Regenerate them only when adding cases.
+`tests/fixtures/` holds tiny tagged files in every supported format, made by `tests/fixtures/generate.py` (needs ffmpeg). Regenerate them only when adding cases. Tests never go online: `tests/conftest.py` blocks the sources' HTTP, and `tests/fixtures/online/` holds saved answers for the source tests.
 
 ## Checks
 

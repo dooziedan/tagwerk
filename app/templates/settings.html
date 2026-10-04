@@ -94,6 +94,28 @@
   </form>
 </section>
 
+<section id="online" class="settings-section">
+  <h2>Online lookups</h2>
+  <p class="muted">Tagwerk asks these sources about new inbox tracks and suggests what they find (with a link to each result). Only the artist, the title and, for AcoustID, a fingerprint of the sound are sent; never the file.</p>
+  <form method="post" action="/settings/online">
+    {% for s in online %}
+    <label class="online-setting">
+      <input type="checkbox" role="switch" name="online_sources" value="{{ s.name }}" {% if s.on %}checked{% endif %}>
+      <strong>{{ s.label }}</strong>
+      {% if not s.ready %}<small class="status status-help">needs {{ s.needs or "setup" }}</small>{% elif s.on %}<small class="ok">✓ ready</small>{% endif %}
+      <small class="muted">
+        {%- if s.name == "acoustid" %} Recognises a track by its sound, even untagged. Free key: <a href="https://acoustid.org/new-application" target="_blank" rel="noopener">acoustid.org</a>, then <strong>AcoustID Key</strong> in the container settings.
+        {%- elif s.name == "musicbrainz" %} The open music encyclopedia: official releases, dates, albums.
+        {%- elif s.name == "discogs" %} Labels, catalog numbers, styles; strong for electronic and vinyl. Free token: Discogs → Settings → Developers, then <strong>Discogs Token</strong> in the container settings.
+        {%- elif s.name == "deezer" %} Store catalogue: release date, label, BPM, large covers.
+        {%- else %} Store catalogue: release date, genre, large covers.{% endif %}
+      </small>
+    </label>
+    {% endfor %}
+    <button type="submit">Save</button>
+  </form>
+</section>
+
 <section id="setup" class="settings-section">
   <h2>Setup wizard</h2>
   <p class="muted">Go through the first-start questions again. Your current choices are filled in.</p>

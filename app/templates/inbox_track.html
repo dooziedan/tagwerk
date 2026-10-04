@@ -55,6 +55,45 @@
 </article>
 {% endif %}
 
+{% if not t.error %}
+<article class="online-box" id="online">
+  <div class="online-head">
+    <strong>Found online</strong>
+    <form method="post" action="/inbox/{{ t.id }}/lookup">
+      <input type="hidden" name="show" value="{{ show }}">
+      <button type="submit" class="outline secondary small" {% if not online_sources %}disabled{% endif %}>Look up again</button>
+    </form>
+  </div>
+  {% if not online_sources %}
+  <p class="muted"><small>No online sources are switched on or set up. <a href="/settings#online">Settings → Online lookups</a></small></p>
+  {% elif not online %}
+  <p class="muted"><small>{% if looking_up %}Looking up in {{ online_sources | join(", ") }}… reload in a moment.{% else %}Not looked up yet. It happens after the next inbox check, or press Look up again.{% endif %}</small></p>
+  {% else %}
+  {% if looking_up %}<p class="muted"><small>Still looking up… reload in a moment.</small></p>{% endif %}
+  {% for f in online %}
+  <details class="online-source"{% if f.best %} open{% endif %}>
+    <summary>{{ f.label }}: {% if f.error %}<span class="form-error-inline">⚠️ {{ f.error }}</span>{% elif f.best %}<strong>{{ "%d" % (f.best.score * 100) }}% match</strong>{% elif f.candidates %}<span class="muted">nothing that matches well</span>{% else %}<span class="muted">nothing found</span>{% endif %}</summary>
+    {% for c in f.candidates[:3] %}
+    <div class="online-candidate">
+      {% if c.cover_image %}<img class="online-cover" src="/images/{{ c.cover_image }}" alt="Cover from {{ f.label }}" width="56" height="56">{% endif %}
+      <div class="online-text">
+        <strong>{{ c.values.artist or "?" }} – {{ c.values.title or c.values.album or "?" }}</strong>
+        <small class="muted">{{ "%d" % (c.score * 100) }}% match{% if c.duration %} · {{ c.duration | mmss }}{% endif %}{% for key in ("album", "date", "label", "catalognumber", "genre", "bpm") if c.values[key] %} · {{ c.values[key] }}{% endfor %}{% if c.cover_url and not c.cover_image %} · with cover{% endif %}</small>
+        {% if c.url %}<small><a href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open at {{ f.label }} ↗</a></small>{% endif %}
+      </div>
+      <form method="post" action="/inbox/{{ t.id }}/online">
+        <input type="hidden" name="show" value="{{ show }}"><input type="hidden" name="source" value="{{ f.source }}"><input type="hidden" name="n" value="{{ loop.index0 }}">
+        <button type="submit" class="outline small">Use these values</button>
+      </form>
+    </div>
+    {% endfor %}
+  </details>
+  {% endfor %}
+  {% endif %}
+  <small class="muted">Suggestions from these sources fill empty fields above. Sure when two sources agree (or the audio matches clearly); otherwise marked "check".</small>
+</article>
+{% endif %}
+
 {% if t.error %}
 <article><p>⚠️ This file can't be read: <code>{{ t.error }}</code>. It may still be downloading or be damaged.</p></article>
 {% else %}

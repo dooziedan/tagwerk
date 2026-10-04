@@ -17,7 +17,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app import convert, final, folders, navidrome, preferences, trash
+from app import convert, final, folders, identify, navidrome, preferences, trash
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
@@ -110,6 +110,7 @@ class InboxJob(Job):
             scan_inbox(engine, settings.import_dir, progress)
             trash.purge(settings.import_dir)  # deleted more than 30 days ago
             self._auto_import(settings, engine)
+            identify_job.start(settings)  # new tracks are looked up online, beside other jobs
 
         return self._start(work, progress)
 
@@ -219,6 +220,66 @@ class WriteJob(Job):
         return self._start(work, progress)
 
 
+@dataclass
+class IdentifyProgress:
+    total: int = 0
+    processed: int = 0
+    current: str = ""
+
+
+class IdentifyJob:
+    """Asks online sources about inbox tracks (app/identify.py).
+
+    Network and database only, no files are written, so it doesn't take the library lock: it
+    runs beside scans and imports. Tracks asked for while it runs are queued.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._queue: dict[int, bool] = {}  # track id -> force (ask again even if fresh)
+        self._thread: threading.Thread | None = None
+        self.progress = IdentifyProgress()
+
+    @property
+    def running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self, settings: Settings, track_ids: list[int] | None = None, force=False) -> None:
+        """Look up these tracks (default: every inbox track that needs it)."""
+        engine = get_engine(settings.database_url)
+        if track_ids is None:
+            with Session(engine) as session:
+                track_ids = list(session.exec(select(InboxTrack.id)))
+        with self._lock:
+            for track_id in track_ids:
+                self._queue[track_id] = self._queue.get(track_id, False) or force
+            if self.running:
+                return
+            self.progress = IdentifyProgress()
+            self._thread = threading.Thread(
+                target=self._run, args=(settings, engine), name="identify", daemon=True
+            )
+            self._thread.start()
+
+    def _run(self, settings: Settings, engine) -> None:
+        while True:
+            with self._lock:
+                if not self._queue:
+                    self.progress.current = ""
+                    return
+                track_id, force = self._queue.popitem()
+                self.progress.total = self.progress.processed + 1 + len(self._queue)
+            try:
+                identify.lookup(engine, settings, track_id, force, image_store(settings))
+            except Exception:
+                log.exception("Online lookup failed for inbox track %s", track_id)
+            self.progress.processed += 1
+
+    def wait(self, timeout: float | None = None) -> None:
+        if self._thread:
+            self._thread.join(timeout)
+
+
 def image_store(settings: Settings) -> ImageStore:
     """Uploaded covers and the covers saved for undo."""
     return ImageStore(settings.config_dir / "images")
@@ -227,6 +288,7 @@ def image_store(settings: Settings) -> ImageStore:
 scan_job = ScanJob()
 inbox_job = InboxJob()
 write_job = WriteJob()
+identify_job = IdentifyJob()
 
 
 def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.Thread:
