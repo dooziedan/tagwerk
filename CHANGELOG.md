@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-10-04
+
+### Added
+- **Duplicates in the inbox**: tracks that look like one you already have (identical file, same MusicBrainz recording, or same artist and title with about the same length; the mix name counts) are marked **In library** and get their own tab. The track's page compares both copies (where, format, bitrate, length, size).
+- **Move to trash** for inbox files, on the track's page or for ticked tracks in the list. Deleted files wait in `.tagwerk-trash` inside the import folder; **Recently deleted** on the Inbox page restores them, and they are removed for good after 30 days. Library files are never deleted.
+- Automatic import leaves likely duplicates in the inbox for you to decide.
+- Importing a track whose filename is already in its library folder is greyed out with the reason, instead of failing after the click.
+
+### Changed
+- The DJ / Collector switch left the header; choose the mode in **Settings** (or the setup wizard). On phones the name "Tagwerk" shows next to the logo again.
+- The **Library** menu in the header looks like the other header links (it was drawn as a form field).
+
+### Fixed
+- On phones, **Scan library** is as wide as the tiles below it.
+
 ## [0.7.2] - 2026-10-04
 
 ### Added

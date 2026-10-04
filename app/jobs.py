@@ -17,10 +17,11 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app import folders, navidrome, preferences
+from app import folders, navidrome, preferences, trash
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
+from app.duplicates import LibraryIndex
 from app.images import ImageStore
 from app.importer import import_tracks, ready_for_auto_import
 from app.inbox import scan_inbox
@@ -107,6 +108,7 @@ class InboxJob(Job):
                 raise FileNotFoundError(f"Import folder not found: {settings.import_dir}")
             engine = get_engine(settings.database_url)
             scan_inbox(engine, settings.import_dir, progress)
+            trash.purge(settings.import_dir)  # deleted more than 30 days ago
             self._auto_import(settings, engine)
 
         return self._start(work, progress)
@@ -116,10 +118,13 @@ class InboxJob(Job):
             if preferences.load(session).automation != "auto":
                 return
             now = time.time()
+            library = LibraryIndex.load(session)
             ids = [
                 t.id
                 for t in session.exec(select(InboxTrack))
-                if ready_for_auto_import(session, t, settings.music_dir, now)
+                if ready_for_auto_import(
+                    session, t, settings.import_dir, settings.music_dir, now, library
+                )
             ]
         if not ids:
             return
@@ -216,6 +221,17 @@ def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.T
     thread = threading.Thread(target=loop, name="inbox-timer", daemon=True)
     thread.start()
     return thread
+
+
+def run_now(work: Callable[[], Any]) -> tuple[bool, Any]:
+    """Run a quick file operation right away (e.g. moving one file to the inbox trash), but
+    never while a job runs: it takes the same lock. Returns (ran, result)."""
+    if not _library_lock.acquire(blocking=False):
+        return False, None
+    try:
+        return True, work()
+    finally:
+        _library_lock.release()
 
 
 def busy() -> bool:

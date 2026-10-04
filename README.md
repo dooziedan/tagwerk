@@ -7,7 +7,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 ## Features
 
 - ✅ **Library scan:** reads MP3, FLAC, WAV, AIFF, M4A, OGG and Opus (ID3, Vorbis comments, MP4 tags, RIFF INFO), including BPM, key, comment, label, catalog number, ReplayGain and lyrics (embedded or `.lrc`). Read-only, and unchanged files are skipped on rescans.
-- ✅ **Two modes**, switchable in the menu:
+- ✅ **Two modes**, chosen in the setup wizard or Settings:
   - **DJ:** tempo spread, key grid (Camelot, Open Key or musical notation), BPM/key coverage, lossless share and low-bitrate files, missing BPM/key/label/comment.
   - **Collector:** decades, genres, albums, lyrics and ReplayGain coverage, missing album tags.
 - ✅ **Edit tags** of one track or many at once (all 7 formats). Changes are reviewed as old → new before anything is written, and every apply can be undone.

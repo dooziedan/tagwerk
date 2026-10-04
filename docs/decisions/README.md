@@ -15,6 +15,7 @@ A new decision gets the next number. A decision that is replaced is marked "Supe
 | [0008](0008-design-language.md) | Two themes from one palette, contrast-checked tokens, no newer CSS | Accepted |
 | [0007](0007-import-inbox.md) | Import inbox with opt-in automatic tagging (amends 0003) | Accepted |
 | [0010](0010-new-genre-folders.md) | New genre folders only after review (amends 0007) | Accepted |
+| [0011](0011-inbox-duplicates-and-trash.md) | Duplicates in the inbox, and an inbox trash | Accepted |
 
 Template:
 

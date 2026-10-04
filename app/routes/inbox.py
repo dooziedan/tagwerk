@@ -7,17 +7,27 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from app import genres, preferences, writer
+from app import genres, preferences, trash, writer
 from app.config import SettingsDep, get_settings
 from app.covers import find_cover
-from app.db import SessionDep
+from app.db import SessionDep, get_engine
+from app.duplicates import LibraryIndex, Match
 from app.importer import plan
-from app.inbox import missing, owner_values, reset_values, review, save_values, set_cover
-from app.jobs import inbox_job, scan_job, write_job
+from app.inbox import (
+    missing,
+    owner_values,
+    reset_values,
+    review,
+    save_values,
+    scan_inbox,
+    set_cover,
+)
+from app.jobs import inbox_job, run_now, scan_job, write_job
 from app.models import InboxTrack
 from app.proposals import propose, still_missing
 from app.routes.changes import FIELD_ORDER, HINTS, KEEP_COVER, cover_choice
 from app.routes.scan import scan_state
+from app.scanner import ScanProgress
 from app.templating import templates
 
 router = APIRouter()
@@ -30,14 +40,20 @@ RECHECK_AFTER = timedelta(seconds=10)
 def inbox_api(session: SessionDep) -> list[dict]:
     """Tracks in the import inbox: what each one is missing and what Tagwerk proposes."""
     result = []
+    library = LibraryIndex.load(session)
     for t in session.exec(select(InboxTrack).order_by(InboxTrack.path)):
         proposals = propose(t, genres.active(session))
+        row = _summary(session, t, library)
         result.append(
             {
                 **t.model_dump(),
                 "missing": missing(t),
                 "proposals": [p.__dict__ for p in proposals],
                 "still_missing": still_missing(t, proposals),
+                "duplicates": [
+                    {"track_id": m.track.id, "path": m.track.path, "reason": m.reason}
+                    for m in row.duplicates
+                ],
             }
         )
     return result
@@ -78,6 +94,10 @@ def inbox_page(request: Request, session: SessionDep, settings: SettingsDep):
             "write": write_job,
             "busy": _blocked(),
             "error": request.query_params.get("error", ""),
+            "deleted": request.query_params.get("deleted", ""),
+            "restored": request.query_params.get("restored", ""),
+            "trash": trash.items(settings.import_dir) if configured else [],
+            "keep_days": trash.KEEP_DAYS,
         },
     )
 
@@ -95,6 +115,7 @@ class InboxRow:
     changes: int  # fields that will change on import (suggested or set by the owner)
     edited: bool  # the owner set values on the review page
     missing: list[str]
+    duplicates: list[Match]  # likely copies already in the library
 
     @property
     def ready(self) -> bool:
@@ -107,6 +128,7 @@ VIEWS = {
     "help": ("Needs help", lambda r: bool(r.missing) and not r.track.error),
     "edited": ("Edited", lambda r: r.edited),
     "ready": ("Ready", lambda r: r.ready),
+    "duplicates": ("In library", lambda r: bool(r.duplicates)),
     "unreadable": ("Unreadable", lambda r: bool(r.track.error)),
 }
 
@@ -122,7 +144,8 @@ def _ordered(session) -> list[InboxTrack]:
 
 
 def _rows(session) -> list["InboxRow"]:
-    return [_summary(session, t) for t in _ordered(session)]
+    library = LibraryIndex.load(session)
+    return [_summary(session, t, library) for t in _ordered(session)]
 
 
 def _shown(url: str, show: str) -> str:
@@ -130,7 +153,7 @@ def _shown(url: str, show: str) -> str:
     return url if show == "all" else f"{url}{'&' if '?' in url else '?'}show={show}"
 
 
-def _summary(session, track: InboxTrack) -> InboxRow:
+def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) -> InboxRow:
     fields = review(session, track, list(writer.EDITABLE))
     proposals = [f.suggestion for f in fields if f.origin == "suggested"]
     missing = still_missing(track, proposals)
@@ -147,7 +170,12 @@ def _summary(session, track: InboxTrack) -> InboxRow:
         has_cover = owner[writer.COVER] is not None
         missing = [m for m in missing if m != "Cover"] + ([] if has_cover else ["Cover"])
     value = {f.field: f.value for f in fields}
-    return InboxRow(track, value["title"], value["artist"], changes, edited, missing)
+    settings = get_settings()
+    library = library or LibraryIndex.load(session)
+    duplicates = [] if track.error else library.matches(
+        track, value["title"], value["artist"], settings.import_dir, settings.music_dir
+    )  # fmt: skip
+    return InboxRow(track, value["title"], value["artist"], changes, edited, missing, duplicates)
 
 
 @router.get("/inbox/{track_id:int}", response_class=HTMLResponse, include_in_schema=False)
@@ -219,6 +247,116 @@ def _start_import(ids: list[int], settings) -> RedirectResponse:
     return RedirectResponse("/inbox", status_code=303)
 
 
+# --- Deleting (into the inbox trash) and restoring -------------------------------------------
+
+
+@router.delete("/api/inbox/{track_id}", tags=["inbox"])
+def inbox_delete_api(track_id: int, session: SessionDep, settings: SettingsDep) -> dict:
+    """Move an inbox file into the inbox trash (restorable for 30 days, see /api/inbox/trash)."""
+    _inbox_track(session, track_id)
+    ran, (deleted, errors) = _move_to_trash(session, settings, [track_id])
+    if not ran:
+        raise HTTPException(409, "Another scan or write is running")
+    if errors:
+        raise HTTPException(422, errors[0])
+    return {"deleted": deleted}
+
+
+@router.get("/api/inbox/trash", tags=["inbox"])
+def inbox_trash_api(settings: SettingsDep) -> list[dict]:
+    """Files deleted from the inbox, newest first, with the date they are removed for good."""
+    return [
+        {**d.__dict__, "removed_for_good": d.removed_for_good}
+        for d in trash.items(settings.import_dir)
+    ]
+
+
+@router.post("/api/inbox/trash/{entry}/restore", tags=["inbox"])
+def inbox_restore_api(entry: str, settings: SettingsDep) -> dict:
+    """Move a deleted file back to where it was in the inbox."""
+    ran, result = _restore(settings, entry)
+    if not ran:
+        raise HTTPException(409, "Another scan or write is running")
+    if isinstance(result, trash.TrashError):
+        raise HTTPException(422, str(result))
+    return {"path": result}
+
+
+@router.post("/inbox/delete", include_in_schema=False)
+async def inbox_delete(request: Request, session: SessionDep, settings: SettingsDep):
+    """Delete the tracks ticked in the list."""
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    ran, (deleted, errors) = _move_to_trash(session, settings, ids)
+    if not ran:
+        return RedirectResponse("/inbox?error=busy", status_code=303)
+    error = "&error=delete" if errors else ""
+    return RedirectResponse(f"/inbox?deleted={deleted}{error}", status_code=303)
+
+
+@router.post("/inbox/{track_id:int}/delete", include_in_schema=False)
+async def inbox_delete_one(
+    request: Request, track_id: int, session: SessionDep, settings: SettingsDep
+):
+    """Delete one track from its review page, then show the next one."""
+    track = _inbox_track(session, track_id)
+    show = _view((await request.form()).get("show"))
+    _, after = _neighbours(session, track, show)
+    ran, (deleted, errors) = _move_to_trash(session, settings, [track.id])
+    if not ran:
+        return RedirectResponse(_shown(f"/inbox/{track.id}?error=busy", show), status_code=303)
+    if errors:
+        return RedirectResponse("/inbox?deleted=0&error=delete", status_code=303)
+    url = f"/inbox/{after.id}?deleted=1" if after else "/inbox?deleted=1"
+    return RedirectResponse(_shown(url, show), status_code=303)
+
+
+@router.post("/inbox/trash/{entry}/restore", include_in_schema=False)
+def inbox_restore(entry: str, settings: SettingsDep):
+    ran, result = _restore(settings, entry)
+    if not ran:
+        return RedirectResponse("/inbox?error=busy", status_code=303)
+    if isinstance(result, trash.TrashError):
+        return RedirectResponse("/inbox?error=restore", status_code=303)
+    return RedirectResponse("/inbox?restored=1", status_code=303)
+
+
+def _move_to_trash(session, settings, ids: list[int]) -> tuple[bool, tuple[int, list[str]]]:
+    """Move inbox files into the trash and forget their rows. Returns (ran, (moved, errors))."""
+    tracks = list(session.exec(select(InboxTrack).where(InboxTrack.id.in_(ids))))
+
+    def work() -> tuple[int, list[str]]:
+        moved, errors = 0, []
+        for track in tracks:
+            try:
+                trash.delete(settings.import_dir, track.path)
+                session.delete(track)  # its saved values go with it (ON DELETE CASCADE)
+                moved += 1
+            except (trash.TrashError, OSError) as exc:
+                errors.append(f"{track.path}: {exc}")
+        session.commit()
+        return moved, errors
+
+    inbox_job.wait(30)  # the quick check started by opening the page finishes first
+    ran, result = run_now(work)
+    return ran, result if ran else (0, [])
+
+
+def _restore(settings, entry: str) -> tuple[bool, str | trash.TrashError]:
+    """Restore a file from the trash, and read it into the inbox list again."""
+
+    def work() -> str | trash.TrashError:
+        try:
+            path = trash.restore(settings.import_dir, entry)
+        except (trash.TrashError, OSError) as exc:
+            return trash.TrashError(str(exc))
+        scan_inbox(get_engine(settings.database_url), settings.import_dir, ScanProgress())
+        return path
+
+    inbox_job.wait(30)
+    return run_now(work)
+
+
 @router.get("/inbox/{track_id:int}/cover", include_in_schema=False)
 def inbox_cover(track_id: int, session: SessionDep, settings: SettingsDep):
     track = _inbox_track(session, track_id)
@@ -264,6 +402,8 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "busy": _blocked(),
             "show": show,
             "view_label": VIEWS[show][0],
+            "deleted": request.query_params.get("deleted", ""),
+            "keep_days": trash.KEEP_DAYS,
         },
         status_code=status_code,
     )

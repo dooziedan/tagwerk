@@ -80,7 +80,7 @@ def test_settings_form_and_unknown_values(client):
     assert "Settings" in client.get("/settings").text
 
 
-def test_mode_switch_shows_dj_dashboard(client):
+def test_dj_mode_shows_dj_dashboard(client):
     client.post("/api/scan")
     scan_job.wait(timeout=30)
     client.put("/api/settings", json={"mode": "dj", "key_notation": "openkey"})
@@ -90,14 +90,9 @@ def test_mode_switch_shows_dj_dashboard(client):
     assert ">1m<" in page  # Am shown in Open Key notation
     assert "Decades" not in page
 
-    response = client.post(
-        "/settings/mode",
-        content="mode=collector",
-        headers={"content-type": "application/x-www-form-urlencoded"},
-        follow_redirects=False,
-    )
-    assert response.status_code == 303
+    client.put("/api/settings", json={"mode": "collector"})  # changed in Settings
     assert "Decades" in client.get("/").text
+    assert 'action="/settings/mode"' not in page  # no switch in the header any more
 
 
 def test_missing_music_folder_shows_setup_problem(client, music_dir):

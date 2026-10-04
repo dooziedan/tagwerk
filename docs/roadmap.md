@@ -49,7 +49,7 @@ Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master l
 **Done when:** an edit made in the UI shows up in Navidrome and another tag tool, and can be undone.
 
 ## v0.7: Import inbox and first-run setup
-**Status:** steps 1–4 ✅ in v0.7.0 (inbox, suggestions, review and import with cover, Navidrome rescan); v0.7.1 rescans only the chosen Navidrome library. Step 5 ✅ the setup wizard (folder layouts, automatic import, genre map and filename pattern in Settings). New genre folders are proposed on the Changes page instead of created on their own ([ADR 0010](decisions/0010-new-genre-folders.md)).
+**Status:** steps 1–4 ✅ in v0.7.0 (inbox, suggestions, review and import with cover, Navidrome rescan); v0.7.1 rescans only the chosen Navidrome library. Step 5 ✅ the setup wizard (folder layouts, automatic import, genre map and filename pattern in Settings). New genre folders are proposed on the Changes page instead of created on their own ([ADR 0010](decisions/0010-new-genre-folders.md)). Duplicates are marked in the inbox and inbox files can be moved to a trash ([ADR 0011](decisions/0011-inbox-duplicates-and-trash.md)).
 
 - Optional **Import** path in the Unraid template, separate from the library (Navidrome never sees untagged tracks).
 - **First-run setup wizard:** mode, key notation, inbox, library folder pattern and **how independently Tagwerk may work** (always ask / auto-apply confident results). All changeable later in Settings.
