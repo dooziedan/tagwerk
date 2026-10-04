@@ -18,3 +18,7 @@ v0.6 is the first version that changes music files. A tag writer can damage a li
 - Undo is reliable as long as the file wasn't changed in between; otherwise it refuses rather than guessing.
 - The writer must be extended per field and format together with the reader (`app/tags.py`, `app/rawtags.py`); tests cover every field × every format, unrelated-field preservation and exact undo.
 - Snapshots are stored per applied file in `changeentry` (small JSON); history grows with use and can be pruned later.
+
+## Addendum: cover art
+
+Cover art is the change field `cover`. Its value is the id (SHA-256) of an image in `/config/images`, or empty to remove the cover. Replacing removes every picture embedded in the file and writes one front cover (ID3 `APIC`, FLAC picture block, OGG/Opus `METADATA_BLOCK_PICTURE`, MP4 `covr`). Only JPEG and PNG are accepted, because every player and DJ program shows them. The old pictures are stored in `/config/images` too, and the snapshot refers to them by id, so the database stays small. Image files next to the tracks (`cover.jpg`) are never touched. Images are not cleaned up yet; a later version can delete those no change refers to any more.

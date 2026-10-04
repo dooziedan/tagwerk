@@ -178,3 +178,66 @@ def test_binary_fields_are_not_affected(tmp_path):
     path = copy(tmp_path, "mp3")
     writer.write(path, CHANGES)
     assert raw(path)[("id3", "APIC:Cover")] == BINARY
+
+
+# --- Cover art ------------------------------------------------------------------------------
+
+PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x02\x58\x00\x00\x02\x58\x08\x02\x00\x00\x00"
+    + b"\x00" * 2000
+)  # header of a 600x600 PNG; players don't decode it in these tests
+
+
+@pytest.fixture
+def images(tmp_path):
+    from app.images import ImageStore
+
+    return ImageStore(tmp_path / "images")
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_cover_replace_and_undo(tmp_path, images, fmt):
+    from app.covers import find_cover
+
+    path = copy(tmp_path, fmt)
+    old_cover = find_cover(path)
+    before = raw(path)
+    snapshot = writer.write(path, {"cover": images.put(PNG)}, images)
+    assert find_cover(path) == (PNG, "image/png")
+    assert read_file(path).title == "Silent Track"  # other tags untouched
+    assert len(str(snapshot)) < 2000  # old pictures are kept in the image store, not inline
+
+    writer.undo(path, snapshot, images)
+    assert find_cover(path) == old_cover
+    assert raw(path) == before
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_cover_remove_and_undo(tmp_path, images, fmt):
+    from app.covers import find_cover
+
+    path = copy(tmp_path, fmt)
+    old_cover = find_cover(path)
+    snapshot = writer.write(path, {"cover": None}, images)
+    assert not read_file(path).has_cover
+    writer.undo(path, snapshot, images)
+    assert find_cover(path) == old_cover
+
+
+def test_cover_needs_an_image_store(tmp_path):
+    with pytest.raises(writer.WriteError):
+        writer.write(copy(tmp_path, "mp3"), {"cover": None})
+
+
+def test_image_info_and_store(images):
+    from app.images import ImageError, image_info
+
+    assert image_info(PNG) == ("image/png", 600, 600)
+    jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+    jpeg += b"\xff\xc0\x00\x11\x08\x01\xf4\x03\x20\x03\x01\x22\x00\x02\x11\x01\x03\x11\x01"
+    assert image_info(jpeg) == ("image/jpeg", 800, 500)
+    with pytest.raises(ImageError):
+        image_info(b"GIF89a....")
+    image_id = images.put(PNG)
+    assert images.put(PNG) == image_id and images.get(image_id) == PNG  # stored once
+    assert not images.exists("../tagwerk.db")

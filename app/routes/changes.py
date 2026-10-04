@@ -6,14 +6,16 @@ from typing import Annotated
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
+from starlette.datastructures import FormData, UploadFile
 
 from app import changes, preferences, writer
-from app.config import SettingsDep
+from app.config import Settings, SettingsDep
 from app.db import SessionDep
-from app.jobs import busy, write_job
+from app.images import MAX_SIZE, ImageError, image_info
+from app.jobs import busy, image_store, write_job
 from app.library import TrackFilter
 from app.models import ChangeSet, Track
 from app.templating import templates
@@ -116,19 +118,24 @@ def edit_track_form(request: Request, track_id: int, session: SessionDep):
         c.field: c for p in changes.pending(session) if p.track.id == track_id for c in p.changes
     }
     for name, change in pending.items():
-        values[name] = change.new_value or ""
+        if name in writer.EDITABLE:
+            values[name] = change.new_value or ""
     return _edit_page(request, prefs, [track], values, {}, pending=pending)
 
 
 @router.post("/tracks/{track_id}/edit", include_in_schema=False)
-async def edit_track(request: Request, track_id: int, session: SessionDep):
+async def edit_track(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
     track = _track(session, track_id)
-    form = await _form(request)
-    values = {f: form.get(f, "") for f in writer.EDITABLE}
-    count, errors = changes.stage(session, [track.id], values)
+    form = await request.form()
+    values = {f: str(form.get(f, "")) for f in writer.EDITABLE}
+    cover, errors = await _cover_choice(form, settings)
+    if not errors:
+        count, errors = changes.stage(session, [track.id], values)
     if errors:
         prefs = preferences.load(session)
         return _edit_page(request, prefs, [track], values, errors, status_code=422)
+    if cover is not _KEEP:
+        count += changes.stage_cover(session, [track.id], cover)
     return RedirectResponse(f"/changes?staged={count}", status_code=303)
 
 
@@ -142,23 +149,66 @@ def edit_many_form(request: Request, session: SessionDep, f: FilterDep):
 
 
 @router.post("/tracks/edit", include_in_schema=False)
-async def edit_many(request: Request, session: SessionDep):
-    form = await _form(request, multi=True)
-    ids = [int(i) for i in form.get("ids", [])]
+async def edit_many(request: Request, session: SessionDep, settings: SettingsDep):
+    form = await request.form()
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     tracks = list(session.exec(select(Track).where(col(Track.id).in_(ids))).all())
-    single = {k: v[0] for k, v in form.items()}
-    values = {f: single.get(f, "") for f in writer.EDITABLE if single.get(f"change_{f}") == "on"}
-    if not values:
-        errors = {"_form": "Tick “Change” next to at least one field."}
-    else:
+    values = {f: str(form.get(f, "")) for f in writer.EDITABLE if form.get(f"change_{f}") == "on"}
+    cover, errors = await _cover_choice(form, settings)
+    count = 0
+    if not errors and not values and cover is _KEEP:
+        errors = {"_form": "Tick “Change” next to at least one field, or change the cover art."}
+    if not errors:
         count, errors = changes.stage(session, ids, values)
     if errors:
         prefs = preferences.load(session)
-        typed = {f: single.get(f, "") for f in writer.EDITABLE}
+        typed = {f: str(form.get(f, "")) for f in writer.EDITABLE}
         return _edit_page(
             request, prefs, tracks, typed, errors, checked=set(values), status_code=422
         )
+    if cover is not _KEEP:
+        count += changes.stage_cover(session, ids, cover)
     return RedirectResponse(f"/changes?staged={count}", status_code=303)
+
+
+_KEEP = object()  # cover art stays as it is
+
+
+async def _cover_choice(form: FormData, settings: Settings) -> tuple[object, dict[str, str]]:
+    """The cover art choice in an edit form: _KEEP, None (remove) or an image id."""
+    action = form.get("cover_action", "keep")
+    if action == "remove":
+        return None, {}
+    if action != "replace":
+        return _KEEP, {}
+    upload = form.get("cover_file")
+    if not isinstance(upload, UploadFile) or not upload.filename:
+        return _KEEP, {"cover": "Choose an image file to use as cover art."}
+    data = await upload.read(MAX_SIZE + 1)
+    if len(data) > MAX_SIZE:
+        return _KEEP, {"cover": f"The image is too big (more than {MAX_SIZE // 2**20} MB)."}
+    try:
+        image_info(data)
+    except ImageError as exc:
+        return _KEEP, {"cover": str(exc)}
+    return image_store(settings).put(data), {}
+
+
+@router.get("/images/{image_id}", include_in_schema=False)
+def image(image_id: str, settings: SettingsDep):
+    """An uploaded cover, or one saved for undo."""
+    store = image_store(settings)
+    if not store.exists(image_id):
+        raise HTTPException(404)
+    path = store.path(image_id)
+    with path.open("rb") as f:
+        head = f.read(64 * 1024)
+    try:
+        mime = image_info(head)[0]
+    except ImageError:
+        raise HTTPException(404) from None
+    headers = {"Cache-Control": "public, max-age=31536000, immutable"}  # content never changes
+    return FileResponse(path, media_type=mime, headers=headers)
 
 
 def _edit_page(request, prefs, tracks, values, errors, pending=None, checked=None, status_code=200):
@@ -184,6 +234,7 @@ def _edit_page(request, prefs, tracks, values, errors, pending=None, checked=Non
             "hints": HINTS,
             "pending": pending or {},
             "checked": checked or set(),
+            "with_cover": sum(1 for t in tracks if t.has_cover),
         },
         status_code=status_code,
     )
@@ -213,7 +264,7 @@ def changes_page(request: Request, session: SessionDep, staged: int | None = Non
         {
             "prefs": prefs,
             "items": changes.pending(session),
-            "labels": writer.EDITABLE,
+            "labels": writer.LABELS,
             "job": write_job,
             "busy": busy(),
             "staged": staged,
@@ -224,7 +275,7 @@ def changes_page(request: Request, session: SessionDep, staged: int | None = Non
 
 @router.post("/changes/apply", include_in_schema=False)
 async def apply_changes(request: Request, session: SessionDep, settings: SettingsDep):
-    form = await _form(request)
+    form = await request.form()
     prefs = preferences.load(session)
     if not prefs.backup_confirmed:
         if form.get("backup") != "on":
@@ -285,7 +336,7 @@ def changeset_page(request: Request, changeset_id: int, session: SessionDep):
             "prefs": preferences.load(session),
             "c": changeset,
             "rows": rows,
-            "labels": writer.EDITABLE,
+            "labels": writer.LABELS,
             "busy": busy(),
         },
     )
@@ -305,9 +356,3 @@ def _track(session: Session, track_id: int) -> Track:
     if track is None:
         raise HTTPException(404, "Track not found")
     return track
-
-
-async def _form(request: Request, multi: bool = False) -> dict:
-    body = (await request.body()).decode()
-    parsed = parse_qs(body, keep_blank_values=True)
-    return parsed if multi else {k: v[0] for k, v in parsed.items()}

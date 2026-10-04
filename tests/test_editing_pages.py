@@ -18,7 +18,7 @@ def test_single_edit_review_apply_and_undo(client, music_dir):
     track = ids[f"{ALBUM}/tagged.mp3"]
 
     form = client.get(f"/tracks/{track}/edit").text
-    assert 'value="Silent Track"' in form and "pending changes" in form
+    assert 'value="Silent Track"' in form and "Nothing is written yet" in form
 
     bad = client.post(f"/tracks/{track}/edit", content="title=X&bpm=fast", headers=FORM)
     assert bad.status_code == 422 and "BPM must be a number" in bad.text
@@ -104,3 +104,52 @@ def test_track_list_has_selection_and_track_page_has_edit(client):
     ids = scanned(client)
     assert 'name="ids"' in client.get("/tracks").text
     assert "Edit tags" in client.get(f"/tracks/{ids[f'{ALBUM}/tagged.mp3']}").text
+
+
+def test_cover_upload_review_apply_and_undo(client, music_dir):
+    from app.covers import find_cover
+    from tests.test_writer import PNG
+
+    ids = scanned(client)
+    track = ids[f"{ALBUM}/tagged.flac"]
+    path = music_dir / ALBUM / "tagged.flac"
+    old_cover = find_cover(path)
+
+    bad = client.post(
+        f"/tracks/{track}/edit",
+        data={"cover_action": "replace"},
+        files={"cover_file": ("c.gif", b"GIF89a", "image/gif")},
+    )
+    assert bad.status_code == 422 and "Only JPEG and PNG" in bad.text
+
+    response = client.post(
+        f"/tracks/{track}/edit",
+        data={"cover_action": "replace"},
+        files={"cover_file": ("cover.png", PNG, "image/png")},
+    )
+    assert response.status_code == 200 and "Cover art" in response.text
+    review = client.get("/changes").text
+    image_url = re.search(r'src="(/images/[0-9a-f]{64})"', review).group(1)
+    assert client.get(image_url).headers["content-type"] == "image/png"
+    assert find_cover(path) == old_cover  # not written before apply
+
+    client.post("/changes/apply", data={"backup": "on"})
+    write_job.wait(30)
+    assert find_cover(path) == (PNG, "image/png")
+
+    changeset = client.get("/api/changesets").json()[0]["id"]
+    client.post(f"/changes/history/{changeset}/undo")
+    write_job.wait(30)
+    assert find_cover(path) == old_cover
+
+
+def test_remove_cover_from_several_tracks(client, music_dir):
+    ids = scanned(client)
+    picked = [ids[f"{ALBUM}/tagged.mp3"], ids[f"{ALBUM}/tagged.m4a"]]
+    form = client.get("/tracks/edit", params={"ids": picked}).text
+    assert "2 of 2 have cover art" in form
+    client.post("/tracks/edit", data={"ids": picked, "cover_action": "remove"})
+    client.post("/changes/apply", data={"backup": "on"})
+    write_job.wait(30)
+    for name in ("tagged.mp3", "tagged.m4a"):
+        assert not read_file(music_dir / ALBUM / name).has_cover

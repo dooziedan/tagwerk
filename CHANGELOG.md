@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-04
+
+### Added
+- **Cover art editing**: on the edit page, click the cover (a pen appears on hover) to replace it with a JPEG or PNG, or remove it — for one track or many at once. The cover is written into the file (all 7 formats), shown on the review page, and can be undone like any other change.
+- Uploaded covers and the old covers kept for undo are stored in `/config/images` (each image once, even if a whole album uses it).
+
+### Changed
+- The **Save** button on the edit page stays at the bottom of the window while scrolling; fields keep clear of it.
+- Edit page: the info box at the top is gone; the save bar says that nothing is written yet.
+- Track page: the other mode's fields ("Album and more" / "DJ fields") fold out inside the main card, and the MusicBrainz IDs moved behind an **ⓘ** button at the top right (with a marker when an ID is invalid).
+- The header no longer has a "Dashboard" link: the Tagwerk logo leads there.
+
 ## [0.6.0] - 2026-10-04
 
 ### Added

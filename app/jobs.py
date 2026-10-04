@@ -17,6 +17,7 @@ from typing import Any
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
+from app.images import ImageStore
 from app.scanner import ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
@@ -93,14 +94,24 @@ class WriteJob(Job):
     def apply(self, settings: Settings) -> bool:
         progress = WriteProgress(action="apply")
         engine = get_engine(settings.database_url)
-        return self._start(lambda: apply_pending(engine, settings.music_dir, progress), progress)
+        images = image_store(settings)
+        return self._start(
+            lambda: apply_pending(engine, settings.music_dir, progress, images), progress
+        )
 
     def undo(self, settings: Settings, changeset_id: int) -> bool:
         progress = WriteProgress(action="undo")
         engine = get_engine(settings.database_url)
+        images = image_store(settings)
         return self._start(
-            lambda: undo_changeset(engine, settings.music_dir, changeset_id, progress), progress
+            lambda: undo_changeset(engine, settings.music_dir, changeset_id, progress, images),
+            progress,
         )
+
+
+def image_store(settings: Settings) -> ImageStore:
+    """Uploaded covers and the covers saved for undo."""
+    return ImageStore(settings.config_dir / "images")
 
 
 scan_job = ScanJob()
