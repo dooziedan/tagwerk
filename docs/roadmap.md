@@ -80,7 +80,7 @@ Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master l
 Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bit-exact; the AIFF lands by the import folder layout, the original in `/originals` ([ADR 0013](decisions/0013-convert-to-aiff.md)).
 
 ## v0.8: Online identification
-**Status:** ✅ for the inbox ([ADR 0014](decisions/0014-online-identification.md)): MusicBrainz, AcoustID, Discogs, Deezer, iTunes; agreement-based confidence; cover suggestions. Library tracks: later.
+**Status:** ✅ for the inbox ([ADR 0014](decisions/0014-online-identification.md)): MusicBrainz, AcoustID, Discogs, Deezer, iTunes; agreement-based confidence; cover suggestions. Library tracks (0.8.1): Look up online; sure values become pending changes.
 
 - Metadata source interface; sources: AcoustID fingerprint (fpcalc in the image), MusicBrainz, Discogs (free token), and public store APIs if their terms allow (iTunes Search, Deezer).
 - Cover art (Cover Art Archive, Discogs, store artwork).

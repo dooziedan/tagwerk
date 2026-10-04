@@ -190,3 +190,38 @@ def test_review_page_shows_results_and_takes_them_over(web, client, engine, sett
 def test_searches_use_the_main_artist_and_plain_title(artist, title, expected):
     query = Query(artist, title, None)
     assert (query.search_artist, query.search_title) == expected
+
+
+@pytest.mark.parametrize(
+    ("values", "duration", "fingerprint", "expected"),
+    [
+        ({"title": "Losing It", "artist": "FISHER"}, 246, None,
+         "same title and artist, same length"),
+        ({"title": "Losing It", "artist": "FISHER"}, 401, None,
+         "same title and artist, but 6:41 long (this file: 4:08)"),
+        ({"title": "Losing It (Radio Edit)", "artist": "FISHER"}, 163, None,
+         "another version of the title, same artist; 2:43 long (this file: 4:08)"),
+        ({"title": "Losing It", "artist": "Fisher"}, None, None,
+         "same title and artist; length unknown"),
+        ({"title": "Losing It (Hush Remix)", "artist": "FISHER"}, 300, None,
+         "another version of the title, same artist; 5:00 long (this file: 4:08)"),
+        ({"artist": "Fisher", "album": "Losing It"}, None, None,
+         "a release with this track, same artist; length unknown"),
+        ({"title": "Losing It", "artist": "FISHER"}, 248, 0.96,
+         "the sound matches (96%); same title and artist"),
+    ],
+)  # fmt: skip
+def test_every_score_is_explained(values, duration, fingerprint, expected):
+    from app.sources.base import Candidate
+
+    candidate = Candidate("x", values, duration=duration, fingerprint_score=fingerprint)
+    assert identify.explain(candidate, Query("Fisher", "Losing It", 248.0)) == expected
+
+
+def test_review_page_explains_low_matches(web, client, engine, settings, track):
+    with Session(engine) as session:
+        session.get(InboxTrack, track).duration = 0.4  # a snippet, not the real song
+        session.commit()
+    identify.lookup(engine, settings, track)
+    page = client.get(f"/inbox/{track}").text
+    assert "same title and artist, but 4:08 long (this file: 0:00)" in page

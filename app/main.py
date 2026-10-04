@@ -18,6 +18,7 @@ from app.routes import (
     final,
     inbox,
     library,
+    lookup,
     scan,
     settings,
     setup,
@@ -62,4 +63,5 @@ app.include_router(inbox.router)
 app.include_router(changes.router)
 app.include_router(final.router)
 app.include_router(convert.router)
+app.include_router(lookup.router)
 app.include_router(library.router)

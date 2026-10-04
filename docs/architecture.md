@@ -62,6 +62,7 @@ Files are never modified directly from a form or a lookup:
 | `app/navigation.py` | Where "← Back" and "after saving" lead (only pages of the app) | 0.7 |
 | `app/sources/` | Online metadata sources behind one interface (`base.py`): MusicBrainz, AcoustID (fpcalc), Discogs, iTunes, Deezer | 0.8 |
 | `app/identify.py` | Asks the sources about inbox tracks, scores the matches, stores them (`onlinelookup`) and turns agreement into suggestions and a cover ([ADR 0014](decisions/0014-online-identification.md)) | 0.8 |
+| `app/routes/lookup.py` | Look up online for library tracks: sure values become pending changes, "Use these values" stages one result | 0.8.1 |
 | `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |
