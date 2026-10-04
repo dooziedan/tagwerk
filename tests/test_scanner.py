@@ -88,6 +88,15 @@ def test_broken_file_is_recorded_and_scan_continues(engine, music_dir):
     assert progress.errors == 1
     assert progress.added == TOTAL + 1
     assert tracks(engine)["Unsorted/broken.mp3"].error
+    # Files that failed are retried on every scan, even if they didn't change...
+    progress = scan(engine, music_dir)
+    assert (progress.updated, progress.errors, progress.unchanged) == (1, 1, TOTAL)
+    # ...and once fixed, they're read normally.
+    shutil.copy(FIXTURES / "tagged.mp3", music_dir / "Unsorted" / "broken.mp3")
+    os.utime(music_dir / "Unsorted" / "broken.mp3", (1, 1))
+    progress = scan(engine, music_dir)
+    assert (progress.updated, progress.errors) == (1, 0)
+    assert tracks(engine)["Unsorted/broken.mp3"].error is None
 
 
 def test_hidden_folders_are_skipped(engine, music_dir):

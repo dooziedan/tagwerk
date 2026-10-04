@@ -69,7 +69,13 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
             row.path: row
             for row in session.exec(
                 select(
-                    Track.path, Track.id, Track.mtime, Track.size, Track.scan_version, Track.has_lrc
+                    Track.path,
+                    Track.id,
+                    Track.mtime,
+                    Track.size,
+                    Track.scan_version,
+                    Track.has_lrc,
+                    Track.error,
                 )
             )
         }
@@ -94,6 +100,7 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 and existing.mtime == stat.st_mtime
                 and existing.size == stat.st_size
                 and existing.scan_version >= SCAN_VERSION
+                and existing.error is None  # files that failed are retried on every scan
             )
             if up_to_date and existing.has_lrc == has_lrc:
                 progress.unchanged += 1

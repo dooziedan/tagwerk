@@ -13,6 +13,7 @@ from mutagen.id3 import ID3
 from mutagen.mp4 import MP4FreeForm, MP4Tags
 
 BINARY = "<binary data>"
+UNREADABLE = "<unreadable>"
 MAX_VALUE = 120  # characters stored per value; lyrics and long comments are shortened
 
 SYSTEMS = {"id3": "ID3", "vorbis": "Vorbis", "mp4": "MP4", "riff-info": "RIFF INFO"}
@@ -26,17 +27,32 @@ class RawField:
 
 
 def collect(audio, riff_info: dict[bytes, str] | None = None) -> list[RawField]:
-    """All tag fields of a file opened with mutagen (plus its RIFF INFO chunk, for WAV)."""
+    """All tag fields of a file opened with mutagen (plus its RIFF INFO chunk, for WAV).
+
+    Never raises: this is extra information, and an odd field must not make the whole file
+    unreadable. A field whose value can't be turned into text is recorded as UNREADABLE.
+    """
+    try:
+        return _collect(audio, riff_info)
+    except Exception:  # pragma: no cover - safety net; individual fields are guarded below
+        return []
+
+
+def _collect(audio, riff_info: dict[bytes, str] | None) -> list[RawField]:
     fields: list[RawField] = []
     tags = audio.tags
     if isinstance(tags, ID3):
-        fields += [RawField("id3", frame.HashKey, _id3_value(frame)) for frame in tags.values()]
+        fields += [
+            RawField("id3", frame.HashKey, _safe(_id3_value, frame)) for frame in tags.values()
+        ]
     elif isinstance(tags, VCommentDict):
         for key in tags.keys():  # noqa: SIM118 (VCommentDict iterates differently)
-            value = BINARY if key.lower() == "metadata_block_picture" else _join(tags[key])
+            value = BINARY if key.lower() == "metadata_block_picture" else _safe(_join, tags[key])
             fields.append(RawField("vorbis", key, value))
     elif isinstance(tags, MP4Tags):
-        fields += [RawField("mp4", key, _mp4_value(key, values)) for key, values in tags.items()]
+        fields += [
+            RawField("mp4", key, _safe(_mp4_value, key, values)) for key, values in tags.items()
+        ]
     if isinstance(audio, FLAC) and audio.pictures:
         fields.append(RawField("vorbis", "(FLAC picture block)", BINARY))
     for chunk_id, value in (riff_info or {}).items():
@@ -44,9 +60,18 @@ def collect(audio, riff_info: dict[bytes, str] | None = None) -> list[RawField]:
     return fields
 
 
+def _safe(func, *args) -> str:
+    try:
+        return func(*args)
+    except Exception:
+        return UNREADABLE
+
+
 def _id3_value(frame) -> str:
     if frame.FrameID == "UFID":
         return _clean(frame.data.decode("ascii", "replace"))
+    if hasattr(frame, "people"):  # TIPL / TMCL / IPLS: [["arranger", "Name"], ...]
+        return _join(f"{role}: {name}" if name else role for role, name in frame.people)
     if hasattr(frame, "text"):
         text = frame.text
         return _join(text) if isinstance(text, list) else _clean(str(text))
@@ -60,6 +85,8 @@ def _id3_value(frame) -> str:
 def _mp4_value(key: str, values) -> str:
     if key == "covr":
         return BINARY
+    if not isinstance(values, list):  # single values, e.g. the compilation flag cpil = True
+        values = [values]
     parts = []
     for value in values:
         if isinstance(value, MP4FreeForm):

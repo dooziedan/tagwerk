@@ -22,6 +22,11 @@ Verified 2026-10-04: file count, size and playing time match `ffprobe` on the te
 - Mode switch with a dashboard per mode; MusicBrainz checks opt-in. Preferences stored in `/config`.
 - Existing databases upgrade automatically, and older rows are re-read once to fill the new fields.
 
+## v0.4: Tag fields page ✅ (v0.4.0)
+- Every raw tag field of every file is stored at scan time (`rawtag` table).
+- Overview with usage, empty/zero counts and sample values; detail page per field.
+- Answered why few tracks show a BPM: many files store `0` ("unknown", written by MusicBrainz Picard).
+
 ## Phase 2: Browse + manual editing
 - Artists → albums → tracks, with search and filters (e.g. "missing year").
 - Edit a track or a whole album → pending changes → review diff → apply (snapshot first) → undo.

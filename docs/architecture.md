@@ -34,9 +34,11 @@ Files are never modified directly from a form or a lookup:
 | `app/tags.py` | Reads ID3 / Vorbis / MP4 / RIFF INFO into one set of fields ([ADR 0005](decisions/0005-reading-tags.md)) | 0.2 |
 | `app/scanner.py` | Walks the music folder, updates the `track` table, skips unchanged files | 0.2 |
 | `app/stats.py` | Dashboard numbers, computed with SQL from `track` | 0.2 |
-| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`) | 0.2 |
+| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
 | `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
+| `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field | 0.4 |
+| `app/fields.py` | Statistics for the Tag fields page | 0.4 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Mode, key notation, MusicBrainz visibility, stored in the `appsetting` table | 0.3 |
 | `app/navidrome.py` | Subsonic API client | Phase 3 |
@@ -49,7 +51,7 @@ Files are never modified directly from a form or a lookup:
 
 - One process: `uvicorn` serving FastAPI. No external services.
 - Database: SQLite at `/config/tagwerk.db` in WAL mode, so the dashboard can read during a scan.
-- Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `appsetting` for preferences.
+- Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `rawtag` (every tag field of every file, as stored) and `appsetting` for preferences.
 - `track.scan_version` records which tag-reader version read a row. Raising `SCAN_VERSION` in `app/scanner.py` makes the next scan re-read older rows once.
 - Everything needed at runtime ships in the Docker image. Only `/config` and `/music` come from the host.
 - Persistent state lives only in `/config`. The container can be deleted and recreated at any time.
