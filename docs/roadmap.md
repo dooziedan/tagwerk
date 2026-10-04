@@ -27,33 +27,46 @@ Verified 2026-10-04: file count, size and playing time match `ffprobe` on the te
 - Overview with usage, empty/zero counts and sample values; detail page per field.
 - Answered why few tracks show a BPM: many files store `0` ("unknown", written by MusicBrainz Picard).
 
-## Phase 2: Browse + manual editing
-- Artists → albums → tracks, with search and filters (e.g. "missing year").
-- Edit a track or a whole album → pending changes → review diff → apply (snapshot first) → undo.
+## Goal (reviewed 2026-10-04)
+Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master library. New music arrives in a separate **import inbox**; Tagwerk tags it as far as it can on its own, asks the owner only where it's unsure, then moves finished tracks into the library. Rekordbox and the DJ SSD are out of scope (that would be a separate tool).
+
+## v0.5: Browse and search (read-only)
+- Track list with search and filters (missing BPM/key/year…, BPM = 0, format, folder); dashboard numbers link to these lists.
+- Artists → albums → tracks.
+- Track page: all tags, audio properties and raw fields.
+
+**Done when:** every number on the dashboard can be clicked to see the tracks behind it.
+
+## v0.6: Editing with review, apply and undo (the writing engine)
+- Edit one track or many at once (e.g. a label for a whole album) → pending changes → review *old → new* → apply → undo.
+- Tag writing for all 7 formats, mapped back to the same fields the reader uses (ID3 for WAV/AIFF, Vorbis, MP4).
 - The edit form follows the mode: BPM, key, comment, label first in DJ mode; album fields first in Collector mode.
+- Owner makes a backup before the first real apply.
 
-**Done when:** an edit made in the UI is visible in another tag tool and can be undone.
+**Done when:** an edit made in the UI shows up in Navidrome and another tag tool, and can be undone.
 
-## Phase 3: Navidrome
-- Connection settings plus a "test connection" button.
-- Navidrome stats and most-played on the dashboard.
-- Rescan triggered after apply.
+## v0.7: Import inbox and first-run setup
+- Optional **Import** path in the Unraid template, separate from the library (Navidrome never sees untagged tracks).
+- **First-run setup wizard:** mode, key notation, inbox, library folder pattern and **how independently Tagwerk may work** (always ask / auto-apply confident results). All changeable later in Settings.
+- Inbox pipeline, local steps: read tags, parse **filenames** (record pools, stores, promos, downloads), clean-up rules (BPM 0 → empty, spacing, "feat.", genre spelling, misplaced Discogs IDs).
+- Inbox page: "done" and "needs your help", with Tagwerk's best guesses to confirm or correct.
+- Finished tracks are **moved into the library** by the owner's pattern (copy → verify → delete), then Navidrome rescans.
 
-**Done when:** a tag change appears in Navidrome without manual steps.
+## v0.8: Online identification
+- Metadata source interface; sources: AcoustID fingerprint (fpcalc in the image), MusicBrainz, Discogs (free token), and public store APIs if their terms allow (iTunes Search, Deezer).
+- Cover art (Cover Art Archive, Discogs, store artwork).
+- Every proposed value has a confidence; the owner's autonomy setting decides what is applied automatically.
 
-## Phase 4: MusicBrainz
-- Metadata source interface. MusicBrainz is the first implementation.
-- Album search → choose a release → match tracks → pending changes (still editable).
-- Cover art from the Cover Art Archive (embedded and/or `cover.jpg`).
+## v0.9: BPM and key from the audio
+- Detect tempo and key inside the container. First step: verify an analysis library that runs in the image and on the current Python version.
+- Flag likely half-/double-time values (e.g. 87 instead of 174).
 
-**Done when:** a messy test album is tagged completely from MusicBrainz.
+## Navidrome integration (alongside v0.6–v0.8)
+- Connection settings and test button; rescan after apply and after moving inbox tracks.
+- Navidrome stats and most played on the dashboard.
 
-## Phase 5: Later / ideas
-- DJ set prep: harmonic mixing suggestions (compatible keys), BPM/key filters, Rekordbox export.
-- Detect BPM and key from the audio for untagged tracks (libraries must ship inside the image).
-- Discogs (and possibly Beatport) as sources, treating Discogs IDs as first-class.
-- Batch jobs ("look up all albums without MusicBrainz IDs").
-- AcoustID fingerprinting for untagged files.
+## Later / ideas
+- Harmonic mixing helpers (compatible keys), BPM/key filters for set prep.
+- Batch jobs for the existing library (e.g. look up everything without IDs).
 - Last.fm genres.
-- Rename and organize files by pattern.
 - Login protection.

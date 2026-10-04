@@ -13,7 +13,9 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
 - ✅ **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, empty and `0` values, and the most common values.
 
-Planned:
+Planned (see the [roadmap](docs/roadmap.md)):
+
+- **Import inbox:** new tracks are tagged automatically as far as possible (filename, clean-up rules, online sources, BPM/key from the audio), you're asked only where Tagwerk is unsure, then they're moved into your library.
 
 - **Tag editing:** one album or one track at a time.
 - **MusicBrainz lookup:** tags and cover art filled in automatically, and every value stays editable.
