@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-04
+
+### Changed
+- DJ mode shows keys on a **Camelot wheel** (major outside, minor inside, 12 at the top), shaded by track count with the count on every segment. The grid is still available under "Show as table".
+- Lossy files are now flagged below **320 kbps** (was 256), with 2% tolerance for encoders that report 319 kbps.
+
+### Fixed
+- Keys stored as `initial_key` (with underscore) in FLAC/OGG/Opus are now read.
+
 ## [0.3.0] - 2026-10-04
 
 ### Added

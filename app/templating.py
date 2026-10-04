@@ -6,11 +6,13 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from app import __version__
+from app.charts import key_wheel
 from app.keys import NOTATIONS
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.globals["version"] = __version__
 templates.env.globals["key_notations"] = NOTATIONS
+templates.env.globals["key_wheel"] = key_wheel
 
 
 def filesize(num_bytes: int | None) -> str:

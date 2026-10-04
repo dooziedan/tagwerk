@@ -20,7 +20,10 @@ from app.tags import LOSSLESS_FORMATS
 # That's also how Navidrome groups its artist list.
 _album_artist = func.coalesce(func.nullif(Track.albumartist, ""), Track.artist)
 
-LOW_BITRATE = 256_000  # lossy files below this are flagged in DJ mode
+# Lossy files below this are flagged in DJ mode. 2% tolerance, because some encoders report
+# a constant 320 kbps file as e.g. 319 kbps.
+LOW_BITRATE_KBPS = 320
+_LOW_BITRATE_LIMIT = LOW_BITRATE_KBPS * 1000 * 0.98
 BPM_BUCKET = 5  # BPM histogram bar width
 BPM_MIN, BPM_MAX = 60, 200  # tempos outside are grouped as "< 60" / "200+"
 
@@ -104,6 +107,7 @@ class LibraryStats:
     unrecognized_keys: int = 0  # key tag present but not a key Tagwerk understands
     lossless: int = 0
     low_bitrate: int = 0
+    low_bitrate_kbps: int = LOW_BITRATE_KBPS
     # Collector mode
     decades: list[Bar] = field(default_factory=list)
     unknown_year: int = 0
@@ -167,7 +171,7 @@ def _add_dj(session: Session, stats: LibraryStats, prefs: Preferences) -> None:
         and_(
             col(Track.format).not_in(LOSSLESS_FORMATS),
             Track.bitrate.is_not(None),
-            Track.bitrate < LOW_BITRATE,
+            Track.bitrate < _LOW_BITRATE_LIMIT,
         ),
     )
 
