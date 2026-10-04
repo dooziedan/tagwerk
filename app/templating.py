@@ -2,17 +2,15 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi.templating import Jinja2Templates
 
 from app import __version__
 from app.charts import key_wheel
-from app.keys import NOTATIONS
+from app.keys import NOTATIONS, display
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-templates.env.globals["version"] = __version__
-templates.env.globals["key_notations"] = NOTATIONS
-templates.env.globals["key_wheel"] = key_wheel
 
 
 def filesize(num_bytes: int | None) -> str:
@@ -50,6 +48,27 @@ def plural(count: int, singular: str, plural_form: str | None = None) -> str:
     return f"{number(count)} {word}"
 
 
+def mmss(seconds: float | None) -> str:
+    """Track length: 245.3 -> '4:05'."""
+    if not seconds:
+        return "–"
+    minutes, secs = divmod(int(round(seconds)), 60)
+    return f"{minutes}:{secs:02d}"
+
+
+def bpm(value: float | None) -> str:
+    """126.0 -> '126', 127.5 -> '127.5'."""
+    return f"{value:g}" if value else ""
+
+
+def page_url(params: dict, sort: str, desc: bool, page: int) -> str:
+    """Track list URL for another page, keeping filters and sorting."""
+    query = {**params, "sort": sort, "page": page}
+    if desc:
+        query["desc"] = "true"
+    return "/tracks?" + urlencode(query)
+
+
 def isoutc(value: datetime | None) -> str:
     """ISO timestamp for <time datetime="…">; the browser shows it in local time."""
     if value is None:
@@ -59,6 +78,19 @@ def isoutc(value: datetime | None) -> str:
     return value.isoformat()
 
 
+templates.env.globals.update(
+    version=__version__,
+    key_notations=NOTATIONS,
+    key_wheel=key_wheel,
+    key_label=display,  # key_label("8A", "musical") -> "Am"
+    page_url=page_url,
+)
 templates.env.filters.update(
-    filesize=filesize, duration=duration, number=number, plural=plural, isoutc=isoutc
+    filesize=filesize,
+    duration=duration,
+    number=number,
+    plural=plural,
+    isoutc=isoutc,
+    mmss=mmss,
+    bpm=bpm,
 )

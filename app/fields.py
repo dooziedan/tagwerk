@@ -5,11 +5,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import case, distinct, func
 from sqlmodel import Session, col, select
 
+from app.library import ZERO_VALUES
 from app.models import RawTag, Track
 from app.rawtags import used_as
-
-# Values that mean "unknown" for numeric fields like BPM (Picard writes "0").
-ZERO_VALUES = ("0", "0.0", "0.00", "00")
 
 
 @dataclass

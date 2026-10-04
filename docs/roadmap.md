@@ -30,7 +30,7 @@ Verified 2026-10-04: file count, size and playing time match `ffprobe` on the te
 ## Goal (reviewed 2026-10-04)
 Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master library. New music arrives in a separate **import inbox**; Tagwerk tags it as far as it can on its own, asks the owner only where it's unsure, then moves finished tracks into the library. Rekordbox and the DJ SSD are out of scope (that would be a separate tool).
 
-## v0.5: Browse and search (read-only)
+## v0.5: Browse and search (read-only) ✅ (v0.5.0)
 - Track list with search and filters (missing BPM/key/year…, BPM = 0, format, folder); dashboard numbers link to these lists.
 - Artists → albums → tracks.
 - Track page: all tags, audio properties and raw fields.

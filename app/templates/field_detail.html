@@ -10,6 +10,8 @@
   {% if s.used_as %}Tagwerk reads it as <span class="badge">{{ s.used_as }}</span>.{% else %}Tagwerk ignores this field.{% endif %}
 </p>
 
+<p><a href="/tracks?{{ {'field': s.system ~ ':' ~ s.name} | urlencode }}" role="button" class="outline">Show all {{ s.files | plural('track') }} with this field</a></p>
+
 <section class="kpis" aria-label="Field totals">
   <article class="kpi"><span class="kpi-value">{{ s.files | number }}</span><span class="kpi-label">Files</span></article>
   <article class="kpi"><span class="kpi-value">{{ s.distinct | number }}</span><span class="kpi-label">Different values</span></article>
@@ -25,7 +27,7 @@
       <thead><tr><th scope="col">Value</th><th scope="col" class="num">Files</th></tr></thead>
       <tbody>
         {% for value, count in d.values %}
-        <tr><td><code>{{ value if value else "(empty)" }}</code></td><td class="num">{{ count | number }}</td></tr>
+        <tr><td><code>{{ value if value else "(empty)" }}</code></td><td class="num"><a href="/tracks?{{ {'field': s.system ~ ':' ~ s.name, 'value': value} | urlencode }}" title="Show these tracks">{{ count | number }}</a></td></tr>
         {% endfor %}
       </tbody>
     </table>

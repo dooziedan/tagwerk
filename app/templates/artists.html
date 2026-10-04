@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Artists · Tagwerk{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Artists</h1><p class="muted">{{ artists | length | plural('artist') }}</p></div>
+<form method="get" action="/artists" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search artists" aria-label="Search artists">
+</form>
+<p class="muted"><small>Album artist, or track artist where none is set, like Navidrome's artist list.</small></p>
+{% if artists %}
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th scope="col">Artist</th><th scope="col" class="num">Albums</th><th scope="col" class="num">Tracks</th></tr></thead>
+  <tbody>
+    {% for a in artists %}
+    <tr>
+      <td><a href="/tracks?{{ {'albumartist': a.name} | urlencode }}">{{ a.name }}</a></td>
+      <td class="num">{% if a.albums %}<a href="/albums?{{ {'artist': a.name} | urlencode }}">{{ a.albums | number }}</a>{% else %}–{% endif %}</td>
+      <td class="num">{{ a.tracks | number }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p>No artists found.</p>{% endif %}
+{% endblock %}

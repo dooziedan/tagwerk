@@ -25,8 +25,19 @@
         </li>
         {% endif %}
         <li class="wide-only"><a href="/">Dashboard</a></li>
-        <li class="wide-only"><a href="/fields">Tag fields</a></li>
-        <li><a href="/settings">Settings</a></li>
+        <li>
+          <details class="dropdown">
+            <summary>Library</summary>
+            <ul dir="rtl">
+              <li><a href="/tracks">Tracks</a></li>
+              <li><a href="/albums">Albums</a></li>
+              <li><a href="/artists">Artists</a></li>
+              <li><a href="/fields">Tag fields</a></li>
+              <li class="narrow-only"><a href="/settings">Settings</a></li>
+            </ul>
+          </details>
+        </li>
+        <li class="wide-only"><a href="/settings">Settings</a></li>
         <li class="wide-only"><a href="/docs">API</a></li>
       </ul>
     </nav>

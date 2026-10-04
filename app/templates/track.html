@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ t.title or t.path }} · Tagwerk{% endblock %}
+{% block content %}
+{% set n = prefs.key_notation %}
+{% macro row(label, value, url="") %}
+<tr><th scope="row">{{ label }}</th><td>{% if value in (None, "") %}<span class="muted">–</span>{% elif url %}<a href="{{ url }}">{{ value }}</a>{% else %}{{ value }}{% endif %}</td></tr>
+{% endmacro %}
+{% set artist = t.albumartist or t.artist %}
+
+<p><a href="javascript:history.back()">← Back</a></p>
+<div class="track-head">
+  {% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" aria-label="No cover art">♪</div>{% endif %}
+  <div>
+    <h1>{{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>
+    <p class="track-sub">
+      {% if t.artist %}<a href="/tracks?{{ {'albumartist': artist} | urlencode }}">{{ t.artist }}</a>{% else %}<span class="muted">Unknown artist</span>{% endif %}
+      {% if t.album %} · <a href="/tracks?{{ {'albumartist': artist, 'album': t.album, 'sort': 'album'} | urlencode }}">{{ t.album }}</a>{% endif %}
+    </p>
+    <p class="muted"><small><code>{{ t.path }}</code></small></p>
+    {% if t.error %}<p>⚠️ Could not be read: <code>{{ t.error }}</code></p>{% endif %}
+  </div>
+</div>
+
+<div class="grid-2">
+  <article>
+    <header><strong>{% if prefs.mode == "dj" %}DJ{% else %}Track{% endif %}</strong></header>
+    <table class="kv">
+      {% if prefs.mode == "dj" %}
+      {{ row("BPM", t.bpm | bpm, "/tracks?bpm_min=%d&bpm_max=%d" % ((t.bpm // 5 * 5), (t.bpm // 5 * 5 + 5)) if t.bpm else "") }}
+      {{ row("Key", (key_label(t.key_camelot, n) + (" (" + t.key + " in file)" if t.key and t.key != key_label(t.key_camelot, n) else "")) if t.key_camelot else (t.key ~ " (not recognized)" if t.key else ""), "/tracks?key=" ~ t.key_camelot if t.key_camelot else "") }}
+      {{ row("Genre", t.genre) }}
+      {{ row("Label", t.label) }}
+      {{ row("Catalog number", t.catalognumber) }}
+      {{ row("Comment", t.comment) }}
+      {{ row("Year", t.year, "/tracks?decade=%d" % (t.year // 10 * 10) if t.year else "") }}
+      {% else %}
+      {{ row("Album artist", t.albumartist) }}
+      {{ row("Track", (t.tracknumber ~ (" / " ~ t.tracktotal if t.tracktotal else "")) if t.tracknumber else "") }}
+      {{ row("Disc", (t.discnumber ~ (" / " ~ t.disctotal if t.disctotal else "")) if t.discnumber else "") }}
+      {{ row("Date", t.date, "/tracks?decade=%d" % (t.year // 10 * 10) if t.year else "") }}
+      {{ row("Genre", t.genre) }}
+      {{ row("Lyrics", "embedded" if t.has_lyrics else (".lrc file" if t.has_lrc else "")) }}
+      {{ row("ReplayGain", ("%+.2f dB" % t.replaygain_track_gain) if t.replaygain_track_gain is not none else "") }}
+      {% endif %}
+    </table>
+    {% if t.genre %}
+    <p class="chips">{% for g in t.genre.split(";") if g.strip() %}<a class="chip" href="/tracks?{{ {'genre': g.strip()} | urlencode }}">{{ g.strip() }}</a>{% endfor %}</p>
+    {% endif %}
+  </article>
+  <article>
+    <header><strong>File</strong></header>
+    <table class="kv">
+      {{ row("Format", t.format | upper, "/tracks?format=" ~ t.format) }}
+      {{ row("Length", t.duration | mmss) }}
+      {{ row("Bitrate", ((t.bitrate / 1000) | round | int ~ " kbps") if t.bitrate else "") }}
+      {{ row("Sample rate", ("%.1f kHz" % (t.sample_rate / 1000)) if t.sample_rate else "") }}
+      {{ row("Bit depth", (t.bits_per_sample ~ " bit") if t.bits_per_sample else "") }}
+      {{ row("Channels", t.channels) }}
+      {{ row("Size", t.size | filesize) }}
+      {{ row("Tags", t.tag_format | upper if t.tag_format else "none") }}
+      {{ row("Folder", folder, "/tracks?" ~ ({'folder': folder} | urlencode) if folder else "") }}
+      {{ row("Scanned", t.scanned_at.strftime("%Y-%m-%d %H:%M") ~ " UTC") }}
+    </table>
+  </article>
+</div>
+
+{% if prefs.mode == "dj" %}
+<details>
+  <summary>Album and more</summary>
+  <table class="kv">
+    {{ row("Album artist", t.albumartist) }}
+    {{ row("Track", t.tracknumber) }}
+    {{ row("ReplayGain", ("%+.2f dB" % t.replaygain_track_gain) if t.replaygain_track_gain is not none else "") }}
+    {{ row("Lyrics", "embedded" if t.has_lyrics else (".lrc file" if t.has_lrc else "")) }}
+  </table>
+</details>
+{% else %}
+<details>
+  <summary>DJ fields</summary>
+  <table class="kv">
+    {{ row("BPM", t.bpm | bpm) }}
+    {{ row("Key", key_label(t.key_camelot, n) if t.key_camelot else t.key) }}
+    {{ row("Label", t.label) }}
+    {{ row("Catalog number", t.catalognumber) }}
+    {{ row("Comment", t.comment) }}
+  </table>
+</details>
+{% endif %}
+<details>
+  <summary>MusicBrainz IDs{% if t.mbid_invalid %} ⚠️ contain other IDs{% endif %}</summary>
+  <table class="kv">
+    {{ row("Recording", t.mb_trackid) }}{{ row("Release", t.mb_albumid) }}
+    {{ row("Artist", t.mb_artistid) }}{{ row("Album artist", t.mb_albumartistid) }}
+  </table>
+</details>
+
+<article>
+  <header><strong>All tag fields</strong> <small class="muted">exactly as stored in the file</small></header>
+  {% if raw %}
+  <div class="overflow-auto">
+  <table class="striped raw-table">
+    <thead><tr><th scope="col">Field</th><th scope="col">Value</th><th scope="col">Used as</th></tr></thead>
+    <tbody>
+      {% for r, used in raw %}
+      <tr>
+        <td><a href="/fields/detail?{{ {'system': r.system, 'name': r.name} | urlencode }}"><code>{{ r.name }}</code></a><br><small class="muted">{{ systems[r.system] }}</small></td>
+        <td><code class="value">{{ r.value if r.value else "(empty)" }}</code></td>
+        <td>{% if used %}<span class="badge">{{ used }}</span>{% else %}<small class="muted">ignored</small>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">No tag fields.</p>{% endif %}
+</article>
+{% endblock %}

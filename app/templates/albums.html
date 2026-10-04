@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Albums · Tagwerk{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Albums{% if artist %}: {{ artist }}{% endif %}</h1><p class="muted">{{ albums | length | plural('album') }}</p></div>
+<form method="get" action="/albums" role="search">
+  {% if artist %}<input type="hidden" name="artist" value="{{ artist }}">{% endif %}
+  <input type="search" name="q" value="{{ q }}" placeholder="Search albums" aria-label="Search albums">
+</form>
+{% if artist %}<p class="chips"><a class="chip" href="/albums">Artist: {{ artist }} <span aria-hidden="true">×</span></a></p>{% endif %}
+{% if albums %}
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th scope="col">Album</th><th scope="col">Artist</th><th scope="col" class="num">Year</th><th scope="col" class="num">Tracks</th><th scope="col">Formats</th><th scope="col">Cover</th></tr></thead>
+  <tbody>
+    {% for a in albums %}
+    <tr>
+      <td><a href="/tracks?{{ {'albumartist': a.artist or '', 'album': a.album, 'sort': 'album'} | urlencode }}">{{ a.album }}</a></td>
+      <td>{% if a.artist %}<a href="/albums?{{ {'artist': a.artist} | urlencode }}">{{ a.artist }}</a>{% else %}<span class="muted">–</span>{% endif %}</td>
+      <td class="num">{{ a.year or "–" }}</td>
+      <td class="num">{{ a.tracks | number }}</td>
+      <td><small>{{ a.formats | upper }}</small></td>
+      <td>{% if a.has_cover %}✅{% else %}<span class="muted">–</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p>No albums found.</p>{% endif %}
+{% endblock %}

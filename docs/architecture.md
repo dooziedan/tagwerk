@@ -33,8 +33,10 @@ Files are never modified directly from a form or a lookup:
 | `app/db.py`, `app/models.py`, `app/migrations/` | Database tables and Alembic migrations (run on every start) | 0.2 |
 | `app/tags.py` | Reads ID3 / Vorbis / MP4 / RIFF INFO into one set of fields ([ADR 0005](decisions/0005-reading-tags.md)) | 0.2 |
 | `app/scanner.py` | Walks the music folder, updates the `track` table, skips unchanged files | 0.2 |
-| `app/stats.py` | Dashboard numbers, computed with SQL from `track` | 0.2 |
-| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`) | 0.2 |
+| `app/library.py` | Track filters, sorting, paging; artists and albums. The dashboard counts with the same conditions, so every number matches its list | 0.5 |
+| `app/stats.py` | Dashboard numbers (using `app/library.py` conditions), each with the URL of its track list | 0.2 |
+| `app/covers.py` | Cover art for display: embedded or `cover.jpg`/`folder.jpg` next to the file | 0.5 |
+| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`, `library`) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
 | `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
 | `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field | 0.4 |
