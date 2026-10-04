@@ -1,0 +1,17 @@
+{# Horizontal bar list: one hue, the value always printed next to the bar.
+   `value` decides the right-hand text: "percent" (count · %) or "size" (count · MB). #}
+{% macro bars(items, value="percent", unit="tracks", empty="Nothing to show yet.") %}
+{% if items %}
+<ul class="bars">
+  {% for bar in items %}
+  <li title="{{ bar.label }}: {{ bar.count | number }} {{ unit }} ({{ bar.percent }}%)">
+    <span class="bar-label">{{ bar.label }}</span>
+    <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
+    <span class="bar-value">{{ bar.count | number }} <small>· {% if value == "size" %}{{ bar.size | filesize }}{% else %}{{ bar.percent }}%{% endif %}</small></span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted"><small>{{ empty }}</small></p>
+{% endif %}
+{% endmacro %}

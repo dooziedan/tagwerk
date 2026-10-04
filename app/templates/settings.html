@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Settings · Tagwerk{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+{% if saved %}<p role="status">✅ Saved.</p>{% endif %}
+
+<form method="post" action="/settings">
+  <fieldset>
+    <legend><strong>Mode</strong></legend>
+    {% for value, label in modes.items() %}
+    <label>
+      <input type="radio" name="mode" value="{{ value }}" {% if prefs.mode == value %}checked{% endif %}>
+      {{ label }}
+    </label>
+    <p class="option-hint muted">
+      {% if value == "dj" %}Tempo, keys, label, comment and audio quality for preparing sets.
+      {% else %}Albums, years, cover art and lyrics for a well-kept collection.{% endif %}
+    </p>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend><strong>Key notation</strong> <small class="muted">how keys are shown; your files are not changed</small></legend>
+    {% for value, label in notations.items() %}
+    <label>
+      <input type="radio" name="key_notation" value="{{ value }}" {% if prefs.key_notation == value %}checked{% endif %}>
+      {{ label }}
+    </label>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend><strong>MusicBrainz</strong></legend>
+    <label>
+      <input type="checkbox" role="switch" name="show_musicbrainz" {% if prefs.show_musicbrainz %}checked{% endif %}>
+      Show MusicBrainz IDs in the missing-tags overview
+    </label>
+    <p class="option-hint muted">Useful for officially released music. Edits, bootlegs and promos usually aren't on MusicBrainz.</p>
+  </fieldset>
+
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

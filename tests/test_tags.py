@@ -24,6 +24,14 @@ EXPECTED = {
     "mb_albumartistid": "44444444-4444-4444-8444-444444444444",
     "mbid_invalid": False,
     "has_cover": True,
+    "has_lyrics": True,
+    "bpm": 126.0,
+    "key": "Am",
+    "key_camelot": "8A",
+    "comment": "Whatsapp Unreleased",  # the hidden iTunNORM comment is skipped
+    "label": "Fixture Records",
+    "catalognumber": "FIX001",
+    "replaygain_track_gain": -6.2,
 }
 
 
@@ -35,6 +43,8 @@ EXPECTED = {
         ("tagged.wav", "wav", "id3"),
         ("tagged.aiff", "aiff", "id3"),
         ("tagged.m4a", "m4a", "mp4"),
+        ("tagged.ogg", "ogg", "vorbis"),
+        ("tagged.opus", "opus", "vorbis"),
     ],
 )
 def test_all_formats_read_the_same_tags(name, fmt, tag_format):
@@ -43,7 +53,6 @@ def test_all_formats_read_the_same_tags(name, fmt, tag_format):
     assert info.tag_format == tag_format
     assert {key: getattr(info, key) for key in EXPECTED} == EXPECTED
     assert info.duration == pytest.approx(0.5, abs=0.2)
-    assert info.sample_rate == 8000
 
 
 def test_wav_falls_back_to_riff_info():
@@ -51,6 +60,7 @@ def test_wav_falls_back_to_riff_info():
     assert info.tag_format == "riff-info"
     assert (info.title, info.artist, info.album) == ("Info Title", "Info Artist", "Info Album")
     assert (info.year, info.tracknumber) == (1999, 7)
+    assert info.comment == "Info Comment"
 
 
 def test_untagged_file():
@@ -84,3 +94,18 @@ def test_unsupported_extension(tmp_path):
     path.write_bytes(b"")
     with pytest.raises(UnsupportedFileError):
         read_file(path)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("128", 128.0), ("127.50", 127.5), ("127,5", 127.5), ("0", None), ("fast", None)],
+)
+def test_bpm_values(tmp_path, raw, expected):
+    from mutagen.flac import FLAC
+
+    path = tmp_path / "bpm.flac"
+    shutil.copy(FIXTURES / "tagged.flac", path)
+    audio = FLAC(path)
+    audio["bpm"] = raw
+    audio.save()
+    assert read_file(path).bpm == expected

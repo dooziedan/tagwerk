@@ -16,9 +16,16 @@ Verified 2026-10-04 on Unraid 7.3.2.
 **Done when:** the dashboard numbers match a test folder. WAV/AIFF tags are checked against Navidrome early.
 Verified 2026-10-04: file count, size and playing time match `ffprobe` on the test folder. Still open: compare WAV/AIFF with Navidrome on the real library.
 
+## v0.3: DJ and Collector modes ✅ (v0.3.0)
+- OGG and Opus support (all formats Navidrome showed in the owner's library).
+- New fields: BPM, key (any notation, shown as Camelot / Open Key / musical), comment, label, catalog number, ReplayGain, lyrics (embedded or `.lrc`).
+- Mode switch with a dashboard per mode; MusicBrainz checks opt-in. Preferences stored in `/config`.
+- Existing databases upgrade automatically, and older rows are re-read once to fill the new fields.
+
 ## Phase 2: Browse + manual editing
 - Artists → albums → tracks, with search and filters (e.g. "missing year").
 - Edit a track or a whole album → pending changes → review diff → apply (snapshot first) → undo.
+- The edit form follows the mode: BPM, key, comment, label first in DJ mode; album fields first in Collector mode.
 
 **Done when:** an edit made in the UI is visible in another tag tool and can be undone.
 
@@ -37,8 +44,11 @@ Verified 2026-10-04: file count, size and playing time match `ffprobe` on the te
 **Done when:** a messy test album is tagged completely from MusicBrainz.
 
 ## Phase 5: Later / ideas
+- DJ set prep: harmonic mixing suggestions (compatible keys), BPM/key filters, Rekordbox export.
+- Detect BPM and key from the audio for untagged tracks (libraries must ship inside the image).
+- Discogs (and possibly Beatport) as sources, treating Discogs IDs as first-class.
 - Batch jobs ("look up all albums without MusicBrainz IDs").
 - AcoustID fingerprinting for untagged files.
-- More sources: Discogs, Last.fm genres.
+- Last.fm genres.
 - Rename and organize files by pattern.
 - Login protection.

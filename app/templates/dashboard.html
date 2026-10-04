@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import bars %}
 {% block content %}
 
 {% if not status.ok %}
@@ -19,7 +20,7 @@
 {% endif %}
 
 <div class="page-head">
-  <h1>Library</h1>
+  <h1>{% if stats and stats.mode == "dj" %}DJ library{% else %}Library{% endif %}</h1>
   {% include "partials/scan_status.html" %}
 </div>
 
@@ -31,48 +32,96 @@
 </article>
 {% else %}
 
+{% set dj = stats.mode == "dj" %}
 <section class="kpis" aria-label="Library totals">
   <article class="kpi"><span class="kpi-value">{{ stats.tracks | number }}</span><span class="kpi-label">Tracks</span></article>
   <article class="kpi" title="Album artist, or track artist where no album artist is set"><span class="kpi-value">{{ stats.artists | number }}</span><span class="kpi-label">Artists</span></article>
+  {% if dj %}
+  <article class="kpi" title="Tracks with both BPM and a recognized key"><span class="kpi-value">{{ (100 * stats.with_bpm_and_key / stats.tracks) | round | int }}%</span><span class="kpi-label">BPM &amp; key set</span></article>
+  <article class="kpi" title="FLAC, WAV and AIFF"><span class="kpi-value">{{ (100 * stats.lossless / stats.tracks) | round | int }}%</span><span class="kpi-label">Lossless</span></article>
+  {% else %}
   <article class="kpi"><span class="kpi-value">{{ stats.albums | number }}</span><span class="kpi-label">Albums</span></article>
-  <article class="kpi"><span class="kpi-value">{{ stats.total_size | filesize }}</span><span class="kpi-label">Size</span></article>
   <article class="kpi"><span class="kpi-value">{{ stats.total_duration | duration }}</span><span class="kpi-label">Playing time</span></article>
+  {% endif %}
+  <article class="kpi"><span class="kpi-value">{{ stats.total_size | filesize }}</span><span class="kpi-label">Size</span></article>
 </section>
+
+{% if dj %}
+<div class="grid-2">
+  <article>
+    <header><strong>Tempo</strong> <small class="muted">BPM, tracks with a BPM tag</small></header>
+    {{ bars(stats.bpm, empty="No BPM tags yet.") }}
+  </article>
+  <article>
+    <header><strong>Keys</strong> <small class="muted">{{ key_notations[prefs.key_notation] }}</small></header>
+    {% if stats.keys | selectattr("count") | list %}
+    <div class="keys">
+      {% for cell in stats.keys %}
+      <div class="key-cell{% if cell.intensity >= 55 %} strong{% endif %}"
+           style="--intensity: {{ cell.intensity }}%"
+           title="{{ cell.label }}: {{ cell.count | number }} tracks ({{ cell.percent }}%)">
+        <span class="key-name">{{ cell.label }}</span>
+        <span class="key-count">{{ cell.count | number }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="muted"><small>Darker = more tracks.
+      {% if prefs.key_notation == "camelot" %}A = minor, B = major; neighbours on the wheel mix well.
+      {% elif prefs.key_notation == "openkey" %}m = minor, d = major; neighbours on the wheel mix well.
+      {% else %}"m" = minor.{% endif %}</small></p>
+    {% else %}
+    <p class="muted"><small>No key tags yet.</small></p>
+    {% endif %}
+    {% if stats.unrecognized_keys %}<p><small>⚠️ {{ stats.unrecognized_keys | plural('file') }} with a key tag Tagwerk doesn't recognize.</small></p>{% endif %}
+  </article>
+</div>
+{% else %}
+<div class="grid-2">
+  <article>
+    <header><strong>Decades</strong> <small class="muted">tracks with a year</small></header>
+    {{ bars(stats.decades, empty="No years in the tags yet.") }}
+    {% if stats.unknown_year %}<p class="muted"><small>{{ stats.unknown_year | plural('track') }} without a year.</small></p>{% endif %}
+  </article>
+  <article>
+    <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
+    {{ bars(stats.genres, empty="No genres in the tags yet.") }}
+  </article>
+</div>
+{% endif %}
 
 <div class="grid-2">
   <article>
-    <header><strong>Formats</strong></header>
-    <ul class="bars">
-      {% for bar in stats.formats %}
-      <li title="{{ bar.label }}: {{ bar.count | number }} tracks ({{ bar.percent }}%), {{ bar.size | filesize }}">
-        <span class="bar-label">{{ bar.label }}</span>
-        <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
-        <span class="bar-value">{{ bar.count | number }} <small>· {{ bar.size | filesize }}</small></span>
-      </li>
-      {% endfor %}
-    </ul>
-  </article>
-
-  <article>
     <header><strong>Missing tags</strong> <small class="muted">share of readable tracks</small></header>
-    <ul class="bars">
-      {% for bar in stats.missing %}
-      <li title="{{ bar.count | number }} tracks without {{ bar.label | lower }} ({{ bar.percent }}%)">
-        <span class="bar-label">{{ bar.label }}</span>
-        <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
-        <span class="bar-value">{{ bar.count | number }} <small>· {{ bar.percent }}%</small></span>
-      </li>
-      {% endfor %}
-    </ul>
+    {{ bars(stats.missing) }}
     <footer>
       <ul class="notes">
         <li>{{ stats.untagged | plural('file') }} without any tags.</li>
-        <li>{{ stats.invalid_mbids | plural('file') }} with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>
+        {% if prefs.show_musicbrainz %}<li>{{ stats.invalid_mbids | plural('file') }} with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
+        {% if not dj %}<li>{{ stats.with_lyrics | plural('track') }} with lyrics (embedded or .lrc file).</li>{% endif %}
         {% if stats.unreadable %}<li>⚠️ {{ stats.unreadable | plural('file') }} could not be read.</li>{% endif %}
       </ul>
     </footer>
   </article>
+  <article>
+    <header><strong>Formats</strong></header>
+    {{ bars(stats.formats, value="size") }}
+    {% if dj %}
+    <footer>
+      <ul class="notes">
+        <li>{{ stats.lossless | plural('lossless file') }} (FLAC, WAV, AIFF).</li>
+        <li>{% if stats.low_bitrate %}⚠️ {% endif %}{{ stats.low_bitrate | plural('lossy file') }} below 256 kbps.</li>
+      </ul>
+    </footer>
+    {% endif %}
+  </article>
 </div>
+
+{% if dj %}
+<article>
+  <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
+  {{ bars(stats.genres, empty="No genres in the tags yet.") }}
+</article>
+{% endif %}
 
 <p class="muted"><small>Last scan: <time data-local datetime="{{ stats.last_scan | isoutc }}">{{ stats.last_scan | isoutc }}</time></small></p>
 {% endif %}

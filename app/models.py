@@ -44,6 +44,27 @@ class Track(SQLModel, table=True):
     mb_albumartistid: str | None = None
     mbid_invalid: bool = False  # a MusicBrainz field holds something that isn't an MBID
     has_cover: bool = False
+    has_lyrics: bool = False  # embedded lyrics
+    has_lrc: bool = False  # a .lrc lyrics file with the same name sits next to the track
+
+    # DJ fields
+    bpm: float | None = None
+    key: str | None = None  # as written in the file
+    key_camelot: str | None = Field(default=None, index=True)  # parsed, e.g. "8A"
+    comment: str | None = None
+    label: str | None = None
+    catalognumber: str | None = None
+    replaygain_track_gain: float | None = None  # dB
 
     error: str | None = None  # set when the file could not be read
+    # Which version of the tag reader produced this row. Rows from an older version are
+    # re-read on the next scan, so new fields get filled in (see app.scanner.SCAN_VERSION).
+    scan_version: int = 0
     scanned_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AppSetting(SQLModel, table=True):
+    """User preferences that apply to every device, e.g. the dashboard mode."""
+
+    key: str = Field(primary_key=True)
+    value: str  # JSON

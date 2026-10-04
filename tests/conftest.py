@@ -21,6 +21,8 @@ def music_dir(tmp_path) -> Path:
             "tagged.wav",
             "tagged.aiff",
             "tagged.m4a",
+            "tagged.ogg",
+            "tagged.opus",
         ],
         "Info Artist/Info Album": ["riff-info.wav"],
         "Unsorted": ["untagged.mp3", "discogs-ids.flac"],

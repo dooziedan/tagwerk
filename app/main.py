@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import get_settings
 from app.db import migrate
-from app.routes import dashboard, scan, system
+from app.routes import dashboard, scan, settings, system
 
 log = logging.getLogger("app")
 
@@ -38,3 +38,4 @@ app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), na
 app.include_router(system.router)
 app.include_router(dashboard.router)
 app.include_router(scan.router)
+app.include_router(settings.router)

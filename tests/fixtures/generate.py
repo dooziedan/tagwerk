@@ -14,8 +14,28 @@ from pathlib import Path
 
 from mutagen.aiff import AIFF
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, UFID
+from mutagen.id3 import (
+    APIC,
+    COMM,
+    ID3,
+    TALB,
+    TBPM,
+    TCON,
+    TDRC,
+    TIT2,
+    TKEY,
+    TPE1,
+    TPE2,
+    TPOS,
+    TPUB,
+    TRCK,
+    TXXX,
+    UFID,
+    USLT,
+)
 from mutagen.mp4 import MP4, MP4Cover, MP4FreeForm
+from mutagen.oggopus import OggOpus
+from mutagen.oggvorbis import OggVorbis
 from mutagen.wave import WAVE
 
 HERE = Path(__file__).parent
@@ -38,7 +58,21 @@ TAGS = {
     "mb_albumid": "22222222-2222-4222-8222-222222222222",
     "mb_artistid": "33333333-3333-4333-8333-333333333333",
     "mb_albumartistid": "44444444-4444-4444-8444-444444444444",
+    # DJ fields
+    "bpm": "126",
+    "key": "Am",
+    "comment": "Whatsapp Unreleased",
+    "label": "Fixture Records",
+    "catalognumber": "FIX001",
+    "replaygain": "-6.20 dB",
+    "lyrics": "La la la",
 }
+
+
+def picture() -> Picture:
+    pic = Picture()
+    pic.type, pic.mime, pic.data = 3, "image/png", PNG
+    return pic
 
 
 def silence(name: str, *ffmpeg_args: str) -> Path:
@@ -66,6 +100,14 @@ def tag_id3(tags: ID3) -> ID3:
     tags.add(TXXX(encoding=3, desc="MusicBrainz Album Artist Id", text=t["mb_albumartistid"]))
     tags.add(UFID(owner="http://musicbrainz.org", data=t["mb_trackid"].encode()))
     tags.add(APIC(encoding=3, mime="image/png", type=3, desc="Cover", data=PNG))
+    tags.add(TBPM(encoding=3, text=t["bpm"]))
+    tags.add(TKEY(encoding=3, text=t["key"]))
+    tags.add(COMM(encoding=3, lang="eng", desc="", text=t["comment"]))
+    tags.add(COMM(encoding=3, lang="eng", desc="iTunNORM", text="00000A 00000B"))  # hidden
+    tags.add(TPUB(encoding=3, text=t["label"]))
+    tags.add(TXXX(encoding=3, desc="CATALOGNUMBER", text=t["catalognumber"]))
+    tags.add(TXXX(encoding=3, desc="REPLAYGAIN_TRACK_GAIN", text=t["replaygain"]))
+    tags.add(USLT(encoding=3, lang="eng", desc="", text=t["lyrics"]))
     return tags
 
 
@@ -82,9 +124,8 @@ def make_id3_files() -> None:
         audio.save()
 
 
-def make_flac() -> None:
-    path = silence("tagged.flac", "-c:a", "flac")
-    audio = FLAC(path)
+def tag_vorbis(audio) -> None:
+    """Vorbis comments, shared by FLAC, OGG and Opus."""
     t = TAGS
     audio["title"] = t["title"]
     audio["artist"] = t["artist"]
@@ -98,10 +139,30 @@ def make_flac() -> None:
     audio["genre"] = t["genre"]
     for key in ("trackid", "albumid", "artistid", "albumartistid"):
         audio[f"musicbrainz_{key}"] = t[f"mb_{key}"]
-    picture = Picture()
-    picture.type, picture.mime, picture.data = 3, "image/png", PNG
-    audio.add_picture(picture)
-    audio.save()
+    audio["bpm"] = t["bpm"]
+    audio["initialkey"] = t["key"]
+    audio["comment"] = t["comment"]
+    audio["label"] = t["label"]
+    audio["catalognumber"] = t["catalognumber"]
+    audio["replaygain_track_gain"] = t["replaygain"]
+    audio["lyrics"] = t["lyrics"]
+
+
+def make_vorbis_files() -> None:
+    flac = FLAC(silence("tagged.flac", "-c:a", "flac"))
+    tag_vorbis(flac)
+    flac.add_picture(picture())
+    flac.save()
+
+    # OGG and Opus store cover art as a base64 picture block inside the comments.
+    for name, cls, codec in (
+        ("tagged.ogg", OggVorbis, "libvorbis"),
+        ("tagged.opus", OggOpus, "libopus"),
+    ):
+        audio = cls(silence(name, "-c:a", codec))
+        tag_vorbis(audio)
+        audio["metadata_block_picture"] = base64.b64encode(picture().write()).decode()
+        audio.save()
 
 
 def make_m4a() -> None:
@@ -124,6 +185,16 @@ def make_m4a() -> None:
     ):
         audio[f"----:com.apple.iTunes:MusicBrainz {name} Id"] = [MP4FreeForm(t[key].encode())]
     audio["covr"] = [MP4Cover(PNG, imageformat=MP4Cover.FORMAT_PNG)]
+    audio["tmpo"] = [int(t["bpm"])]
+    audio["\xa9cmt"] = t["comment"]
+    audio["\xa9lyr"] = t["lyrics"]
+    for name, key in (
+        ("initialkey", "key"),
+        ("LABEL", "label"),
+        ("CATALOGNUMBER", "catalognumber"),
+        ("replaygain_track_gain", "replaygain"),
+    ):
+        audio[f"----:com.apple.iTunes:{name}"] = [MP4FreeForm(t[key].encode())]
     audio.save()
 
 
@@ -137,6 +208,7 @@ def make_special_cases() -> None:
         "-metadata", "album=Info Album",
         "-metadata", "date=1999",
         "-metadata", "track=7",
+        "-metadata", "comment=Info Comment",
     )  # fmt: skip
     # No tags at all.
     silence("untagged.mp3", "-c:a", "libmp3lame", "-b:a", "32k", "-write_xing", "0",
@@ -151,7 +223,7 @@ def make_special_cases() -> None:
 
 if __name__ == "__main__":
     make_id3_files()
-    make_flac()
+    make_vorbis_files()
     make_m4a()
     make_special_cases()
     for p in sorted(HERE.glob("*.*")):
