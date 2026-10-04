@@ -17,6 +17,7 @@ from app.models import PendingChange, RawTag, Track
 from app.navigation import back_url
 from app.rawtags import SYSTEMS, used_as
 from app.routes.final import final_context
+from app.routes.lookup import online_context
 from app.tags import FORMATS
 from app.templating import templates
 
@@ -103,6 +104,7 @@ def track_page(request: Request, track_id: int, session: SessionDep):
                 select(PendingChange).where(PendingChange.track_id == track_id)
             ).all(),
             **final_context(session, track),
+            **online_context(session, track),
             "job": write_job,
             "locked": request.query_params.get("locked"),  # came from Edit tags
             "unmarking": request.query_params.get("unmarking"),

@@ -64,6 +64,11 @@
   </div>
 </div>
 
+{% if not t.error %}
+{% if request.query_params.get("looking") %}<p class="notice" role="status">🔎 Looking up online… Values that two sources agree on become <a href="/changes">pending changes</a>; reload in a moment to see everything that was found.</p>{% endif %}
+{% with base = "/tracks/" ~ t.id, hidden = {"back": back}, note = ("Final tracks are locked: nothing is staged for them." if final else "Values for empty fields that two sources agree on become pending changes by themselves; Use these values stages one result.") %}{% include "partials/online_box.html" %}{% endwith %}
+{% endif %}
+
 <div class="grid-2">
   <article>
     <header><strong>{% if prefs.mode == "dj" %}DJ{% else %}Track{% endif %}</strong></header>

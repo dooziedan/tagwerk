@@ -225,6 +225,7 @@ class IdentifyProgress:
     total: int = 0
     processed: int = 0
     current: str = ""
+    library: int = 0  # library tracks done in this run ("Look up online")
 
 
 class IdentifyJob:
@@ -236,7 +237,9 @@ class IdentifyJob:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._queue: dict[int, bool] = {}  # track id -> force (ask again even if fresh)
+        # (library?, track id) -> force (ask again even if fresh)
+        self._queue: dict[tuple[bool, int], bool] = {}
+        self._current: tuple[bool, int] | None = None  # the track being looked up now
         self._thread: threading.Thread | None = None
         self.progress = IdentifyProgress()
 
@@ -244,15 +247,23 @@ class IdentifyJob:
     def running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 
-    def start(self, settings: Settings, track_ids: list[int] | None = None, force=False) -> None:
-        """Look up these tracks (default: every inbox track that needs it)."""
+    def start(
+        self,
+        settings: Settings,
+        track_ids: list[int] | None = None,
+        force=False,
+        library: bool = False,
+    ) -> None:
+        """Look up these tracks (default: every inbox track that needs it). ``library``: they
+        are library tracks; their sure values become pending changes."""
         engine = get_engine(settings.database_url)
         if track_ids is None:
             with Session(engine) as session:
                 track_ids = list(session.exec(select(InboxTrack.id)))
         with self._lock:
             for track_id in track_ids:
-                self._queue[track_id] = self._queue.get(track_id, False) or force
+                key = (library, track_id)
+                self._queue[key] = self._queue.get(key, False) or force
             if self.running:
                 return
             self.progress = IdentifyProgress()
@@ -264,16 +275,27 @@ class IdentifyJob:
     def _run(self, settings: Settings, engine) -> None:
         while True:
             with self._lock:
+                self._current = None
                 if not self._queue:
                     self.progress.current = ""
                     return
-                track_id, force = self._queue.popitem()
+                (library, track_id), force = self._queue.popitem()
+                self._current = (library, track_id)
                 self.progress.total = self.progress.processed + 1 + len(self._queue)
             try:
-                identify.lookup(engine, settings, track_id, force, image_store(settings))
+                identify.lookup(
+                    engine, settings, track_id, force, image_store(settings), library=library
+                )
+                if library:
+                    self.progress.library += 1
             except Exception:
-                log.exception("Online lookup failed for inbox track %s", track_id)
+                log.exception("Online lookup failed for track %s", track_id)
             self.progress.processed += 1
+
+    def queued(self, track_id: int, library: bool = False) -> bool:
+        """True while this track waits for (or is in) a lookup."""
+        key = (library, track_id)
+        return self.running and (key in self._queue or key == self._current)
 
     def wait(self, timeout: float | None = None) -> None:
         if self._thread:

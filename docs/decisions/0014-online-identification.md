@@ -16,6 +16,12 @@ Inbox tracks often arrive with few tags. Filenames give artist and title; online
 - The review page lists every source's answer with its match, a link to the source's page and **Use these values** (all values and the cover of that result become the owner's values).
 - MusicBrainz albums from compilations aren't suggested ("The Annual 2019" isn't a club track's album).
 
+### Library tracks (added in 0.8.1)
+- **Look up online** for library tracks: on a track page, for ticked tracks, or for all tracks matching the list's filters. Same sources, scoring and stored results (`librarylookup`).
+- Because library files only change through review → apply (ADR 0003), **sure values for empty fields become pending changes** by themselves (the cover too); the owner reviews and applies them on the Changes page. Fields the owner already edited (pending) are left alone; **final tracks** get nothing staged (they are locked), but their results can still be looked at.
+- Everything that isn't sure waits on the track page, where **Use these values** stages one result.
+- Every result says why it scored as it did ("same title and artist, but 3:49 long (this file: 0:01)").
+
 ## Consequences
 - Edits, bootlegs and promos often aren't found; the filename suggestions and the owner stay in charge.
 - Store genres are broad ("Dance"); Discogs styles are more useful. Genres are mapped through the genre map but are only sure when two sources agree.

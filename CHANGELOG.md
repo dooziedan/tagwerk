@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-04
+
+### Added
+- **Look up online for library tracks**: on a track's page, for ticked tracks in the track list, or for all tracks matching the list's filters. Values for empty fields that two sources agree on (and a cover) become **pending changes** for you to review and apply; everything else is shown on the track page with **Use these values**. Fields you already edited and final tracks are left alone.
+- Every online result says why it matches as it does, e.g. *"20 % match · same title and artist, but 3:49 long (this file: 0:01)"* or *"another version of the title, same artist"*.
+
 ## [0.8.0] - 2026-10-04
 
 ### Added

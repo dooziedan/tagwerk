@@ -10,6 +10,10 @@
    **sure** when two sources agree on it, or when AcoustID recognised the audio clearly;
    otherwise the owner should check it. Tags in the file always win.
 
+Inbox tracks get suggestions on their review page. **Library tracks** ("Look up online") get
+the same lookups; their sure values become pending changes (stage_sure), so they go through the
+Changes page like any edit, and final tracks stay untouched.
+
 Network only, no files are written here: identification doesn't hold the library lock.
 """
 
@@ -25,11 +29,18 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from app import genres, preferences, writer
+from app import changes, genres, preferences, writer
 from app.config import Settings
 from app.duplicates import main_artist, normalized
 from app.images import MAX_SIZE, ImageError, ImageStore, image_info
-from app.models import InboxTrack, InboxValue, OnlineLookup
+from app.models import (
+    InboxTrack,
+    InboxValue,
+    LibraryLookup,
+    OnlineLookup,
+    PendingChange,
+    Track,
+)
 from app.proposals import Proposal, propose
 from app.sources.acoustid import AcoustID
 from app.sources.base import TIMEOUT, USER_AGENT, Candidate, Query, Source, SourceError
@@ -75,27 +86,41 @@ def query_for(session: Session, track: InboxTrack, import_dir: Path) -> Query:
     return Query(value("artist"), value("title"), track.duration, import_dir / track.path)
 
 
+def _table(library: bool) -> type[OnlineLookup] | type[LibraryLookup]:
+    return LibraryLookup if library else OnlineLookup
+
+
+def _row(session: Session, table, track_id: int, source: str):
+    return session.get(table, {"track_id": track_id, "source": source})
+
+
 def lookup(
     engine: Engine,
     settings: Settings,
     track_id: int,
     force: bool = False,
     images: ImageStore | None = None,
+    library: bool = False,
 ) -> int:
     """Ask every enabled source about one inbox track. Returns how many were asked.
 
     For a track without cover art, the best matching cover is downloaded once into ``images``
     (kept with the candidate), so the review page can show it as a suggestion.
     """
+    table = _table(library)
     with Session(engine) as session:
-        track = session.get(InboxTrack, track_id)
+        track = session.get(Track if library else InboxTrack, track_id)
         if track is None or track.error:
             return 0
         prefs = preferences.load(session)
-        query = query_for(session, track, settings.import_dir)
+        if library:
+            path = settings.music_dir / track.path
+            query = Query(track.artist, track.title, track.duration, path)
+        else:
+            query = query_for(session, track, settings.import_dir)
         asked = 0
         for source in enabled(settings, prefs):
-            row = session.get(OnlineLookup, (track.id, source.name))
+            row = _row(session, table, track.id, source.name)
             if not force and row and _fresh(row, query):
                 continue
             try:
@@ -109,7 +134,7 @@ def lookup(
             for candidate in found:
                 candidate.score = score(candidate, query)
             found.sort(key=lambda c: c.score, reverse=True)
-            row = row or OnlineLookup(track_id=track.id, source=source.name, query="")
+            row = row or table(track_id=track.id, source=source.name, query="")
             row.query = query.key()
             row.candidates = json.dumps([c.as_dict() for c in found[:KEEP]])
             row.error = error
@@ -118,13 +143,32 @@ def lookup(
             session.commit()
             asked += 1
         if images is not None and not track.has_cover:
-            _fetch_cover(session, track, images)
+            _fetch_cover(session, track, images, table)
+        if library:
+            stage_sure(session, track)
         return asked
 
 
-def _fetch_cover(session: Session, track: InboxTrack, images: ImageStore) -> None:
+def stage_sure(session: Session, track: Track) -> int:
+    """Turn a library track's sure online values into pending changes (for empty fields the
+    owner hasn't edited yet). Final tracks are skipped by changes.stage(). Returns how many."""
+    pending = {
+        c.field
+        for c in session.exec(select(PendingChange).where(PendingChange.track_id == track.id))
+    }
+    values = {
+        p.field: p.value for p in suggestions(session, track, taken=pending, library=True) if p.sure
+    }
+    count = changes.stage(session, [track.id], values)[0] if values else 0
+    cover = cover_suggestion(session, track, library=True)
+    if cover and cover.sure and writer.COVER not in pending:
+        count += changes.stage_cover(session, [track.id], cover.image_id)
+    return count
+
+
+def _fetch_cover(session: Session, track, images: ImageStore, table) -> None:
     """Download the cover of the best matching candidate that has one (once)."""
-    rows = list(session.exec(select(OnlineLookup).where(OnlineLookup.track_id == track.id)))
+    rows = list(session.exec(select(table).where(table.track_id == track.id)))
     best: tuple[Candidate, OnlineLookup, list[dict]] | None = None
     for row in rows:
         stored = json.loads(row.candidates)
@@ -197,6 +241,8 @@ def _title_match(wanted: str | None, found: str | None) -> float:
         return 1.0
     if _base(a) == _base(b):  # "Losing It" vs "Losing It (Extended Mix)": maybe another version
         return 0.8
+    if a.startswith(b + " ") or b.startswith(a + " "):  # "Rio" vs "Rio (Hush Remix)": a version
+        return 0.8
     return SequenceMatcher(None, a, b).ratio() * 0.9
 
 
@@ -225,6 +271,43 @@ def _length_match(wanted: float | None, found: float | None) -> float:
     return 1.0 if difference <= 3 else 0.6 if difference <= 10 else 0.2
 
 
+def explain(candidate: Candidate, query: Query) -> str:
+    """Why a candidate scored as it did, in words: "same title and artist, but 3:49 long
+    (this file: 0:01)". Uses the same comparisons as score()."""
+    if candidate.values.get("title"):
+        title = _title_match(query.title, candidate.values["title"])
+        title_words = _words(title, "title", "another version of the title")
+    else:
+        title_words = "a release with this track"
+    artist = _artist_match(query.artist, candidate.values.get("artist"))
+    artist_words = _words(artist, "artist", "partly the same artist")
+    if title_words == "same title" and artist_words == "same artist":
+        names = "same title and artist"
+    else:
+        names = f"{title_words}, {artist_words}"
+    if candidate.fingerprint_score is not None:
+        return f"the sound matches ({candidate.fingerprint_score:.0%}); {names}"
+    if not query.duration or not candidate.duration:
+        return f"{names}; length unknown"
+    if abs(query.duration - candidate.duration) <= 3:
+        return f"{names}, same length"
+    joiner = ", but" if names == "same title and artist" else ";"
+    return f"{names}{joiner} {_mmss(candidate.duration)} long (this file: {_mmss(query.duration)})"
+
+
+def _words(match: float, what: str, close: str) -> str:
+    if match == 1.0:
+        return f"same {what}"
+    if match >= 0.8:
+        return close
+    return f"a similar {what}" if match >= 0.6 else f"a different {what}"
+
+
+def _mmss(seconds: float) -> str:
+    seconds = round(seconds)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
 # --- Suggestions ----------------------------------------------------------------------------
 
 
@@ -243,24 +326,26 @@ class Found:
         return self.candidates[0] if self.candidates and self.candidates[0].score >= MATCH else None
 
 
-def results(session: Session, track_id: int) -> list[Found]:
+def results(session: Session, track_id: int, library: bool = False) -> list[Found]:
     """What each source found for a track (in SOURCES order)."""
-    rows = {
-        r.source: r
-        for r in session.exec(select(OnlineLookup).where(OnlineLookup.track_id == track_id))
-    }
+    table = _table(library)
+    rows = {r.source: r for r in session.exec(select(table).where(table.track_id == track_id))}
     found = []
     for cls in SOURCES:
         row = rows.get(cls.name)
         if row:
             candidates = [Candidate.from_dict(c) for c in json.loads(row.candidates)]
+            artist, title, duration = json.loads(row.query)  # what was asked (Query.key)
+            asked = Query(artist, title, duration or None)
+            for candidate in candidates:
+                candidate.why = explain(candidate, asked)
             found.append(Found(cls.name, cls.label, candidates, row.error, row.looked_up_at))
     return found
 
 
-def suggestions(session: Session, track: InboxTrack, taken: set[str]) -> list[Proposal]:
-    """Online suggestions for fields the file and the filename leave empty (``taken``)."""
-    best = [f.best for f in results(session, track.id) if f.best]
+def suggestions(session: Session, track, taken: set[str], library: bool = False) -> list[Proposal]:
+    """Online suggestions for fields the file leaves empty and nothing else fills (``taken``)."""
+    best = [f.best for f in results(session, track.id, library) if f.best]
     if not best:
         return []
     genre_map = genres.active(session)
@@ -299,12 +384,12 @@ class CoverSuggestion:
     reason: str
 
 
-def cover_suggestion(session: Session, track: InboxTrack) -> CoverSuggestion | None:
+def cover_suggestion(session: Session, track, library: bool = False) -> CoverSuggestion | None:
     """The downloaded online cover for a track without one, and whether it's sure: two
     sources found the track, or AcoustID recognised the audio clearly."""
     if track.has_cover:
         return None
-    found = results(session, track.id)
+    found = results(session, track.id, library)
     matched = [f.best for f in found if f.best]
     for f in found:
         best = f.best

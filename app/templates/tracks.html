@@ -10,6 +10,7 @@
     button.disabled = n === 0;
     button.textContent = n ? `Edit ${n} selected` : "Edit selected";
     document.getElementById("convert-selected").disabled = n === 0;
+    document.getElementById("lookup-selected").disabled = n === 0;
   }
 </script>
 {% set dj = prefs.mode == "dj" %}
@@ -52,11 +53,18 @@
 {% endif %}
 
 {% if result.tracks %}
+{% set looking = request.query_params.get("looking") %}
+{% if looking %}<p class="notice" role="status">🔎 Looking up {{ looking | int | plural('track') }} online in the background (about 3 seconds per track). Values that two sources agree on become <a href="/changes">pending changes</a> for you to review; each track's page shows everything that was found.</p>{% endif %}
 <form id="selection" method="get" action="/tracks/edit"></form>
 <div class="select-bar">
   <button type="submit" form="selection" class="outline" id="edit-selected" disabled>Edit selected</button>
   <a href="/tracks/edit?{{ (f.params() | urlencode) ~ ('&' if f.params() else '') }}all=true" class="secondary">Edit all {{ result.total | plural('matching track') }}</a>
   <button type="submit" form="selection" formaction="/convert" class="outline secondary" id="convert-selected" disabled>Convert to AIFF…</button>
+  <button type="submit" form="selection" formaction="/tracks/lookup" formmethod="post" class="outline secondary" id="lookup-selected" disabled>Look up online</button>
+  <form method="post" action="/tracks/lookup?{{ f.params() | urlencode }}" class="inline-form">
+    <input type="hidden" name="all" value="true">
+    <button type="submit" class="secondary link-button" onclick="return confirm('Look up all {{ result.total }} matching tracks online? Values two sources agree on become pending changes for you to review.')">Look up all {{ result.total | plural('matching track') }}</button>
+  </form>
 </div>
 {% endif %}
 {% if not result.tracks %}

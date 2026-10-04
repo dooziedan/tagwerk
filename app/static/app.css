@@ -215,7 +215,9 @@ button.small, .small[role="button"] { padding: 0.2rem 0.6rem; font-size: 0.8rem;
 .kept-note button { width: auto; }
 .result-ok { border-left: 4px solid var(--pico-ins-color); }
 .result-warn { border-left: 4px solid var(--pico-del-color); }
-.select-bar { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0; }
+.select-bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 0.5rem 0; }
+.select-bar .inline-form { margin: 0; }
+.link-button { background: none; border: none; padding: 0; color: var(--pico-secondary); text-decoration: underline; font-size: inherit; cursor: pointer; }
 .select-bar button { margin: 0; width: auto; }
 .check-col { width: 2rem; }
 .check-col input { margin: 0; }

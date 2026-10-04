@@ -42,7 +42,7 @@ class Query:
 
     def key(self) -> str:
         """What was asked, to notice when the owner changed artist or title."""
-        return json.dumps([self.artist, self.title, round(self.duration or 0)])
+        return json.dumps([self.artist, self.title, round(self.duration or 0, 1)])
 
     @property
     def search_artist(self) -> str:
@@ -65,6 +65,7 @@ class Candidate:
     score: float = 0.0  # how well it matches the track, 0..1 (set by app/identify.py)
     fingerprint_score: float | None = None  # AcoustID only: how alike the audio is
     cover_image: str | None = None  # the cover, once downloaded (an ImageStore id)
+    why: str = ""  # the score in words, for the review page (app/identify.py, explain())
 
     def as_dict(self) -> dict:
         return asdict(self)
