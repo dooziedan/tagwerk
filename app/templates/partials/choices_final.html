@@ -1,7 +1,7 @@
 {# Renaming final tracks (wizard step "Final tracks"; Settings → Final tracks). #}
 <fieldset class="live-preview" data-kind="file" data-target="file-preview">
   <legend><strong>Rename tracks when you mark them as final?</strong></legend>
-  <p class="muted"><small>"Final" is a seal for tracks you've checked completely. Until then, Tagwerk never renames a file: writing tags and importing keep the name it arrived with.</small></p>
+  <p class="muted"><small>"Final" is a seal for tracks you've checked completely. Until then, Tagwerk never renames a file: writing tags and importing keep the name it arrived with. You mark tracks on the <a href="/final">Final check</a> page.</small></p>
   <label><input type="checkbox" role="switch" name="rename_on_final" {% if prefs.rename_on_final %}checked{% endif %}> Yes, give final tracks a name built from their tags</label>
   <label>Filename pattern
     <input type="text" name="filename_pattern" value="{{ prefs.filename_pattern }}" autocomplete="off"

@@ -67,9 +67,11 @@ def main(base: str, out: Path) -> int:
         "settings": "/settings",
         "changes": "/changes",
         "setup": "/setup",
+        "final": "/final",
     }
     if track:
         pages["track"] = f"/tracks/{track}"
+        pages["convert"] = f"/convert?ids={track}"
     pages["inbox"] = "/inbox"
     inbox = first_inbox_id(base)
     if inbox:

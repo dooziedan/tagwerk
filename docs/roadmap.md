@@ -67,12 +67,17 @@ Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master l
   - Only new tracks from the inbox are sorted; reorganising the existing library is a separate, later feature (check Navidrome's handling of moved files first).
 
 ## After v0.7: Final tracks
+**Status:** ✅ built (Final check page, lock, renaming after Navidrome scanned, remove mark with name choice; [ADR 0012](decisions/0012-final-tracks.md)). Checked first: Navidrome keeps play counts and ratings of renamed files unless tags changed in the same scan.
+
 - A **Final check** page for library tracks: fully tagged tracks (title, artist, genre, BPM, key, cover) shown one at a time with all tags and the cover; **Mark as final** and go to the next.
 - The mark itself is stored **only in Tagwerk's database**: no tag is written for it.
 - Final tracks are **locked**: they can't be edited in Tagwerk until unlocked (batch edits skip them and say so). If another program changes the file, the mark stays but the track is flagged "changed outside Tagwerk".
 - **Renaming happens only when "Mark as final" is pressed**, and only if the owner enabled it (wizard, changeable in Settings). Before that, tags can be written any number of times without touching the filename. The page shows the new name before confirming. **Removing the final mark asks what to do with the name**: keep the current name, go back to the name before it was marked final, or type a name.
 - **Settings → Filename for final tracks**: which tags make up the name, e.g. `{artist} - {title} [{bpm} {key}]` (empty bracket parts disappear; characters Windows/SMB don't allow are replaced), with a live preview.
 - Before building the renaming: check how Navidrome keeps play counts and ratings for renamed files.
+
+## Before 1.0: Convert to AIFF ✅
+Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bit-exact; the AIFF lands by the import folder layout, the original in `/originals` ([ADR 0013](decisions/0013-convert-to-aiff.md)).
 
 ## v0.8: Online identification
 - Metadata source interface; sources: AcoustID fingerprint (fpcalc in the image), MusicBrainz, Discogs (free token), and public store APIs if their terms allow (iTunes Search, Deezer).

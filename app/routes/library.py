@@ -11,10 +11,12 @@ from app import preferences
 from app.config import SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep
+from app.jobs import write_job
 from app.library import FLAGS, MISSING, SORTS, TrackFilter, find_tracks, list_albums, list_artists
 from app.models import PendingChange, RawTag, Track
 from app.navigation import back_url
 from app.rawtags import SYSTEMS, used_as
+from app.routes.final import final_context
 from app.tags import FORMATS
 from app.templating import templates
 
@@ -100,6 +102,11 @@ def track_page(request: Request, track_id: int, session: SessionDep):
             "pending": session.exec(
                 select(PendingChange).where(PendingChange.track_id == track_id)
             ).all(),
+            **final_context(session, track),
+            "job": write_job,
+            "locked": request.query_params.get("locked"),  # came from Edit tags
+            "unmarking": request.query_params.get("unmarking"),
+            "error": request.query_params.get("error", ""),
             # The page the track was opened from (e.g. a filtered track list).
             "back": back_url(
                 request,

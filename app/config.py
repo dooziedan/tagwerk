@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Import inbox: new music waits here until it is tagged and moved into the library.
     # Optional; the Inbox page explains how to set it up when the folder doesn't exist.
     import_dir: Path = Path("/import")
+    # Optional: where the original files go after converting tracks to AIFF (app/convert.py).
+    # They keep their library path inside it, and wait there for the owner to decide.
+    originals_dir: Path = Path("/originals")
     # Persistent app data: database, logs, settings.
     config_dir: Path = Path("/config")
     log_level: str = "info"

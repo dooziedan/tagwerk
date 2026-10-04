@@ -153,6 +153,23 @@ def undo(path: Path, snapshot: dict, images: ImageStore | None = None) -> None:
     handler.undo(audio, snapshot, images)
 
 
+def tag_converted(path: Path, frames: list) -> None:
+    """Put all tags into an AIFF that Tagwerk just converted (app/convert.py).
+
+    Only for a brand-new file that isn't in the library yet, so no snapshot is needed:
+    undoing a conversion removes the whole file. ID3v2.4 keeps several values per field
+    (e.g. two artists) as they are, without joining them with "/".
+    """
+    audio = mutagen.File(path)
+    if audio is None or type(audio).__name__ != "AIFF":
+        raise WriteError("not a converted AIFF file")
+    if audio.tags is None:
+        audio.add_tags()
+    for frame in frames:
+        audio.tags.add(frame)
+    audio.save(v2_version=4)
+
+
 def _picture(data: bytes) -> Picture:
     """A front-cover picture block (FLAC, OGG, Opus) for image bytes."""
     mime, width, height = image_info(data)

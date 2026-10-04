@@ -1,6 +1,7 @@
 """Telling Navidrome to rescan after Tagwerk changed files (optional).
 
-Uses the Subsonic API that Navidrome implements (``startScan``, ``ping``, ``getMusicFolders``).
+Uses the Subsonic API that Navidrome implements (``startScan``, ``getScanStatus``, ``ping``,
+``getMusicFolders``).
 Needs the Navidrome address and a user with admin rights, set as container variables
 (NAVIDROME_URL, _USER, _PASSWORD). With several Navidrome libraries, NAVIDROME_LIBRARY names the
 one Tagwerk works on; only that one is rescanned (``startScan?target=<id>:``, Navidrome 0.59+;
@@ -8,10 +9,12 @@ older versions ignore the target and scan everything). The password is only sent
 token, never stored or logged by Tagwerk. Standard library only: no extra dependency.
 """
 
+import contextlib
 import hashlib
 import json
 import logging
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -77,6 +80,51 @@ def rescan_after_write(settings: Settings, files_changed: int) -> None:
     if files_changed and configured(settings):
         result = start_scan(settings)
         log.info("Navidrome rescan: %s", result.message)
+
+
+# How long renaming waits for Navidrome to finish a scan, and how often it asks.
+SCAN_WAIT = 180  # seconds
+SCAN_POLL = 2
+
+
+def scan_status(settings: Settings) -> tuple[Result, bool, datetime | None]:
+    """(result, scanning now, when the last scan finished) from ``getScanStatus``."""
+    result, body = _call(settings, "getScanStatus")
+    status = body.get("scanStatus", {})
+    last_scan = None
+    if status.get("lastScan"):
+        with contextlib.suppress(ValueError):  # an odd date: treated as "no scan known"
+            last_scan = datetime.fromisoformat(status["lastScan"].replace("Z", "+00:00"))
+    return result, bool(status.get("scanning")), last_scan
+
+
+def scanned_since(settings: Settings, changed_at: float, sleep=time.sleep) -> Result:
+    """Make sure Navidrome has scanned a file that changed at ``changed_at`` (Unix time).
+
+    Navidrome keeps play counts and ratings of a renamed file only if the file's tags didn't
+    change in the same scan (docs: "move or rename files first, trigger a quick scan, then
+    update the tags"). So before renaming: if the last scan is older than the file, start one
+    and wait for it. Without Navidrome set up there is nothing to wait for.
+    """
+    if not configured(settings):
+        return Result(True, "Navidrome isn't set up.")
+    started = False
+    waited = 0.0
+    while True:
+        result, scanning, last_scan = scan_status(settings)
+        if not result.ok:
+            return Result(False, f"Can't check Navidrome's scan: {result.message}")
+        if not scanning and last_scan and last_scan.timestamp() >= changed_at:
+            return Result(True, "Navidrome has the current file.")
+        if not scanning and not started:
+            result = start_scan(settings)
+            if not result.ok:
+                return result
+            started = True
+        if waited >= SCAN_WAIT:
+            return Result(False, "Navidrome is still scanning; try again in a few minutes.")
+        sleep(SCAN_POLL)
+        waited += SCAN_POLL
 
 
 def _libraries(settings: Settings) -> tuple[list[tuple[str, str]], Result | None]:

@@ -5,6 +5,7 @@
 {% if many %}
 <h1>Edit {{ tracks | length | plural('track') }}</h1>
 <p class="muted">Tick <strong>Change</strong> next to each field you want to set for all of them. Other fields stay as they are on every track.</p>
+{% if locked %}<p class="notice">🔒 {{ locked | plural('final track') }} {{ "is" if locked == 1 else "are" }} locked and will be skipped. Remove the final mark on a track's page to edit it.</p>{% endif %}
 {% else %}
 {% set t = tracks[0] %}
 <h1>Edit: {{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>

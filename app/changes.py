@@ -9,16 +9,24 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Engine, and_, or_
+from sqlalchemy import Engine, and_, exists, or_
 from sqlmodel import Session, col, delete, func, select
 
 from app import writer
 from app.images import ImageStore
-from app.models import ChangeEntry, ChangeSet, PendingChange, Track
+from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, Track
 from app.scanner import refresh_track
 
+if TYPE_CHECKING:
+    from app.config import Settings
+
 log = logging.getLogger(__name__)
+
+
+# Final tracks are locked against edits (app/final.py).
+_NOT_FINAL = ~exists().where(FinalTrack.track_id == Track.id)
 
 
 # --- Staging --------------------------------------------------------------------------------
@@ -32,6 +40,7 @@ def stage(
     ``values`` maps editable fields to the typed value ("" or None removes the field).
     Returns (number of pending changes, errors per field). With any error nothing is saved.
     A value equal to the current one removes that field's pending change instead.
+    Final tracks are locked: they are skipped (app/final.py).
     """
     normalized: dict[str, str | None] = {}
     errors: dict[str, str] = {}
@@ -44,7 +53,7 @@ def stage(
         return 0, errors
 
     count = 0
-    for track in session.exec(select(Track).where(col(Track.id).in_(track_ids))):
+    for track in session.exec(select(Track).where(col(Track.id).in_(track_ids), _NOT_FINAL)):
         for name, new in normalized.items():
             old = writer.current_value(track, name)
             existing = session.exec(
@@ -71,7 +80,7 @@ def stage(
 def stage_cover(session: Session, track_ids: list[int], image_id: str | None) -> int:
     """Save a cover art change: an image from the ImageStore, or None to remove the cover."""
     count = 0
-    for track in session.exec(select(Track).where(col(Track.id).in_(track_ids))):
+    for track in session.exec(select(Track).where(col(Track.id).in_(track_ids), _NOT_FINAL)):
         existing = session.exec(
             select(PendingChange).where(
                 PendingChange.track_id == track.id, PendingChange.field == writer.COVER
@@ -227,6 +236,7 @@ def undo_changeset(
     progress: WriteProgress,
     images: ImageStore | None = None,
     import_dir: Path | None = None,
+    settings: "Settings | None" = None,
 ) -> None:
     """Restore the files of one applied ChangeSet from their snapshots.
 
@@ -234,8 +244,11 @@ def undo_changeset(
     (from Tagwerk or another tool) are never overwritten. Imported files also move back
     into the inbox; files moved into a new genre folder go back to _Unsorted.
     """
-    from app import folders  # both import app.changes themselves
+    from app import convert, final, folders  # these import app.changes themselves
+    from app.config import get_settings
     from app.importer import move_back
+
+    settings = settings or get_settings()  # Navidrome, for renaming final tracks back
 
     with Session(engine) as session:
         changeset = session.get(ChangeSet, changeset_id)
@@ -257,7 +270,11 @@ def undo_changeset(
                     )
                 if entry.snapshot:
                     writer.undo(path, json.loads(entry.snapshot), images)
-                if entry.moved_from and changeset.kind == "folder":
+                if entry.moved_from and changeset.kind == "convert":
+                    convert.undo(session, entry, settings)
+                elif entry.moved_from and changeset.kind == "final":
+                    final.undo(session, entry, settings)
+                elif entry.moved_from and changeset.kind == "folder":
                     folders.move_back(session, entry, music_dir)
                 elif entry.moved_from:
                     if import_dir is None or not import_dir.is_dir():

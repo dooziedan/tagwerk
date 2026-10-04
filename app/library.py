@@ -11,7 +11,7 @@ from sqlalchemy import ColumnElement, Integer, and_, cast, distinct, exists, fun
 from sqlmodel import Session, col, select
 
 from app.keys import display
-from app.models import RawTag, Track
+from app.models import FinalTrack, RawTag, Track
 from app.tags import LOSSLESS_FORMATS
 
 PER_PAGE = 50
@@ -59,6 +59,10 @@ _BPM_FIELD = or_(
     and_(RawTag.system == "mp4", RawTag.name == "tmpo"),
 )
 
+# Final tracks (app/final.py): marked as done; "changed" when another program wrote to the file.
+IS_FINAL = exists().where(FinalTrack.track_id == Track.id)
+CHANGED_OUTSIDE = exists().where(FinalTrack.track_id == Track.id, FinalTrack.mtime != Track.mtime)
+
 # Named filters for things that aren't a single tag, with the label shown on the page.
 FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     "untagged": ("No tags at all", and_(_READABLE, Track.tag_format.is_(None))),
@@ -82,6 +86,8 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
         "BPM and key set",
         and_(Track.bpm.is_not(None), Track.key_camelot.is_not(None)),
     ),
+    "final": ("Final", IS_FINAL),
+    "final_changed": ("Final, changed outside Tagwerk", CHANGED_OUTSIDE),
 }
 
 
