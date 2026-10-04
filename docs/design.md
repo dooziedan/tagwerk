@@ -10,6 +10,10 @@ Tagwerk is calm and functional: a well-made tool for looking after a music libra
 | Charts | all Verdigris | tempo Verdigris, missing tags Burnt Peach, formats Sandy Brown, genres Jasmine, decades Charcoal Blue |
 | Headline tiles | plain | colour stripe per tile |
 
+## Typography
+
+**Inter** (v4.1, [rsms/inter](https://github.com/rsms/inter)), shipped inside the app as a variable font (`app/static/fonts/`, all weights, plus italic), so it looks the same on every device and nothing loads from the internet. Licence: SIL Open Font License, included as `Inter-LICENSE.txt`. Stylistic set `cv11` (single-storey "a") for a calmer look. Numbers in tables and tiles use tabular figures so columns line up. Tag values and paths keep the system monospace font.
+
 ## Palette
 
 | Name | Hex | Used for |

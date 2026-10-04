@@ -8,6 +8,7 @@ Tagwerk used Pico's default blue, had no logo, and one chart broke in the owner'
 - Two themes, **Calm** (one accent) and **Pop** (full palette), each with light and dark. Theme and appearance are preferences in `/config`.
 - All colours are **tokens** in `app/static/theme.css`, overriding Pico's variables. Each value documents its measured contrast; text ≥ 4.5:1, marks ≥ 3:1.
 - The Camelot wheel keeps the **standard Camelot colours in every theme** (owner's request), tuned for readable labels.
+- **Inter** as the one typeface, shipped inside the image (OFL licence), instead of each device's system font.
 - **No newer CSS** (`color-mix()` etc.) for essentials; chart colours are SVG attributes.
 - Cross-browser screenshots (Chromium, Firefox, WebKit) run in Playwright's Docker image before UI releases.
 

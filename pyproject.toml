@@ -36,6 +36,7 @@ app = [
     "templates/*.html",
     "templates/partials/*.html",
     "static/*",
+    "static/fonts/*",
     "migrations/*.py",
     "migrations/*.mako",
     "migrations/versions/*.py",

@@ -11,6 +11,28 @@
    - Light/dark follows the system unless the user picks one: <html data-theme="light|dark">.
      The theme is <html data-style="calm|pop">. */
 
+/* --- Typography: Inter, shipped with the app (static/fonts, SIL Open Font License) ---------- */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/InterVariable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/InterVariable-Italic.woff2") format("woff2");
+}
+:root {
+  --pico-font-family-sans-serif: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    var(--pico-font-family-emoji);
+  --pico-font-family: var(--pico-font-family-sans-serif);
+}
+body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little calmer */
+
 /* --- Palette ------------------------------------------------------------------------------ */
 :root {
   --tw-charcoal: #264653;
