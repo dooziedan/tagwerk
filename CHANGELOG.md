@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-04
+
+### Fixed
+- The Camelot wheel could show white segments with white text in some browsers, because its colours depended on a newer CSS feature (`color-mix`). Colours are now written into the chart itself and work in every browser.
+
+### Changed
+- Redesigned Camelot wheel: each key number has its own colour, major keys stronger than minor, empty keys grey; the track count is the main bold number in each segment, with smaller key names.
+- "Most common keys" list with counts and percentages below the wheel, replacing the "Show as table" grid.
+
 ## [0.3.1] - 2026-10-04
 
 ### Changed

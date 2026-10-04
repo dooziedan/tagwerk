@@ -55,34 +55,28 @@
   <article>
     <header><strong>Keys</strong> <small class="muted">{{ key_notations[prefs.key_notation] }}</small></header>
     {% if stats.keys | selectattr("count") | list %}
+    {% set with_key = stats.keys | sum(attribute="count") %}
     <figure class="key-wheel">
-      <svg viewBox="-100 -100 200 200" role="img" aria-labelledby="wheel-title">
+      <svg viewBox="-100 -100 200 200" role="img" aria-labelledby="wheel-title" font-family="inherit">
         <title id="wheel-title">Camelot wheel: number of tracks per key</title>
         {% for seg in key_wheel(stats.keys) %}
-        <g class="wheel-seg{% if seg.cell.intensity >= 55 %} strong{% endif %}{% if not seg.cell.count %} empty{% endif %}" style="--intensity: {{ seg.cell.intensity }}%">
-          <title>{{ seg.cell.label }} ({{ seg.cell.camelot }}): {{ seg.cell.count | number }} tracks, {{ seg.cell.percent }}%</title>
-          <path d="{{ seg.path }}"></path>
-          <text x="{{ seg.x }}" y="{{ seg.y - 3 }}" class="wheel-key">{{ seg.cell.label }}</text>
-          <text x="{{ seg.x }}" y="{{ seg.y + 7 }}" class="wheel-count">{{ seg.cell.count | number }}</text>
+        <g class="wheel-seg">
+          <title>{{ seg.cell.label }}{% if seg.cell.label != seg.cell.camelot %} ({{ seg.cell.camelot }}){% endif %}: {{ seg.cell.count | plural('track') }}, {{ seg.cell.percent }}%</title>
+          <path d="{{ seg.path }}" fill="{{ seg.fill }}"></path>
+          <text x="{{ seg.x }}" y="{{ seg.y - 2.5 }}" fill="{{ seg.text }}" font-size="6.2" text-anchor="middle" opacity="0.8">{{ seg.cell.label }}</text>
+          <text x="{{ seg.x }}" y="{{ seg.y + 6.5 }}" fill="{{ seg.text }}" font-size="8.5" font-weight="700" text-anchor="middle">{{ seg.cell.count | number }}</text>
         </g>
         {% endfor %}
-        <text x="0" y="-4" class="wheel-centre">{{ stats.keys | sum(attribute="count") | number }}</text>
-        <text x="0" y="9" class="wheel-centre-label">with key</text>
+        <text x="0" y="-1" fill="currentColor" font-size="13" font-weight="700" text-anchor="middle">{{ with_key | number }}</text>
+        <text x="0" y="10" fill="currentColor" font-size="6.5" text-anchor="middle" opacity="0.7">tracks with key</text>
       </svg>
-      <figcaption class="muted"><small>Darker = more tracks. Outer ring major, inner ring minor; neighbouring segments mix well.</small></figcaption>
+      <figcaption class="muted"><small>
+        Number = tracks in that key. Outer ring major, inner ring minor; neighbouring keys mix well.
+        {% if prefs.key_notation == "camelot" %}A = minor, B = major.{% elif prefs.key_notation == "openkey" %}m = minor, d = major.{% endif %}
+      </small></figcaption>
     </figure>
-    <details class="key-table">
-      <summary><small>Show as table</small></summary>
-      <div class="keys">
-        {% for cell in stats.keys %}
-        <div class="key-cell{% if cell.intensity >= 55 %} strong{% endif %}" style="--intensity: {{ cell.intensity }}%"
-             title="{{ cell.label }}: {{ cell.count | number }} tracks ({{ cell.percent }}%)">
-          <span class="key-name">{{ cell.label }}</span>
-          <span class="key-count">{{ cell.count | number }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </details>
+    <h3 class="sub-heading">Most common keys <small class="muted">share of tracks with a key</small></h3>
+    {{ bars((stats.keys | selectattr("count") | sort(attribute="count", reverse=true) | list)[:8]) }}
     {% else %}
     <p class="muted"><small>No key tags yet.</small></p>
     {% endif %}
