@@ -50,7 +50,7 @@
 <div class="grid-2">
   <article>
     <header><strong>Tempo</strong> <small class="muted">BPM, tracks with a BPM tag</small></header>
-    {{ bars(stats.bpm, empty="No BPM tags yet.") }}
+    {{ bars(stats.bpm, empty="No BPM tags yet.", tone="tempo") }}
   </article>
   <article>
     <header><strong>Keys</strong> <small class="muted">{{ key_notations[prefs.key_notation] }}</small></header>
@@ -87,12 +87,12 @@
 <div class="grid-2">
   <article>
     <header><strong>Decades</strong> <small class="muted">tracks with a year</small></header>
-    {{ bars(stats.decades, empty="No years in the tags yet.") }}
+    {{ bars(stats.decades, empty="No years in the tags yet.", tone="decades") }}
     {% if stats.unknown_year %}<p class="muted"><small>{{ stats.unknown_year | plural('track') }} without a year.</small></p>{% endif %}
   </article>
   <article>
     <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
-    {{ bars(stats.genres, empty="No genres in the tags yet.") }}
+    {{ bars(stats.genres, empty="No genres in the tags yet.", tone="genres") }}
   </article>
 </div>
 {% endif %}
@@ -100,7 +100,7 @@
 <div class="grid-2">
   <article>
     <header><strong>Missing tags</strong> <small class="muted">share of readable tracks</small></header>
-    {{ bars(stats.missing) }}
+    {{ bars(stats.missing, tone="missing") }}
     <footer>
       <ul class="notes">
         <li><a href="/tracks?flag=untagged">{{ stats.untagged | plural('file') }}</a> without any tags.</li>
@@ -114,7 +114,7 @@
   </article>
   <article>
     <header><strong>Formats</strong></header>
-    {{ bars(stats.formats, value="size") }}
+    {{ bars(stats.formats, value="size", tone="formats") }}
     {% if dj %}
     <footer>
       <ul class="notes">
@@ -129,7 +129,7 @@
 {% if dj %}
 <article>
   <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
-  {{ bars(stats.genres, empty="No genres in the tags yet.") }}
+  {{ bars(stats.genres, empty="No genres in the tags yet.", tone="genres") }}
 </article>
 {% endif %}
 

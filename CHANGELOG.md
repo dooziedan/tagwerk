@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-04
+
+### Added
+- **Design language** ([docs/design.md](docs/design.md)) with two themes in Settings: **Calm** (one accent colour, default) and **Pop** (the full palette: Charcoal Blue, Verdigris, Jasmine, Sandy Brown, Burnt Peach). Both in light and dark; **Appearance** can follow the system or be fixed to light or dark.
+- **Logo**: a luggage tag with level bars, in the menu, as browser icon, Apple touch icon and **Unraid icon** (the Docker list no longer shows a blank icon after re-adding the template).
+- `scripts/screenshots.py`: screenshots of the main pages in Chromium, Firefox and WebKit (Safari), both themes, light and dark, desktop and phone, run in Playwright's Docker image.
+
+### Changed
+- Camelot wheel uses the standard Camelot colours (now in the familiar clockwise order) in every theme, with readable labels on all 24 segments.
+- Colours come from design tokens (`app/static/theme.css`) with measured contrast, instead of Pico's default blue.
+
+### Fixed
+- Key labels on the Camelot wheel were underlined since segments became links.
+
 ## [0.5.0] - 2026-10-04
 
 ### Added

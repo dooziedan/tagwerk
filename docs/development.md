@@ -58,6 +58,19 @@ Review the generated file in `app/migrations/versions/`. A test fails if the mod
 
 CI runs the same checks on every push and pull request.
 
+## Checking the look in all browsers
+
+Every release that changes the interface: run `docker compose up`, scan, then
+
+```sh
+docker run --rm --network host -v "$PWD:/work" -w /work \
+    --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    mcr.microsoft.com/playwright/python:v1.63.0-noble \
+    sh -c "pip install -q --user playwright==1.63.0 && python scripts/screenshots.py http://localhost:8000 dev/shots"
+```
+
+It saves 120 screenshots to `dev/shots/` (Chromium, Firefox, WebKit × Calm/Pop × light/dark × desktop/phone) and fails on browser errors. See [design.md](design.md) for the rules.
+
 ## Workflow
 
 1. Create a branch: `git switch -c feature/short-name`

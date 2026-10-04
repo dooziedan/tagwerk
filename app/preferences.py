@@ -19,8 +19,20 @@ MODES = {
     "collector": "Collector",
 }
 
+STYLES = {
+    "calm": "Calm",
+    "pop": "Pop",
+}
+APPEARANCES = {
+    "system": "Follow system",
+    "light": "Light",
+    "dark": "Dark",
+}
+
 Mode = Literal["dj", "collector"]
 KeyNotation = Literal["camelot", "openkey", "musical"]
+Style = Literal["calm", "pop"]
+Appearance = Literal["system", "light", "dark"]
 
 
 @dataclass
@@ -30,6 +42,9 @@ class Preferences:
     key_notation: KeyNotation = "camelot"
     # MusicBrainz IDs are irrelevant for edits, bootlegs and promos, so they're opt-in.
     show_musicbrainz: bool = False
+    # Look (docs/design.md): Calm = one accent colour, Pop = the full palette.
+    style: Style = "calm"
+    appearance: Appearance = "system"
 
 
 def load(session: Session) -> Preferences:
@@ -57,6 +72,10 @@ def _validated(prefs: Preferences) -> Preferences:
     if prefs.key_notation not in NOTATIONS:
         prefs.key_notation = default.key_notation
     prefs.show_musicbrainz = bool(prefs.show_musicbrainz)
+    if prefs.style not in STYLES:
+        prefs.style = default.style
+    if prefs.appearance not in APPEARANCES:
+        prefs.appearance = default.appearance
     return prefs
 
 

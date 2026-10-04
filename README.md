@@ -10,6 +10,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - ✅ **Two modes**, switchable in the menu:
   - **DJ:** tempo spread, key grid (Camelot, Open Key or musical notation), BPM/key coverage, lossless share and low-bitrate files, missing BPM/key/label/comment.
   - **Collector:** decades, genres, albums, lyrics and ReplayGain coverage, missing album tags.
+- ✅ **Two themes**, Calm and Pop, each in light and dark.
 - ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
 - ✅ **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover. Every dashboard number links to its tracks.
 - ✅ **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, empty and `0` values, and the most common values.

@@ -2,7 +2,15 @@
    mode both work automatically. */
 
 .muted { color: var(--pico-muted-color); }
-.brand { text-decoration: none; }
+
+/* Brand: logo + name. Logo colours come from theme.css. */
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--pico-h1-color); }
+.brand-mark { display: block; flex: none; }
+.brand-tag { fill: var(--tw-brand-tag); }
+.brand-bar-1 { fill: var(--tw-brand-bar-1); }
+.brand-bar-2 { fill: var(--tw-brand-bar-2); }
+.brand-bar-3 { fill: var(--tw-brand-bar-3); }
+.brand-bar-4 { fill: var(--tw-brand-bar-4); }
 
 .page-head {
   display: flex;
@@ -26,7 +34,13 @@
   gap: var(--pico-spacing);
   margin-bottom: var(--pico-spacing);
 }
-.kpi { display: flex; flex-direction: column; margin: 0; padding: 1rem 1.25rem; }
+.kpi { display: flex; flex-direction: column; margin: 0; padding: 1rem 1.25rem; border-top: 4px solid var(--kpi-stripe, transparent); }
+/* Pop: each headline tile gets a palette colour stripe (Calm: transparent) */
+.kpis > :nth-child(1) { --kpi-stripe: var(--tw-kpi-1); }
+.kpis > :nth-child(2) { --kpi-stripe: var(--tw-kpi-2); }
+.kpis > :nth-child(3) { --kpi-stripe: var(--tw-kpi-3); }
+.kpis > :nth-child(4) { --kpi-stripe: var(--tw-kpi-4); }
+.kpis > :nth-child(5) { --kpi-stripe: var(--tw-kpi-5); }
 .kpi-value { font-size: 1.75rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kpi-label { color: var(--pico-muted-color); font-size: 0.875rem; }
 
@@ -44,8 +58,8 @@
   margin: 0;
 }
 .bar-label { font-size: 0.9rem; }
-.bar-track { height: 0.6rem; border-radius: 4px; background: var(--pico-muted-border-color); overflow: hidden; }
-.bar-fill { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: var(--pico-primary-background); }
+.bar-track { height: 0.6rem; border-radius: 4px; background: var(--tw-bar-track); overflow: hidden; }
+.bar-fill { display: block; height: 100%; min-width: 2px; border-radius: 4px; background: var(--bar-color, var(--tw-chart-tempo)); }
 .bar-value { font-variant-numeric: tabular-nums; text-align: right; font-size: 0.9rem; white-space: nowrap; }
 
 .notes { margin: 0; padding-left: 1rem; font-size: 0.875rem; color: var(--pico-muted-color); }
@@ -59,7 +73,8 @@
 /* Camelot wheel (colours are set in the SVG itself, see app/charts.py) */
 .key-wheel { margin: 0 auto 1rem; max-width: 24rem; color: var(--pico-color); }
 .key-wheel svg { display: block; width: 100%; height: auto; }
-.wheel-seg text { pointer-events: none; font-variant-numeric: tabular-nums; }
+.wheel-seg text { pointer-events: none; font-variant-numeric: tabular-nums; text-decoration: none; }
+a.wheel-seg, a.wheel-seg:hover { text-decoration: none; }
 .wheel-seg:hover path { opacity: 0.8; }
 .key-wheel figcaption { text-align: center; }
 .sub-heading { font-size: 1rem; margin: 0.5rem 0; }
@@ -76,7 +91,7 @@
 .sample code { white-space: normal; overflow-wrap: anywhere; }
 .badge {
   display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.8rem; white-space: nowrap;
-  background: rgba(1, 114, 173, 0.15);  /* Pico primary at 15%; plain value works in every browser */
+  background: var(--tw-chip-hover);
   color: var(--pico-primary);
 }
 .examples { list-style: none; padding: 0; margin: 0; font-size: 0.875rem; }
@@ -96,7 +111,7 @@
   display: inline-block; padding: 0.15rem 0.65rem; border-radius: 999px; font-size: 0.85rem; text-decoration: none;
   border: 1px solid var(--pico-primary); color: var(--pico-primary);
 }
-.chip:hover { background: rgba(1, 114, 173, 0.12); }
+.chip:hover { background: var(--tw-chip-hover); }
 .track-table { font-size: 0.9rem; }
 .track-table td { vertical-align: top; }
 .title-cell { min-width: 14rem; }

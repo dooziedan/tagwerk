@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from app import preferences
 from app.db import SessionDep
 from app.keys import NOTATIONS
-from app.preferences import MODES, Preferences, PreferencesDep
+from app.preferences import APPEARANCES, MODES, STYLES, Preferences, PreferencesDep
 from app.templating import templates
 
 router = APIRouter()
@@ -31,7 +31,14 @@ def settings_page(request: Request, prefs: PreferencesDep, saved: bool = False):
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"prefs": prefs, "modes": MODES, "notations": NOTATIONS, "saved": saved},
+        {
+            "prefs": prefs,
+            "modes": MODES,
+            "notations": NOTATIONS,
+            "styles": STYLES,
+            "appearances": APPEARANCES,
+            "saved": saved,
+        },
     )
 
 
@@ -43,6 +50,8 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
         mode=form.get("mode", prefs.mode),
         key_notation=form.get("key_notation", prefs.key_notation),
         show_musicbrainz=form.get("show_musicbrainz") == "on",  # unchecked boxes aren't sent
+        style=form.get("style", prefs.style),
+        appearance=form.get("appearance", prefs.appearance),
     )
     preferences.save(session, updated)
     return RedirectResponse("/settings?saved=true", status_code=303)
