@@ -73,6 +73,27 @@
 }
 .key-name { font-weight: 700; font-size: 0.9rem; }
 .key-count { font-size: 0.8rem; }
+/* Camelot wheel */
+.key-wheel { margin: 0 auto; max-width: 22rem; }
+.key-wheel svg { display: block; width: 100%; height: auto; }
+.wheel-seg path {
+  fill: color-mix(in srgb, var(--pico-primary-background) var(--intensity), var(--pico-card-sectioning-background-color));
+  stroke: var(--pico-card-background-color);
+  stroke-width: 1.5;
+}
+.wheel-seg.empty path { fill: var(--pico-card-sectioning-background-color); }
+.wheel-seg:hover path { stroke: var(--pico-primary); stroke-width: 2; }
+.wheel-seg text { text-anchor: middle; fill: var(--pico-color); font-variant-numeric: tabular-nums; pointer-events: none; }
+.wheel-seg.strong text { fill: var(--pico-primary-inverse); }
+.wheel-seg.empty text { fill: var(--pico-muted-color); }
+.wheel-key { font-size: 8.5px; font-weight: 700; }
+.wheel-count { font-size: 7.5px; }
+.wheel-centre { text-anchor: middle; font-size: 13px; font-weight: 700; fill: var(--pico-color); }
+.wheel-centre-label { text-anchor: middle; font-size: 7px; fill: var(--pico-muted-color); }
+.key-wheel figcaption { text-align: center; }
+.key-table { margin-top: 0.5rem; }
+.key-table .keys { margin-top: 0.5rem; }
+
 /* Text stays readable on dark cells */
 .key-cell.strong { color: var(--pico-primary-inverse); }
 

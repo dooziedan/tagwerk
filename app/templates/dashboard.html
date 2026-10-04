@@ -55,20 +55,34 @@
   <article>
     <header><strong>Keys</strong> <small class="muted">{{ key_notations[prefs.key_notation] }}</small></header>
     {% if stats.keys | selectattr("count") | list %}
-    <div class="keys">
-      {% for cell in stats.keys %}
-      <div class="key-cell{% if cell.intensity >= 55 %} strong{% endif %}"
-           style="--intensity: {{ cell.intensity }}%"
-           title="{{ cell.label }}: {{ cell.count | number }} tracks ({{ cell.percent }}%)">
-        <span class="key-name">{{ cell.label }}</span>
-        <span class="key-count">{{ cell.count | number }}</span>
+    <figure class="key-wheel">
+      <svg viewBox="-100 -100 200 200" role="img" aria-labelledby="wheel-title">
+        <title id="wheel-title">Camelot wheel: number of tracks per key</title>
+        {% for seg in key_wheel(stats.keys) %}
+        <g class="wheel-seg{% if seg.cell.intensity >= 55 %} strong{% endif %}{% if not seg.cell.count %} empty{% endif %}" style="--intensity: {{ seg.cell.intensity }}%">
+          <title>{{ seg.cell.label }} ({{ seg.cell.camelot }}): {{ seg.cell.count | number }} tracks, {{ seg.cell.percent }}%</title>
+          <path d="{{ seg.path }}"></path>
+          <text x="{{ seg.x }}" y="{{ seg.y - 3 }}" class="wheel-key">{{ seg.cell.label }}</text>
+          <text x="{{ seg.x }}" y="{{ seg.y + 7 }}" class="wheel-count">{{ seg.cell.count | number }}</text>
+        </g>
+        {% endfor %}
+        <text x="0" y="-4" class="wheel-centre">{{ stats.keys | sum(attribute="count") | number }}</text>
+        <text x="0" y="9" class="wheel-centre-label">with key</text>
+      </svg>
+      <figcaption class="muted"><small>Darker = more tracks. Outer ring major, inner ring minor; neighbouring segments mix well.</small></figcaption>
+    </figure>
+    <details class="key-table">
+      <summary><small>Show as table</small></summary>
+      <div class="keys">
+        {% for cell in stats.keys %}
+        <div class="key-cell{% if cell.intensity >= 55 %} strong{% endif %}" style="--intensity: {{ cell.intensity }}%"
+             title="{{ cell.label }}: {{ cell.count | number }} tracks ({{ cell.percent }}%)">
+          <span class="key-name">{{ cell.label }}</span>
+          <span class="key-count">{{ cell.count | number }}</span>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-    <p class="muted"><small>Darker = more tracks.
-      {% if prefs.key_notation == "camelot" %}A = minor, B = major; neighbours on the wheel mix well.
-      {% elif prefs.key_notation == "openkey" %}m = minor, d = major; neighbours on the wheel mix well.
-      {% else %}"m" = minor.{% endif %}</small></p>
+    </details>
     {% else %}
     <p class="muted"><small>No key tags yet.</small></p>
     {% endif %}
@@ -109,7 +123,7 @@
     <footer>
       <ul class="notes">
         <li>{{ stats.lossless | plural('lossless file') }} (FLAC, WAV, AIFF).</li>
-        <li>{% if stats.low_bitrate %}⚠️ {% endif %}{{ stats.low_bitrate | plural('lossy file') }} below 256 kbps.</li>
+        <li>{% if stats.low_bitrate %}⚠️ {% endif %}{{ stats.low_bitrate | plural('lossy file') }} below {{ stats.low_bitrate_kbps }} kbps.</li>
       </ul>
     </footer>
     {% endif %}

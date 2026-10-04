@@ -36,6 +36,7 @@ Files are never modified directly from a form or a lookup:
 | `app/stats.py` | Dashboard numbers, computed with SQL from `track` | 0.2 |
 | `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
+| `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Mode, key notation, MusicBrainz visibility, stored in the `appsetting` table | 0.3 |
 | `app/navidrome.py` | Subsonic API client | Phase 3 |
