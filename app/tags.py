@@ -213,7 +213,7 @@ def _read_vorbis(tags: VCommentDict, info: FileInfo) -> None:
     info.has_lyrics = bool(get("lyrics", "unsyncedlyrics"))
 
     info._bpm = get("bpm", "tempo")
-    info.key = get("initialkey", "key")
+    info.key = get("initialkey", "initial_key", "key")
     info.comment = get("comment", "description")
     info.label = get("label", "organization", "publisher")
     info.catalognumber = get("catalognumber")

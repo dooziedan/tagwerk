@@ -109,3 +109,16 @@ def test_bpm_values(tmp_path, raw, expected):
     audio["bpm"] = raw
     audio.save()
     assert read_file(path).bpm == expected
+
+
+@pytest.mark.parametrize("field", ["initialkey", "initial_key", "key"])
+def test_vorbis_key_spellings(tmp_path, field):
+    from mutagen.flac import FLAC
+
+    path = tmp_path / "key.flac"
+    shutil.copy(FIXTURES / "tagged.flac", path)
+    audio = FLAC(path)
+    del audio["initialkey"]
+    audio[field] = "F#m"
+    audio.save()
+    assert read_file(path).key_camelot == "11A"
