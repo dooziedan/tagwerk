@@ -48,6 +48,15 @@ def test_settings_api(client):
         "style": "calm",
         "appearance": "system",
         "backup_confirmed": False,
+        "setup_done": True,  # set by the client fixture (tests/conftest.py)
+        "folder_layout": "genre",
+        "folder_pattern": "{genre}",
+        "genre_folders": [],
+        "kept_unsorted": [],
+        "automation": "ask",
+        "genre_map": "",
+        "rename_on_final": False,
+        "filename_pattern": "{artist} - {title}",
     }
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}

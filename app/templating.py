@@ -79,16 +79,18 @@ def isoutc(value: datetime | None) -> str:
 
 
 def pending_count() -> int:
-    """Number of pending (not yet written) changes, for the menu badge."""
+    """Pending (not yet written) changes and proposed genre folders, for the menu badge."""
     try:
         from sqlmodel import Session
 
         from app.changes import pending_count as count
         from app.config import get_settings
         from app.db import get_engine
+        from app.folders import proposal_count
 
-        with Session(get_engine(get_settings().database_url)) as session:
-            return count(session)
+        settings = get_settings()
+        with Session(get_engine(settings.database_url)) as session:
+            return count(session) + proposal_count(session, settings.music_dir)
     except Exception:  # e.g. database not ready: no badge rather than a broken page
         return 0
 

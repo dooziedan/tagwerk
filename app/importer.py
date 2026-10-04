@@ -14,17 +14,16 @@ import hashlib
 import json
 import logging
 import os
-import re
 import shutil
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import writer
+from app import genres, naming, preferences, writer
 from app.changes import WriteProgress
-from app.genres import DEFAULT, GenreMap
 from app.images import ImageStore
 from app.inbox import owner_values, review
 from app.models import ChangeEntry, ChangeSet, InboxTrack, Track
@@ -32,9 +31,7 @@ from app.scanner import store_file
 
 log = logging.getLogger(__name__)
 
-UNSORTED = "_Unsorted"  # library folder for tracks without a genre
 REQUIRED = ("title", "artist")  # a track can't be imported without these
-_FORBIDDEN = re.compile(r'[\\/:*?"<>|\x00-\x1f]')  # not allowed in Windows/SMB names
 
 
 @dataclass
@@ -44,6 +41,9 @@ class ImportPlan:
     old: dict[str, str | None]  # the same fields as they are in the file now
     folder: str  # library folder, relative to MUSIC_DIR
     problems: list[str] = field(default_factory=list)  # why it can't be imported
+    # The main genre when it has no folder yet: the track goes to _Unsorted, and the Changes
+    # page proposes the folder (app/folders.py).
+    new_genre: str | None = None
 
     @property
     def destination(self) -> str:
@@ -51,7 +51,11 @@ class ImportPlan:
         return f"{self.folder}/{Path(self.track.path).name}"
 
 
-def plan(session: Session, track: InboxTrack, genres: GenreMap = DEFAULT) -> ImportPlan:
+def plan(
+    session: Session, track: InboxTrack, music_dir: Path, added: datetime | None = None
+) -> ImportPlan:
+    """What importing this track would do. ``added``: the import time (for date folders)."""
+    prefs = preferences.load(session)
     fields = review(session, track, list(writer.EDITABLE))
     values = {f.field: f.value for f in fields}
     changes = {f.field: f.value for f in fields if f.value != f.in_file}
@@ -60,7 +64,14 @@ def plan(session: Session, track: InboxTrack, genres: GenreMap = DEFAULT) -> Imp
     if writer.COVER in mine:  # a new cover, or None to remove it
         changes[writer.COVER] = mine[writer.COVER]
         old[writer.COVER] = writer.current_value(track, writer.COVER)
-    result = ImportPlan(track, changes, old, folder_for(values.get("genre"), genres))
+    names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
+    existing = naming.existing_folders(music_dir)
+    folder = naming.folder(
+        prefs.folder_layout, prefs.folder_pattern, names, prefs.genre_folders, existing
+    )
+    result = ImportPlan(track, changes, old, folder)
+    if prefs.folder_layout == "genre" and folder == naming.UNSORTED and names["genre"]:
+        result.new_genre = names["genre"]
     if track.error:
         result.problems.append("the file can't be read")
     for name in REQUIRED:
@@ -69,11 +80,28 @@ def plan(session: Session, track: InboxTrack, genres: GenreMap = DEFAULT) -> Imp
     return result
 
 
-def folder_for(genre: str | None, genres: GenreMap = DEFAULT) -> str:
-    """The genre folder: the main genre ("Liquid" -> "Drum & Bass"), or _Unsorted."""
-    tidy = genres.tidy((genre or "").split(";"))
-    name = _FORBIDDEN.sub("-", tidy[0]).strip(" .") if tidy else ""
-    return name or UNSORTED
+# A file must be unchanged for this long before an automatic import: it may still be copying.
+STABLE_AFTER = 120  # seconds
+
+
+def ready_for_auto_import(session: Session, track: InboxTrack, music_dir: Path, now: float) -> bool:
+    """True when Tagwerk may import this track without asking (automation "auto").
+
+    Only complete tracks: title, artist, genre, BPM, key and cover; every suggestion sure;
+    nothing that blocks an import; and the file unchanged for a while (no half downloads).
+    """
+    if track.error or now - track.mtime < STABLE_AFTER:
+        return False
+    if plan(session, track, music_dir).problems:
+        return False
+    fields = review(session, track, list(writer.EDITABLE))
+    suggested = [f.suggestion for f in fields if f.origin == "suggested"]
+    if any(not s.sure for s in suggested):
+        return False
+    mine = owner_values(session, track.id)
+    has_cover = mine[writer.COVER] is not None if writer.COVER in mine else track.has_cover
+    values = {f.field: f.value for f in fields}
+    return has_cover and all(values.get(n) for n in ("title", "artist", "genre", "bpm", "key"))
 
 
 def import_tracks(
@@ -98,7 +126,7 @@ def import_tracks(
 
         for track in tracks:
             progress.current = track.path
-            item = plan(session, track)
+            item = plan(session, track, music_dir)
             entry = ChangeEntry(
                 changeset_id=changeset.id,
                 path=item.destination,

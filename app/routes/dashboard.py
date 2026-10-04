@@ -3,7 +3,7 @@
 from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app import preferences
 from app.config import SettingsDep
@@ -23,6 +23,8 @@ def dashboard(request: Request, settings: SettingsDep, session: SessionDep):
     prefs = stats = None
     if status["database_ok"]:
         prefs = preferences.load(session)
+        if not prefs.setup_done and status["ok"]:
+            return RedirectResponse("/setup", status_code=303)  # first start: the wizard
         stats = library_stats(session, prefs)
     return templates.TemplateResponse(
         request,

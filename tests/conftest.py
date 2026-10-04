@@ -60,4 +60,7 @@ def client(settings):
     from app.main import app
 
     with TestClient(app) as client:  # "with" runs startup, which migrates the database
+        # Most tests are about pages after the first start; the wizard has its own tests.
+        prefs = client.get("/api/settings").json() | {"setup_done": True}
+        client.put("/api/settings", json=prefs)
         yield client

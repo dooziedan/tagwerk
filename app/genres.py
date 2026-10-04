@@ -13,6 +13,7 @@ Lookups are dictionary checks: no database, no network.
 """
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 DEFAULT_MAP = """\
 Drum & Bass = DnB, D&B, D'n'B, Drum and Bass, Drum'n'Bass, Drum 'n' Bass, Drum N Bass
@@ -59,6 +60,19 @@ class GenreMap:
                     break
         return result
 
+    @staticmethod
+    def problems(text: str) -> list[int]:
+        """Line numbers that are neither a spelling rule (=) nor a subgenre rule (>)."""
+        bad = []
+        for number, line in enumerate(text.splitlines(), 1):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            sep = "=" if "=" in line else ">" if ">" in line else None
+            if sep is None or not line.split(sep)[0].strip():
+                bad.append(number)
+        return bad
+
     def canonical(self, genre: str) -> str:
         return self.spelling.get(genre.strip().lower(), genre.strip())
 
@@ -73,3 +87,16 @@ class GenreMap:
 
 
 DEFAULT = GenreMap.parse(DEFAULT_MAP)
+
+
+@lru_cache(maxsize=8)
+def from_text(text: str) -> GenreMap:
+    """The owner's genre map (Settings → Genre map); the built-in one when empty."""
+    return GenreMap.parse(text) if text.strip() else DEFAULT
+
+
+def active(session) -> GenreMap:
+    """The genre map in use, from the preferences."""
+    from app import preferences  # preferences imports the database layer
+
+    return from_text(preferences.load(session).genre_map)

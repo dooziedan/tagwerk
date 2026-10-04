@@ -5,7 +5,7 @@ import pytest
 from sqlmodel import Session, select
 
 from app.changes import WriteProgress, undo_changeset
-from app.importer import folder_for, import_tracks
+from app.importer import import_tracks
 from app.inbox import save_values, scan_inbox
 from app.models import ChangeSet, InboxTrack, Track
 from app.scanner import ScanProgress
@@ -38,6 +38,7 @@ def run_import(engine, settings, track_ids) -> WriteProgress:
 
 
 def test_import_writes_tags_and_moves_the_file_unrenamed(engine, settings, inbox):
+    (settings.music_dir / "Drum & Bass").mkdir()  # the genre already has a folder
     track_id = ids(engine, f"Pool/{NAME}")[0]
     with Session(engine) as session:  # the owner adds a genre on the review page
         save_values(session, session.get(InboxTrack, track_id), {"genre": "Liquid"})
@@ -90,14 +91,6 @@ def test_undo_moves_the_file_back_with_its_old_tags(engine, settings, inbox):
     assert not (settings.music_dir / "_Unsorted" / NAME).exists()
     with Session(engine) as session:
         assert not session.exec(select(Track).where(Track.path.contains("Losing It"))).all()
-
-
-def test_folder_for_genre():
-    assert folder_for("Drum & Bass; Liquid") == "Drum & Bass"
-    assert folder_for("Deep House") == "House"
-    assert folder_for("dnb") == "Drum & Bass"
-    assert folder_for(None) == "_Unsorted"
-    assert folder_for("AC/DC Rock") == "AC-DC Rock"  # no folder separators in names
 
 
 def test_import_from_the_inbox_page(client, settings, inbox):
@@ -169,3 +162,32 @@ def test_the_inbox_check_doesnt_grey_out_the_import_button(client, inbox, monkey
     page = client.get("/inbox").text
     button = re.search(r'<button type="submit" form="inbox-import"[^>]*>', page).group(0)
     assert "disabled" not in button
+
+
+def test_automatic_import_takes_only_complete_settled_tracks(client, settings, engine):
+    import os
+    import time
+
+    from app.jobs import inbox_job
+
+    root = settings.import_dir
+    root.mkdir(parents=True)
+    shutil.copy(FIXTURES / "tagged.mp3", root / "complete.mp3")  # every tag and a cover
+    shutil.copy(FIXTURES / "tagged.mp3", root / "still copying.mp3")
+    shutil.copy(FIXTURES / "untagged.mp3", root / "Artist - Title.mp3")  # no genre, BPM, ...
+    old = time.time() - 600
+    os.utime(root / "complete.mp3", (old, old))
+    os.utime(root / "Artist - Title.mp3", (old, old))
+
+    client.post("/api/inbox/scan")  # automation is "ask": nothing happens
+    inbox_job.wait(30)
+    assert len(client.get("/api/inbox").json()) == 3
+
+    prefs = client.get("/api/settings").json() | {"automation": "auto"}
+    client.put("/api/settings", json=prefs)
+    client.post("/api/inbox/scan")
+    inbox_job.wait(30)
+    left = sorted(t["path"] for t in client.get("/api/inbox").json())
+    assert left == ["Artist - Title.mp3", "still copying.mp3"]
+    assert list(settings.music_dir.rglob("complete.mp3"))
+    assert "imported 1 complete track automatically" in client.get("/inbox").text

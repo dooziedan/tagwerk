@@ -14,9 +14,46 @@
 {% include "partials/write_status.html" %}
 {% endif %}
 
+{% if folders %}
+<h2>New genre folders</h2>
+<p class="muted">These tracks wait in <code>_Unsorted</code>. Tagwerk proposes a folder for each main genre and creates nothing until you agree. Filenames stay exactly as they are.</p>
+{% for f in folders %}
+<article class="change-card folder-card">
+  <header>
+    <strong>{% if f.exists %}Move into <code>{{ f.folder }}/</code>{% else %}New folder <code>{{ f.folder }}/</code>{% endif %}</strong>
+    <small class="muted"> · {{ f.moves | length | plural('track') }} with the main genre {{ f.genre }}</small>
+  </header>
+  <table class="diff moves">
+    <tbody>
+      {% for m in f.moves %}
+      <tr>
+        <td class="old"><a href="/tracks/{{ m.track.id }}"><code>{{ m.track.path }}</code></a></td>
+        <td class="arrow" aria-hidden="true">→</td>
+        <td class="new"><ins><code>{{ m.target }}</code></ins></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" class="apply-actions">
+    <input type="hidden" name="genre" value="{{ f.genre }}">
+    <button type="submit" formaction="/changes/folders/create" {% if busy %}disabled{% endif %}>{% if f.exists %}Move {{ f.moves | length | plural('track') }}{% else %}Create folder and move {{ f.moves | length | plural('track') }}{% endif %}</button>
+    <button type="submit" formaction="/changes/folders/keep" class="outline secondary" {% if busy %}disabled{% endif %}>Keep in _Unsorted</button>
+  </form>
+  <small class="muted">{% if prefs.genre_folders and f.genre not in prefs.genre_folders %}{{ f.genre }} also becomes one of your main genres, so new {{ f.genre }} tracks go straight there. {% endif %}You can undo this from the History page.</small>
+</article>
+{% endfor %}
+{% endif %}
+{% if prefs.folder_layout == "genre" and prefs.kept_unsorted %}
+<form method="post" action="/changes/folders/propose-again" class="kept-note">
+  <small class="muted">Kept in <code>_Unsorted</code> without asking: {{ prefs.kept_unsorted | join(", ") }}.</small>
+  <button type="submit" class="outline secondary small">Propose folders again</button>
+</form>
+{% endif %}
+
 {% if not items %}
-<article><p>No pending changes. Edit a track from its page, or select tracks in the <a href="/tracks">track list</a>.</p></article>
+{% if not folders %}<article><p>No pending changes. Edit a track from its page, or select tracks in the <a href="/tracks">track list</a>.</p></article>{% endif %}
 {% else %}
+{% if folders %}<h2>Tag changes</h2>{% endif %}
 {% set total = items | sum(attribute="changes", start=[]) | length %}
 <p>{{ total | plural('change') }} on {{ items | length | plural('file') }}, not written yet.</p>
 

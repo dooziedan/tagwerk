@@ -1,6 +1,6 @@
 {# Progress of an apply/undo job. Polls itself while running, reloads the page when done. #}
 {% set p = job.progress %}
-{% set verb = {"undo": "Undoing", "import": "Importing"}.get(p.action, "Writing") %}
+{% set verb = {"undo": "Undoing", "import": "Importing", "folder": "Moving"}.get(p.action, "Writing") %}
 {% if job.running %}
 <article id="write" hx-get="/partials/write?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
   <progress {% if p.total %}value="{{ p.processed }}" max="{{ p.total }}"{% endif %}></progress>
@@ -10,10 +10,11 @@
 {% elif job.status in ("done", "failed") %}
 <article id="write" class="{% if p.failed or job.error %}result-warn{% else %}result-ok{% endif %}">
   {% if job.error %}
-  <p>❌ {{ {"undo": "Undo", "import": "Import"}.get(p.action, "Apply") }} failed: {{ job.error }}</p>
+  <p>❌ {{ {"undo": "Undo", "import": "Import", "folder": "Moving"}.get(p.action, "Apply") }} failed: {{ job.error }}</p>
   {% else %}
   <p>{% if p.failed %}⚠️{% else %}✅{% endif %}
     {% if p.action == "import" %}Imported {{ p.written | plural('track') }} into the library{% if p.failed %}; {{ p.failed | plural('track') }} stayed in the inbox{% endif %}.
+    {% elif p.action == "folder" %}Moved {{ p.written | plural('track') }} out of _Unsorted{% if p.failed %}; {{ p.failed | plural('track') }} stayed in _Unsorted{% endif %}.
     {% else %}{{ "Undid" if p.action == "undo" else "Wrote" }} {{ p.written | plural('file') }}{% if p.failed %}, {{ p.failed | plural('file') }} failed{% endif %}.{% endif %}
     {% if p.changeset_id %}<a href="/changes/history/{{ p.changeset_id }}">Details</a>{% endif %}</p>
   {% if p.errors %}<details><summary>What went wrong</summary><ul class="notes">{% for e in p.errors %}<li><code>{{ e }}</code></li>{% endfor %}</ul></details>{% endif %}

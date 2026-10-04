@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, func, select
 
-from app import writer
+from app import genres, writer
 from app.models import InboxTrack, InboxValue
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
@@ -118,7 +118,7 @@ def owner_values(session: Session, track_id: int) -> dict[str, str | None]:
 
 def review(session: Session, track: InboxTrack, order: list[str]) -> list[ReviewField]:
     """Every editable field: the owner's value, else Tagwerk's suggestion, else the file's."""
-    suggestions = {p.field: p for p in propose(track)}
+    suggestions = {p.field: p for p in propose(track, genres.active(session))}
     mine = owner_values(session, track.id)
     result = []
     for name in order:
@@ -148,7 +148,7 @@ def save_values(session: Session, track: InboxTrack, typed: dict[str, str]) -> d
             errors[name] = str(exc)
     if errors:
         return errors
-    suggestions = {p.field: p.value for p in propose(track)}
+    suggestions = {p.field: p.value for p in propose(track, genres.active(session))}
     stored = {
         r.field: r for r in session.exec(select(InboxValue).where(InboxValue.track_id == track.id))
     }

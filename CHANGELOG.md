@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-04
+
+### Added
+- **Setup wizard** on first start (also after updating, with your current settings filled in): checks the folders and Navidrome, then asks how you work (DJ/Collector, key notation), where imported tracks go, how independently Tagwerk may work, and whether final tracks get renamed. **Skip setup** keeps the defaults. Everything can be changed later in Settings, and **Settings → Run setup again** goes through it once more.
+- **Import folders** of your choice: genre folders (optionally only your main genres; others go to `_Unsorted`), artist folders, date added (`2026/2026-10/`), or your own pattern like `{genre}/{added_year}`. Live examples from your own tracks. Filenames still never change on import.
+- **Automatic import** (optional): complete tracks (title, artist, genre, BPM, key, cover; every suggestion sure; file unchanged for 2 minutes) are imported without asking. The inbox is also checked every 5 minutes in the background. Each automatic import shows on the Inbox page with *Details and undo*.
+- **New genre folders after your OK**: Tagwerk no longer creates a genre folder on its own. A track whose genre has no folder yet (e.g. *Rock*) is imported into `_Unsorted`, and the **Changes** page proposes the folder: which folder is created and which files move into it (filenames unchanged, `.lrc` lyrics move along). **Create folder and move** does it and adds the genre to your main genres; **Keep in _Unsorted** stops asking for that genre. Moves show up in the History and can be undone.
+- **Settings → Genre map**: edit spelling variants (`=`) and subgenres (`>`), or go back to the built-in map.
+- **Settings → Final tracks & filenames**: the filename pattern for final tracks (e.g. `{artist} - {title} [{bpm} {key}]`), with clickable placeholders and a live preview. Used once marking tracks as final arrives.
+
+### Changed
+- `PUT /api/settings` now changes only the settings that are sent; all others stay as they are.
+- Genre folders with no main genres ticked: only the genre folders already in your library are used; new ones are proposed instead of created.
+- Artist folders use the track artist, not the album artist (no "Various Artists" folder for compilation tracks).
+
 ## [0.7.1] - 2026-10-04
 
 ### Added
