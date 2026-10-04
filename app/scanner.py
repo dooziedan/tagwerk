@@ -7,6 +7,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from glob import escape as glob_escape
 from pathlib import Path
 
 from sqlalchemy import Engine
@@ -109,30 +110,13 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 session.get(Track, existing.id).has_lrc = has_lrc
                 progress.updated += 1
             else:
-                columns, raw = _read_file(path, rel, progress)
-                columns.update(
-                    path=rel,
-                    size=stat.st_size,
-                    mtime=stat.st_mtime,
-                    has_lrc=has_lrc,
-                    scan_version=SCAN_VERSION,
-                    scanned_at=datetime.now(UTC),
+                store_file(
+                    session, path, rel, stat, has_lrc, existing.id if existing else None, progress
                 )
                 if existing:
-                    track = session.get(Track, existing.id)
-                    for key, value in columns.items():
-                        setattr(track, key, value)
-                    session.exec(delete(RawTag).where(RawTag.track_id == track.id))
                     progress.updated += 1
                 else:
-                    track = Track(**columns)
-                    session.add(track)
-                    session.flush()  # assigns track.id
                     progress.added += 1
-                session.add_all(
-                    RawTag(track_id=track.id, system=f.system, name=f.name, value=f.value)
-                    for f in raw
-                )
 
             progress.processed = i
             if i % COMMIT_EVERY == 0:
@@ -146,6 +130,49 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
 
     progress.current = ""
     log.info("Scan finished: %s", progress)
+
+
+def store_file(
+    session: Session,
+    path: Path,
+    rel: str,
+    stat: os.stat_result,
+    has_lrc: bool,
+    track_id: int | None,
+    progress: ScanProgress | None = None,
+) -> Track:
+    """Read one file and save it as a Track row with its raw tag fields (insert or update)."""
+    columns, raw = _read_file(path, rel, progress or ScanProgress())
+    columns.update(
+        path=rel,
+        size=stat.st_size,
+        mtime=stat.st_mtime,
+        has_lrc=has_lrc,
+        scan_version=SCAN_VERSION,
+        scanned_at=datetime.now(UTC),
+    )
+    if track_id is not None:
+        track = session.get(Track, track_id)
+        for key, value in columns.items():
+            setattr(track, key, value)
+        session.exec(delete(RawTag).where(RawTag.track_id == track.id))
+    else:
+        track = Track(**columns)
+        session.add(track)
+        session.flush()  # assigns track.id
+    session.add_all(
+        RawTag(track_id=track.id, system=f.system, name=f.name, value=f.value) for f in raw
+    )
+    return track
+
+
+def refresh_track(session: Session, music_dir: Path, track: Track) -> Track:
+    """Re-read one track's file after Tagwerk wrote to it."""
+    path = music_dir / track.path
+    has_lrc = any(
+        p.suffix.lower() == ".lrc" for p in path.parent.glob(glob_escape(path.stem) + ".*")
+    )
+    return store_file(session, path, track.path, path.stat(), has_lrc, track.id)
 
 
 def _read_file(path: Path, rel: str, progress: ScanProgress) -> tuple[dict, list[RawField]]:

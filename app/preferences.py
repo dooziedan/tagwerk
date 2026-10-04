@@ -45,6 +45,8 @@ class Preferences:
     # Look (docs/design.md): Calm = one accent colour, Pop = the full palette.
     style: Style = "calm"
     appearance: Appearance = "system"
+    # Set once the owner confirmed having a backup, before the very first write to files.
+    backup_confirmed: bool = False
 
 
 def load(session: Session) -> Preferences:
@@ -72,6 +74,7 @@ def _validated(prefs: Preferences) -> Preferences:
     if prefs.key_notation not in NOTATIONS:
         prefs.key_notation = default.key_notation
     prefs.show_musicbrainz = bool(prefs.show_musicbrainz)
+    prefs.backup_confirmed = bool(prefs.backup_confirmed)
     if prefs.style not in STYLES:
         prefs.style = default.style
     if prefs.appearance not in APPEARANCES:

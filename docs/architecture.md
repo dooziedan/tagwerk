@@ -36,16 +36,18 @@ Files are never modified directly from a form or a lookup:
 | `app/library.py` | Track filters, sorting, paging; artists and albums. The dashboard counts with the same conditions, so every number matches its list | 0.5 |
 | `app/stats.py` | Dashboard numbers (using `app/library.py` conditions), each with the URL of its track list | 0.2 |
 | `app/covers.py` | Cover art for display: embedded or `cover.jpg`/`folder.jpg` next to the file | 0.5 |
-| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`, `library`) | 0.2 |
+| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`, `library`, `changes`) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
 | `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
 | `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field | 0.4 |
 | `app/fields.py` | Statistics for the Tag fields page | 0.4 |
+| `app/writer.py` | **The only code that writes music files**: writes edited fields per format, captures snapshots, undoes ([ADR 0009](decisions/0009-writing-tags.md)) | 0.6 |
+| `app/changes.py` | Pending changes, apply and undo (run as jobs) | 0.6 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Mode, key notation, MusicBrainz visibility, stored in the `appsetting` table | 0.3 |
 | `app/navidrome.py` | Subsonic API client | Phase 3 |
 | `app/sources/` | Metadata sources behind one interface (`base.py`) | Phase 4 |
-| `app/jobs.py` | Background jobs in a thread, progress kept in memory (scan; later lookup, apply) | 0.2 |
+| `app/jobs.py` | Background jobs (scan, apply, undo) in a thread; one shared lock so they never overlap | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |
 
@@ -53,7 +55,7 @@ Files are never modified directly from a form or a lookup:
 
 - One process: `uvicorn` serving FastAPI. No external services.
 - Database: SQLite at `/config/tagwerk.db` in WAL mode, so the dashboard can read during a scan.
-- Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `rawtag` (every tag field of every file, as stored) and `appsetting` for preferences.
+- Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `rawtag` (every tag field of every file, as stored), `pendingchange`, `changeset`/`changeentry` (applied changes with undo snapshots) and `appsetting` for preferences.
 - `track.scan_version` records which tag-reader version read a row. Raising `SCAN_VERSION` in `app/scanner.py` makes the next scan re-read older rows once.
 - Everything needed at runtime ships in the Docker image. Only `/config` and `/music` come from the host.
 - Persistent state lives only in `/config`. The container can be deleted and recreated at any time.

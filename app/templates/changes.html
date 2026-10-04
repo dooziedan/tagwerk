@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Changes · Tagwerk{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Changes</h1>
+  <a href="/changes/history" class="secondary">History &amp; undo →</a>
+</div>
+
+{% if staged is not none %}<p role="status" class="notice">✅ Saved {{ staged | plural('pending change') }}. Review below, then apply.</p>{% endif %}
+{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if error == "backup" %}<p class="form-error" role="alert">Please confirm you have a backup before the first write.</p>{% endif %}
+
+{% if job.running or (job.status in ("done", "failed") and job.progress.action) %}
+{% include "partials/write_status.html" %}
+{% endif %}
+
+{% if not items %}
+<article><p>No pending changes. Edit a track from its page, or select tracks in the <a href="/tracks">track list</a>.</p></article>
+{% else %}
+{% set total = items | sum(attribute="changes", start=[]) | length %}
+<p>{{ total | plural('change') }} on {{ items | length | plural('file') }}, not written yet.</p>
+
+{% for item in items %}
+<article class="change-card">
+  <header>
+    <a href="/tracks/{{ item.track.id }}">{{ item.track.title or item.track.path.rsplit("/", 1)[-1] }}</a>
+    <small class="muted"> · <code>{{ item.track.path }}</code></small>
+  </header>
+  <table class="diff">
+    <tbody>
+      {% for c in item.changes %}
+      <tr>
+        <th scope="row">{{ labels[c.field] }}</th>
+        <td class="old">{% if c.old_value is none %}<span class="muted">(empty)</span>{% else %}<del>{{ c.old_value }}</del>{% endif %}</td>
+        <td class="arrow" aria-hidden="true">→</td>
+        <td class="new">{% if c.new_value is none %}<span class="muted">(removed)</span>{% else %}<ins>{{ c.new_value }}</ins>{% endif %}</td>
+        <td class="num">
+          <form method="post" action="/changes/{{ c.id }}/discard"><button class="outline secondary small" aria-label="Discard this change" {% if busy %}disabled{% endif %}>Discard</button></form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+{% endfor %}
+
+<article class="apply-box">
+  <form method="post" action="/changes/apply">
+    {% if not prefs.backup_confirmed %}
+    <p><strong>First write to your files.</strong> Tagwerk saves the old tags so every change can be undone, but a backup of your music is the real safety net.</p>
+    <label><input type="checkbox" name="backup" required> I have a backup of my music</label>
+    {% endif %}
+    <div class="apply-actions">
+      <button type="submit" {% if busy %}disabled{% endif %}>Apply {{ total | plural('change') }} to {{ items | length | plural('file') }}</button>
+      <button type="submit" formaction="/changes/discard" class="outline secondary" {% if busy %}disabled{% endif %}>Discard all</button>
+    </div>
+    <small class="muted">The old tags are saved first; you can undo from the History page.</small>
+  </form>
+</article>
+{% endif %}
+{% endblock %}

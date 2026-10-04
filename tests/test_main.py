@@ -47,6 +47,7 @@ def test_settings_api(client):
         "show_musicbrainz": False,
         "style": "calm",
         "appearance": "system",
+        "backup_confirmed": False,
     }
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}

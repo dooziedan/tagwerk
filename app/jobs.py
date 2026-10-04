@@ -1,68 +1,112 @@
 """Background jobs.
 
-Long tasks like a library scan run in a thread, so the web page stays responsive and can
-poll for progress. Only one scan runs at a time. State lives in memory: after a container
-restart there is simply no running job, and the database keeps the last scan's results.
+Long tasks (scanning the library, writing tags, undoing) run in a thread, so the web page
+stays responsive and can poll for progress. **Only one of them runs at a time**: they share
+one lock, so a scan never reads files while tags are being written, and two writes never
+overlap. State lives in memory: after a container restart there is no running job, and the
+database keeps the results.
 """
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
+from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
 from app.scanner import ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
 
+# Held while any job runs. Shared by all jobs on purpose.
+_library_lock = threading.Lock()
+
 
 @dataclass
-class ScanJob:
+class Job:
+    name: str
     status: str = "idle"  # idle, running, done, failed
-    progress: ScanProgress = field(default_factory=ScanProgress)
+    progress: Any = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     error: str | None = None
-    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _thread: threading.Thread | None = field(default=None, repr=False)
 
     @property
     def running(self) -> bool:
         return self.status == "running"
 
-    def start(self, settings: Settings) -> bool:
-        """Start a scan in the background. Returns False if one is already running."""
-        with self._lock:
-            if self.running:
-                return False
-            self.status = "running"
-            self.progress = ScanProgress()
-            self.started_at = datetime.now(UTC)
-            self.finished_at = None
-            self.error = None
-            self._thread = threading.Thread(
-                target=self._run, args=(settings,), name="scan", daemon=True
-            )
-            self._thread.start()
-            return True
+    def _start(self, work: Callable[[], None], progress: Any) -> bool:
+        """Run ``work`` in a thread. Returns False if any job is already running."""
+        if not _library_lock.acquire(blocking=False):
+            return False
+        self.status = "running"
+        self.progress = progress
+        self.started_at = datetime.now(UTC)
+        self.finished_at = None
+        self.error = None
+        self._thread = threading.Thread(target=self._run, args=(work,), name=self.name, daemon=True)
+        self._thread.start()
+        return True
+
+    def _run(self, work: Callable[[], None]) -> None:
+        try:
+            work()
+            self.status = "done"
+        except Exception as exc:
+            log.exception("%s failed", self.name)
+            self.error = str(exc)
+            self.status = "failed"
+        finally:
+            self.finished_at = datetime.now(UTC)
+            _library_lock.release()
 
     def wait(self, timeout: float | None = None) -> None:
         if self._thread:
             self._thread.join(timeout)
 
-    def _run(self, settings: Settings) -> None:
-        try:
+
+class ScanJob(Job):
+    def __init__(self) -> None:
+        super().__init__("scan", progress=ScanProgress())
+
+    def start(self, settings: Settings) -> bool:
+        progress = ScanProgress()
+
+        def work() -> None:
             if not settings.music_dir.is_dir():
                 raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
-            scan_library(get_engine(settings.database_url), settings.music_dir, self.progress)
-            self.status = "done"
-        except Exception as exc:
-            log.exception("Scan failed")
-            self.error = str(exc)
-            self.status = "failed"
-        finally:
-            self.finished_at = datetime.now(UTC)
+            scan_library(get_engine(settings.database_url), settings.music_dir, progress)
+
+        return self._start(work, progress)
+
+
+class WriteJob(Job):
+    """Applies pending changes, or undoes an applied change set."""
+
+    def __init__(self) -> None:
+        super().__init__("write", progress=WriteProgress())
+
+    def apply(self, settings: Settings) -> bool:
+        progress = WriteProgress(action="apply")
+        engine = get_engine(settings.database_url)
+        return self._start(lambda: apply_pending(engine, settings.music_dir, progress), progress)
+
+    def undo(self, settings: Settings, changeset_id: int) -> bool:
+        progress = WriteProgress(action="undo")
+        engine = get_engine(settings.database_url)
+        return self._start(
+            lambda: undo_changeset(engine, settings.music_dir, changeset_id, progress), progress
+        )
 
 
 scan_job = ScanJob()
+write_job = WriteJob()
+
+
+def busy() -> bool:
+    """True while any job (scan, apply, undo) is running."""
+    return scan_job.running or write_job.running

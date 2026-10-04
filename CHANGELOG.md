@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-04
+
+### Added
+- **Editing tags** for all 7 formats: title, artist, album, album artist, track, disc, date, genre, BPM, key, comment, label, catalog number.
+  - One track: **Edit tags** on the track page. The form follows the mode (DJ: BPM, key, genre, comment, label first).
+  - Many tracks: tick tracks in the track list → **Edit selected**, or **Edit all matching** for everything the current filter shows. Only ticked fields change.
+- **Changes** page (menu, with a count): every pending change as old → new, discard single changes or all, then **Apply**. Nothing is written before that.
+- **History** with **Undo** per apply. Undo restores the exact previous values.
+- Safety: the first apply asks you to confirm a backup; files changed since the last scan aren't written; undo never overwrites newer edits; scanning and writing never run at the same time; every written file is re-read and checked.
+- API: `GET/POST/DELETE /api/changes`, `POST /api/changes/apply`, `GET /api/changes/job`, `GET /api/changesets`, `POST /api/changesets/{id}/undo`.
+
+### Notes
+- Keys are written in standard notation (Am, F#) whatever you type; BPM is stored as a whole number in MP3/WAV/AIFF/M4A (format rule), with decimals in FLAC/OGG/Opus.
+- New ID3 tags are written as v2.3 for DJ software; existing tags keep their version. See [ADR 0009](docs/decisions/0009-writing-tags.md).
+
 ## [0.5.1] - 2026-10-04
 
 ### Added

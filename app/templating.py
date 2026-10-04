@@ -78,7 +78,23 @@ def isoutc(value: datetime | None) -> str:
     return value.isoformat()
 
 
+def pending_count() -> int:
+    """Number of pending (not yet written) changes, for the menu badge."""
+    try:
+        from sqlmodel import Session
+
+        from app.changes import pending_count as count
+        from app.config import get_settings
+        from app.db import get_engine
+
+        with Session(get_engine(get_settings().database_url)) as session:
+            return count(session)
+    except Exception:  # e.g. database not ready: no badge rather than a broken page
+        return 0
+
+
 templates.env.globals.update(
+    pending_count=pending_count,
     version=__version__,
     key_notations=NOTATIONS,
     key_wheel=key_wheel,
