@@ -64,8 +64,32 @@
 .key-wheel figcaption { text-align: center; }
 .sub-heading { font-size: 1rem; margin: 0.5rem 0; }
 
+/* Tag fields page */
+.field-filters { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; align-items: center; }
+.field-filters > * { margin: 0; }
+.field-filters button { width: auto; }
+.fields-table { margin-top: var(--pico-spacing); font-size: 0.9rem; }
+.fields-table td { vertical-align: top; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.samples { line-height: 1.9; min-width: 14rem; max-width: 32rem; }
+.sample { display: inline-block; margin-right: 0.5rem; }
+.sample code { white-space: normal; overflow-wrap: anywhere; }
+.badge {
+  display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.8rem; white-space: nowrap;
+  background: rgba(1, 114, 173, 0.15);  /* Pico primary at 15%; plain value works in every browser */
+  color: var(--pico-primary);
+}
+.examples { list-style: none; padding: 0; margin: 0; font-size: 0.875rem; }
+.examples li { padding: 0.35rem 0; border-bottom: 1px solid var(--pico-muted-border-color); margin: 0; }
+.examples .path { word-break: break-all; }
+
 /* Description under a settings option */
 .option-hint { margin: -0.5rem 0 0.75rem 2.25rem; font-size: 0.875rem; }
+
+@media (max-width: 768px) {
+  .field-filters { grid-template-columns: 1fr 1fr; }
+  .field-filters input[type="search"], .field-filters button { grid-column: 1 / -1; }
+}
 
 @media (max-width: 576px) {
   .wide-only { display: none; }  /* the Tagwerk logo links to the dashboard anyway */

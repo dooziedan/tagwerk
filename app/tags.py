@@ -27,6 +27,7 @@ from mutagen.id3 import ID3
 from mutagen.mp4 import MP4Tags
 
 from app.keys import to_camelot
+from app.rawtags import RawField, collect
 
 # File extension -> format name used throughout the app.
 FORMATS = {
@@ -96,9 +97,12 @@ class FileInfo:
     _bpm: str | None = field(default=None, repr=False)
     _replaygain: str | None = field(default=None, repr=False)  # "-6.20 dB"
 
+    # Every tag field as stored in the file (for the Tag fields page), not a Track column.
+    raw: list[RawField] = field(default_factory=list, repr=False)
+
     def as_columns(self) -> dict:
         """The values to store on a ``Track`` row."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k != "raw"}
 
 
 def read_file(path: Path) -> FileInfo:
@@ -121,6 +125,7 @@ def read_file(path: Path) -> FileInfo:
     )
 
     tags = audio.tags
+    riff_info = _riff_info_chunks(path) if fmt == "wav" else {}
     if isinstance(tags, ID3):
         _read_id3(tags, info)
     elif isinstance(tags, VCommentDict):
@@ -129,11 +134,12 @@ def read_file(path: Path) -> FileInfo:
             info.has_cover = True
     elif isinstance(tags, MP4Tags):
         _read_mp4(tags, info)
-    elif fmt == "wav":
-        # No ID3 chunk: fall back to the older RIFF INFO tags (Navidrome reads those too).
-        _read_riff_info(path, info)
+    elif riff_info:
+        # WAV without ID3: fall back to the older RIFF INFO tags (Navidrome reads those too).
+        _read_riff_info(riff_info, info)
 
     _finish(info)
+    info.raw = collect(audio, riff_info)
     return info
 
 
@@ -277,8 +283,7 @@ _RIFF_INFO_FIELDS = {
 }
 
 
-def _read_riff_info(path: Path, info: FileInfo) -> None:
-    values = _riff_info_chunks(path)
+def _read_riff_info(values: dict[bytes, str], info: FileInfo) -> None:
     found = False
     for chunk_id, attr in _RIFF_INFO_FIELDS.items():
         if values.get(chunk_id) and getattr(info, attr) is None:

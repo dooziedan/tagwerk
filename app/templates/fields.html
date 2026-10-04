@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Tag fields · Tagwerk{% endblock %}
+{% block content %}
+<h1>Tag fields</h1>
+<p class="muted">
+  Every tag field found in your files: {{ total | number }} different fields, {{ used | number }} of them used by Tagwerk.
+  Values are as stored in the files at the last scan. Click a field to see all its values.
+</p>
+
+<form method="get" action="/fields" class="field-filters">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search field names, e.g. bpm" aria-label="Search field names">
+  <select name="system" aria-label="Tag system">
+    <option value="">All tag systems</option>
+    {% for value, label in systems.items() %}
+    <option value="{{ value }}" {% if system == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="show" aria-label="Which fields">
+    <option value="all" {% if show == "all" %}selected{% endif %}>All fields</option>
+    <option value="used" {% if show == "used" %}selected{% endif %}>Used by Tagwerk</option>
+    <option value="ignored" {% if show == "ignored" %}selected{% endif %}>Ignored by Tagwerk</option>
+  </select>
+  <button type="submit">Filter</button>
+</form>
+
+{% if not total %}
+<article><p>No tag fields yet. Run a scan from the <a href="/">dashboard</a> first.</p></article>
+{% elif not fields %}
+<p>No fields match this filter.</p>
+{% else %}
+<div class="overflow-auto">
+<table class="fields-table striped">
+  <thead>
+    <tr>
+      <th scope="col">Field</th>
+      <th scope="col">Used as</th>
+      <th scope="col" class="num">Files</th>
+      <th scope="col" class="num" title="Files where the value is empty or 0">Empty / 0</th>
+      <th scope="col">Most common values</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in fields %}
+    <tr>
+      <td>
+        <a href="/fields/detail?system={{ f.system | urlencode }}&amp;name={{ f.name | urlencode }}"><code>{{ f.name }}</code></a>
+        <br><small class="muted">{{ systems[f.system] }}</small>
+      </td>
+      <td>{% if f.used_as %}<span class="badge">{{ f.used_as }}</span>{% else %}<small class="muted">ignored</small>{% endif %}</td>
+      <td class="num">{{ f.files | number }}<br><small class="muted">{{ f.percent }}%</small></td>
+      <td class="num">{% if f.empty or f.zero %}{{ f.empty | number }} / {{ f.zero | number }}{% else %}<span class="muted">–</span>{% endif %}</td>
+      <td class="samples">
+        {% for value, count in f.samples %}
+        <span class="sample"><code>{{ value if value else "(empty)" }}</code> <small class="muted">×{{ count | number }}</small></span>
+        {% endfor %}
+        {% if f.distinct > f.samples | length %}<small class="muted">+{{ (f.distinct - f.samples | length) | number }} more</small>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

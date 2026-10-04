@@ -63,6 +63,16 @@ class Track(SQLModel, table=True):
     scanned_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class RawTag(SQLModel, table=True):
+    """One tag field of one file, exactly as stored (see app/rawtags.py)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    track_id: int = Field(foreign_key="track.id", index=True, ondelete="CASCADE")
+    system: str  # id3, vorbis, mp4, riff-info
+    name: str = Field(index=True)  # e.g. "TBPM", "bpm", "TXXX:fBPM"
+    value: str  # shortened; binary data is stored as "<binary data>"
+
+
 class AppSetting(SQLModel, table=True):
     """User preferences that apply to every device, e.g. the dashboard mode."""
 

@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-04
+
+### Added
+- **Tag fields page** (menu → Tag fields, or the link under "Missing tags"): every tag field found in your files, with its tag system, which Tagwerk field it feeds (or "ignored"), how many files have it, how many values are empty or `0`, and the most common values. Search, filter by tag system, and show only used or ignored fields.
+- Detail page per field: all values with counts and example files.
+- API: `GET /api/fields`, `GET /api/fields/detail?system=…&name=…`.
+
+### Fixed
+- Files that couldn't be read are now retried on every scan, instead of staying "unreadable" until the file changes.
+
+### Upgrade notes
+- The first scan after updating re-reads every file once to record all tag fields.
+
 ## [0.3.2] - 2026-10-04
 
 ### Fixed
