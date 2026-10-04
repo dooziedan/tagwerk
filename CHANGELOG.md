@@ -17,8 +17,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Camelot wheel uses the standard Camelot colours (now in the familiar clockwise order) in every theme, with readable labels on all 24 segments.
 - Colours come from design tokens (`app/static/theme.css`) with measured contrast, instead of Pico's default blue.
 
+- Dashboard order: **missing tags first**; in DJ mode then keys, formats and tempo, with **genres at the bottom**.
+- "Most common keys" under the wheel is collapsed by default.
+- Headline tiles are centred, units shown smaller ("834.1 KB"), and values shrink slightly on narrow windows.
+
 ### Fixed
 - Key labels on the Camelot wheel were underlined since segments became links.
+- Long values like "834.1 KB" ran to the edge of their tile at window widths around 1000–1200 px.
 
 ## [0.5.0] - 2026-10-04
 
