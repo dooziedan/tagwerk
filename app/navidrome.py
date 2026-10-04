@@ -1,9 +1,11 @@
 """Telling Navidrome to rescan after Tagwerk changed files (optional).
 
-Uses the Subsonic API that Navidrome implements (``startScan``, ``ping``). Needs the Navidrome
-address and a user with admin rights, set as container variables (NAVIDROME_URL, _USER,
-_PASSWORD). The password is only sent as a salted token, never stored or logged by Tagwerk.
-Standard library only: no extra dependency.
+Uses the Subsonic API that Navidrome implements (``startScan``, ``ping``, ``getMusicFolders``).
+Needs the Navidrome address and a user with admin rights, set as container variables
+(NAVIDROME_URL, _USER, _PASSWORD). With several Navidrome libraries, NAVIDROME_LIBRARY names the
+one Tagwerk works on; only that one is rescanned (``startScan?target=<id>:``, Navidrome 0.59+;
+older versions ignore the target and scan everything). The password is only sent as a salted
+token, never stored or logged by Tagwerk. Standard library only: no extra dependency.
 """
 
 import hashlib
@@ -38,13 +40,36 @@ def configured(settings: Settings) -> bool:
 
 
 def ping(settings: Settings) -> Result:
-    """Check address and login."""
-    return _remember(_call(settings, "ping", "Connected to Navidrome."))
+    """Check address and login, and which library Tagwerk would rescan."""
+    result, _ = _call(settings, "ping")
+    if not result.ok:
+        return _remember(result)
+    found, error = _libraries(settings)
+    if error:
+        return _remember(error)
+    library, error = _library(settings, found)
+    if error:
+        return _remember(error)
+    names = ", ".join(f"“{name}”" for _, name in found)
+    which = f"Rescans only “{library[1]}”." if library else "Rescans all libraries."
+    return _remember(Result(True, f"Connected to Navidrome. Libraries: {names}. {which}"))
 
 
 def start_scan(settings: Settings) -> Result:
     """Ask Navidrome to look for changed files (it scans in the background)."""
-    return _remember(_call(settings, "startScan", "Navidrome is rescanning the library."))
+    library = None
+    if settings.navidrome_library:
+        found, error = _libraries(settings)
+        if not error:
+            library, error = _library(settings, found)
+        if error:
+            return _remember(error)
+    params = {"target": f"{library[0]}:"} if library else {}  # "<id>:" = the whole library
+    result, _ = _call(settings, "startScan", params)
+    if result.ok:
+        what = f"“{library[1]}”" if library else "the library"
+        result.message = f"Navidrome is rescanning {what}."
+    return _remember(result)
 
 
 def rescan_after_write(settings: Settings, files_changed: int) -> None:
@@ -54,9 +79,36 @@ def rescan_after_write(settings: Settings, files_changed: int) -> None:
         log.info("Navidrome rescan: %s", result.message)
 
 
-def _call(settings: Settings, endpoint: str, success: str) -> Result:
+def _libraries(settings: Settings) -> tuple[list[tuple[str, str]], Result | None]:
+    """Navidrome's libraries as (id, name); Subsonic calls them music folders."""
+    result, body = _call(settings, "getMusicFolders")
+    if not result.ok:
+        return [], result
+    folders = body.get("musicFolders", {}).get("musicFolder", [])
+    return [(str(f["id"]), f.get("name", "")) for f in folders], None
+
+
+def _library(
+    settings: Settings, found: list[tuple[str, str]]
+) -> tuple[tuple[str, str] | None, Result | None]:
+    """The library named in NAVIDROME_LIBRARY as (id, name), or None for all libraries."""
+    wanted = settings.navidrome_library.strip().lower()
+    if not wanted:
+        return None, None
+    for library_id, name in found:
+        if name.strip().lower() == wanted:
+            return (library_id, name), None
+    names = ", ".join(f"“{name}”" for _, name in found) or "none"
+    message = (
+        f"Navidrome has no library called “{settings.navidrome_library}”. Its libraries: {names}."
+    )
+    return None, Result(False, message)
+
+
+def _call(settings: Settings, endpoint: str, params: dict | None = None) -> tuple[Result, dict]:
+    """One Subsonic API request: (result, Navidrome's answer)."""
     if not configured(settings):
-        return Result(False, "Navidrome isn't set up (NAVIDROME_URL, _USER, _PASSWORD).")
+        return Result(False, "Navidrome isn't set up (NAVIDROME_URL, _USER, _PASSWORD)."), {}
     salt = secrets.token_hex(8)
     # The Subsonic API's login scheme: md5(password + salt). The password itself isn't sent.
     token = hashlib.md5((settings.navidrome_password + salt).encode()).hexdigest()
@@ -68,6 +120,7 @@ def _call(settings: Settings, endpoint: str, success: str) -> Result:
             "v": "1.16.1",
             "c": "tagwerk",
             "f": "json",
+            **(params or {}),
         }
     )
     url = f"{settings.navidrome_url.rstrip('/')}/rest/{endpoint}?{query}"
@@ -75,24 +128,26 @@ def _call(settings: Settings, endpoint: str, success: str) -> Result:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
             body = json.load(response).get("subsonic-response", {})
     except urllib.error.HTTPError as exc:
-        return Result(False, f"Navidrome answered with error {exc.code}. Is the address right?")
+        return Result(False, f"Navidrome answered with error {exc.code}. Is the address right?"), {}
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         reason = getattr(exc, "reason", exc)
         return Result(
             False,
             f"Can't reach Navidrome at {settings.navidrome_url} ({reason}). Use the server's IP "
             "address (or the container name on a shared Docker network), not localhost.",
-        )
+        ), {}
     except ValueError:
-        return Result(False, "That address doesn't answer like Navidrome.")
+        return Result(False, "That address doesn't answer like Navidrome."), {}
     if body.get("status") == "ok":
-        return Result(True, success)
+        return Result(True, "OK"), body
     error = body.get("error", {})
     if error.get("code") == 40:
-        return Result(False, "Navidrome rejected the user name or password.")
+        return Result(False, "Navidrome rejected the user name or password."), body
     if error.get("code") == 50:
-        return Result(False, "This Navidrome user may not start scans: it needs admin rights.")
-    return Result(False, f"Navidrome said: {error.get('message', 'unknown error')}")
+        return Result(
+            False, "This Navidrome user may not start scans: it needs admin rights."
+        ), body
+    return Result(False, f"Navidrome said: {error.get('message', 'unknown error')}"), body
 
 
 def _remember(result: Result) -> Result:

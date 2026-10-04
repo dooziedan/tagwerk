@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-04
+
+### Added
+- **Navidrome with several libraries**: the new optional field **Navidrome Library** (`NAVIDROME_LIBRARY`, e.g. `Music Library`) names the library that uses your music folder. Only that one is rescanned (Navidrome 0.59+; older versions scan all). **Test connection** lists Navidrome's libraries and says which one is rescanned; a misspelled name is reported with the real names.
+
 ## [0.7.0] - 2026-10-04
 
 ### Added

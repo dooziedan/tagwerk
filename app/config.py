@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     navidrome_url: str = ""
     navidrome_user: str = ""
     navidrome_password: str = ""
+    # With several Navidrome libraries: the name of the one Tagwerk works on (only it is
+    # rescanned). Empty: all libraries are rescanned.
+    navidrome_library: str = ""
 
     @property
     def database_url(self) -> str:

@@ -67,7 +67,8 @@
 <section id="navidrome" class="settings-section">
   <h2>Navidrome</h2>
   {% if navidrome.configured %}
-  <p>After every apply, import and undo, Tagwerk asks Navidrome at <code>{{ navidrome.url }}</code> (user <code>{{ navidrome.user }}</code>) to rescan, so changes show up there right away.</p>
+  <p>After every apply, import and undo, Tagwerk asks Navidrome at <code>{{ navidrome.url }}</code> (user <code>{{ navidrome.user }}</code>) to rescan {% if navidrome.library %}the library <strong>{{ navidrome.library }}</strong>{% else %}all its libraries{% endif %}, so changes show up there right away.</p>
+  {% if not navidrome.library %}<p class="muted"><small>If Navidrome has several libraries, set <strong>Navidrome Library</strong> (<code>NAVIDROME_LIBRARY</code>) to the one that uses your music folder, so only that one is rescanned. <em>Test connection</em> lists them.</small></p>{% endif %}
   {% if navidrome.last %}
   <p class="{% if navidrome.last.ok %}result-ok{% else %}form-error{% endif %}">{{ "✅" if navidrome.last.ok else "⚠️" }} {{ navidrome.last.message }}
     <small class="muted">· <time data-local datetime="{{ navidrome.last.at | isoutc }}">{{ navidrome.last.at | isoutc }}</time></small></p>

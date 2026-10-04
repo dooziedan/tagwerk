@@ -45,6 +45,7 @@ def settings_page(
                 "configured": navidrome.configured(settings),
                 "url": settings.navidrome_url,
                 "user": settings.navidrome_user,
+                "library": settings.navidrome_library,
                 "last": navidrome.last,
             },
         },
