@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, and_, or_
 from sqlmodel import Session, col, delete, func, select
 
 from app import writer
@@ -137,7 +137,7 @@ def discard(session: Session, change_id: int | None = None) -> None:
 
 @dataclass
 class WriteProgress:
-    action: str = "apply"  # apply or undo
+    action: str = "apply"  # apply, import or undo
     total: int = 0  # files
     processed: int = 0
     written: int = 0
@@ -226,21 +226,21 @@ def undo_changeset(
     changeset_id: int,
     progress: WriteProgress,
     images: ImageStore | None = None,
+    import_dir: Path | None = None,
 ) -> None:
     """Restore the files of one applied ChangeSet from their snapshots.
 
     A file that changed again after the change was applied is skipped, so newer edits
-    (from Tagwerk or another tool) are never overwritten.
+    (from Tagwerk or another tool) are never overwritten. Imported files also move back
+    into the inbox.
     """
+    from app.importer import move_back  # imports app.changes itself
+
     with Session(engine) as session:
         changeset = session.get(ChangeSet, changeset_id)
         entries = session.exec(
             select(ChangeEntry)
-            .where(
-                ChangeEntry.changeset_id == changeset_id,
-                ChangeEntry.snapshot.is_not(None),
-                col(ChangeEntry.undone).is_(False),
-            )
+            .where(ChangeEntry.changeset_id == changeset_id, _undoable())
             .order_by(ChangeEntry.id.desc())
         ).all()
         progress.total = len(entries)
@@ -254,10 +254,16 @@ def undo_changeset(
                         "the file changed after this change was applied; not undone, "
                         "so newer edits aren't lost"
                     )
-                writer.undo(path, json.loads(entry.snapshot), images)
-                track = session.get(Track, entry.track_id) if entry.track_id else None
-                if track:
-                    refresh_track(session, music_dir, track)
+                if entry.snapshot:
+                    writer.undo(path, json.loads(entry.snapshot), images)
+                if entry.moved_from:
+                    if import_dir is None or not import_dir.is_dir():
+                        raise writer.WriteError("the import folder isn't available")
+                    move_back(session, entry, import_dir, music_dir)
+                else:
+                    track = session.get(Track, entry.track_id) if entry.track_id else None
+                    if track:
+                        refresh_track(session, music_dir, track)
                 entry.undone = True
                 progress.written += 1
             except Exception as exc:
@@ -269,9 +275,7 @@ def undo_changeset(
             progress.processed += 1
         remaining = session.exec(
             select(func.count(ChangeEntry.id)).where(
-                ChangeEntry.changeset_id == changeset_id,
-                ChangeEntry.snapshot.is_not(None),
-                col(ChangeEntry.undone).is_(False),
+                ChangeEntry.changeset_id == changeset_id, _undoable()
             )
         ).one()
         if remaining == 0:
@@ -279,6 +283,14 @@ def undo_changeset(
             session.add(changeset)
             session.commit()
     progress.current = ""
+
+
+def _undoable():
+    """Entries that can still be undone: written tags, or a file moved by an import."""
+    return and_(
+        or_(ChangeEntry.snapshot.is_not(None), ChangeEntry.moved_from.is_not(None)),
+        col(ChangeEntry.undone).is_(False),
+    )
 
 
 def history(session: Session, limit: int = 50) -> list[ChangeSet]:

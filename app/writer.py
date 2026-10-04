@@ -33,6 +33,7 @@ from mutagen.mp4 import MP4Cover, MP4FreeForm, MP4Tags
 
 from app.images import ImageStore, image_info
 from app.keys import display, to_camelot
+from app.tags import is_comment_frame
 
 # Editable fields: name -> label. Order is the default form order.
 EDITABLE = {
@@ -203,8 +204,9 @@ _ID3_GROUPS: dict[str, Callable] = {
     "genre": lambda f: f.FrameID == "TCON",
     "bpm": lambda f: f.FrameID == "TBPM",
     "key": lambda f: f.FrameID == "TKEY",
-    # Only the plain comment; hidden player comments like iTunNORM stay untouched.
-    "comment": lambda f: f.FrameID == "COMM" and f.desc == "",
+    # Every comment the reader shows (incl. copies like "ID3v1 Comment"); hidden player
+    # comments like iTunNORM stay untouched.
+    "comment": is_comment_frame,
     "label": lambda f: f.FrameID == "TPUB" or _id3_txxx("label")(f),
     "catalognumber": _id3_txxx("catalognumber"),
     COVER: lambda f: f.FrameID == "APIC",

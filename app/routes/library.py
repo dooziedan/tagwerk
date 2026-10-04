@@ -13,6 +13,7 @@ from app.covers import find_cover
 from app.db import SessionDep
 from app.library import FLAGS, MISSING, SORTS, TrackFilter, find_tracks, list_albums, list_artists
 from app.models import PendingChange, RawTag, Track
+from app.navigation import back_url
 from app.rawtags import SYSTEMS, used_as
 from app.tags import FORMATS
 from app.templating import templates
@@ -99,6 +100,13 @@ def track_page(request: Request, track_id: int, session: SessionDep):
             "pending": session.exec(
                 select(PendingChange).where(PendingChange.track_id == track_id)
             ).all(),
+            # The page the track was opened from (e.g. a filtered track list).
+            "back": back_url(
+                request,
+                request.query_params.get("back"),
+                request.headers.get("referer"),
+                fallback="/tracks",
+            ),
         },
     )
 

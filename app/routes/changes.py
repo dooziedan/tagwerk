@@ -3,7 +3,7 @@
 import json
 from dataclasses import replace
 from typing import Annotated
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -18,6 +18,7 @@ from app.images import MAX_SIZE, ImageError, image_info
 from app.jobs import busy, image_store, write_job
 from app.library import TrackFilter
 from app.models import ChangeSet, Track
+from app.navigation import back_url, with_saved_note
 from app.templating import templates
 
 router = APIRouter()
@@ -120,7 +121,8 @@ def edit_track_form(request: Request, track_id: int, session: SessionDep):
     for name, change in pending.items():
         if name in writer.EDITABLE:
             values[name] = change.new_value or ""
-    return _edit_page(request, prefs, [track], values, {}, pending=pending)
+    back = back_url(request, request.query_params.get("back"), fallback="/tracks")
+    return _edit_page(request, prefs, [track], values, {}, pending=pending, back=back)
 
 
 @router.post("/tracks/{track_id}/edit", include_in_schema=False)
@@ -128,15 +130,17 @@ async def edit_track(request: Request, track_id: int, session: SessionDep, setti
     track = _track(session, track_id)
     form = await request.form()
     values = {f: str(form.get(f, "")) for f in writer.EDITABLE}
-    cover, errors = await _cover_choice(form, settings)
+    cover, errors = await cover_choice(form, settings)
     if not errors:
         count, errors = changes.stage(session, [track.id], values)
     if errors:
         prefs = preferences.load(session)
-        return _edit_page(request, prefs, [track], values, errors, status_code=422)
-    if cover is not _KEEP:
+        back = back_url(request, form.get("back"), fallback="/tracks")
+        return _edit_page(request, prefs, [track], values, errors, back=back, status_code=422)
+    if cover is not KEEP_COVER:
         count += changes.stage_cover(session, [track.id], cover)
-    return RedirectResponse(f"/changes?staged={count}", status_code=303)
+    back = back_url(request, form.get("back"), fallback="/tracks")
+    return RedirectResponse(with_saved_note(back, count), status_code=303)
 
 
 @router.get("/tracks/edit", response_class=HTMLResponse, include_in_schema=False)
@@ -145,7 +149,8 @@ def edit_many_form(request: Request, session: SessionDep, f: FilterDep):
     if not tracks:
         return RedirectResponse("/tracks", status_code=303)
     prefs = preferences.load(session)
-    return _edit_page(request, prefs, tracks, {}, {})
+    back = back_url(request, request.headers.get("referer"), fallback="/tracks")
+    return _edit_page(request, prefs, tracks, {}, {}, back=back)
 
 
 @router.post("/tracks/edit", include_in_schema=False)
@@ -154,43 +159,45 @@ async def edit_many(request: Request, session: SessionDep, settings: SettingsDep
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     tracks = list(session.exec(select(Track).where(col(Track.id).in_(ids))).all())
     values = {f: str(form.get(f, "")) for f in writer.EDITABLE if form.get(f"change_{f}") == "on"}
-    cover, errors = await _cover_choice(form, settings)
+    cover, errors = await cover_choice(form, settings)
     count = 0
-    if not errors and not values and cover is _KEEP:
+    if not errors and not values and cover is KEEP_COVER:
         errors = {"_form": "Tick “Change” next to at least one field, or change the cover art."}
     if not errors:
         count, errors = changes.stage(session, ids, values)
     if errors:
         prefs = preferences.load(session)
         typed = {f: str(form.get(f, "")) for f in writer.EDITABLE}
+        back = back_url(request, form.get("back"), fallback="/tracks")
         return _edit_page(
-            request, prefs, tracks, typed, errors, checked=set(values), status_code=422
+            request, prefs, tracks, typed, errors, checked=set(values), back=back, status_code=422
         )
-    if cover is not _KEEP:
+    if cover is not KEEP_COVER:
         count += changes.stage_cover(session, ids, cover)
-    return RedirectResponse(f"/changes?staged={count}", status_code=303)
+    back = back_url(request, form.get("back"), fallback="/tracks")
+    return RedirectResponse(with_saved_note(back, count), status_code=303)
 
 
-_KEEP = object()  # cover art stays as it is
+KEEP_COVER = object()  # cover art stays as it is
 
 
-async def _cover_choice(form: FormData, settings: Settings) -> tuple[object, dict[str, str]]:
-    """The cover art choice in an edit form: _KEEP, None (remove) or an image id."""
+async def cover_choice(form: FormData, settings: Settings) -> tuple[object, dict[str, str]]:
+    """The cover art choice in an edit form: KEEP_COVER, None (remove) or an image id."""
     action = form.get("cover_action", "keep")
     if action == "remove":
         return None, {}
     if action != "replace":
-        return _KEEP, {}
+        return KEEP_COVER, {}
     upload = form.get("cover_file")
     if not isinstance(upload, UploadFile) or not upload.filename:
-        return _KEEP, {"cover": "Choose an image file to use as cover art."}
+        return KEEP_COVER, {"cover": "Choose an image file to use as cover art."}
     data = await upload.read(MAX_SIZE + 1)
     if len(data) > MAX_SIZE:
-        return _KEEP, {"cover": f"The image is too big (more than {MAX_SIZE // 2**20} MB)."}
+        return KEEP_COVER, {"cover": f"The image is too big (more than {MAX_SIZE // 2**20} MB)."}
     try:
         image_info(data)
     except ImageError as exc:
-        return _KEEP, {"cover": str(exc)}
+        return KEEP_COVER, {"cover": str(exc)}
     return image_store(settings).put(data), {}
 
 
@@ -211,7 +218,17 @@ def image(image_id: str, settings: SettingsDep):
     return FileResponse(path, media_type=mime, headers=headers)
 
 
-def _edit_page(request, prefs, tracks, values, errors, pending=None, checked=None, status_code=200):
+def _edit_page(
+    request,
+    prefs,
+    tracks,
+    values,
+    errors,
+    pending=None,
+    checked=None,
+    back="/tracks",
+    status_code=200,
+):
     many = len(tracks) > 1
     shared = {}
     if many:
@@ -235,6 +252,10 @@ def _edit_page(request, prefs, tracks, values, errors, pending=None, checked=Non
             "pending": pending or {},
             "checked": checked or set(),
             "with_cover": sum(1 for t in tracks if t.has_cover),
+            "back": back,  # after saving, the user returns here
+            # "← Back" without saving: the track page (keeping where it was opened from),
+            # or the list for several tracks.
+            "cancel": back if many else f"/tracks/{tracks[0].id}?back={quote(back, safe='')}",
         },
         status_code=status_code,
     )

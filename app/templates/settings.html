@@ -63,4 +63,22 @@
 
   <button type="submit">Save</button>
 </form>
+
+<section id="navidrome" class="settings-section">
+  <h2>Navidrome</h2>
+  {% if navidrome.configured %}
+  <p>After every apply, import and undo, Tagwerk asks Navidrome at <code>{{ navidrome.url }}</code> (user <code>{{ navidrome.user }}</code>) to rescan, so changes show up there right away.</p>
+  {% if navidrome.last %}
+  <p class="{% if navidrome.last.ok %}result-ok{% else %}form-error{% endif %}">{{ "✅" if navidrome.last.ok else "⚠️" }} {{ navidrome.last.message }}
+    <small class="muted">· <time data-local datetime="{{ navidrome.last.at | isoutc }}">{{ navidrome.last.at | isoutc }}</time></small></p>
+  {% endif %}
+  <div class="button-row">
+    <form method="post" action="/settings/navidrome/test"><button class="outline secondary">Test connection</button></form>
+    <form method="post" action="/settings/navidrome/rescan"><button class="outline secondary">Rescan now</button></form>
+  </div>
+  {% else %}
+  <p>Optional: Tagwerk can tell Navidrome to rescan after it changed files, so new tags and imported tracks show up there right away.</p>
+  <p class="muted">To set it up on Unraid, edit the Tagwerk container and fill in <strong>Navidrome URL</strong> (your server's IP and Navidrome's port, e.g. <code>http://192.168.1.10:4533</code>, or <code>http://navidrome:4533</code> if both containers share a custom Docker network; not <code>localhost</code>), <strong>Navidrome User</strong> and <strong>Navidrome Password</strong>. The user needs admin rights in Navidrome.</p>
+  {% endif %}
+</section>
 {% endblock %}

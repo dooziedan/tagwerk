@@ -49,11 +49,30 @@ Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master l
 **Done when:** an edit made in the UI shows up in Navidrome and another tag tool, and can be undone.
 
 ## v0.7: Import inbox and first-run setup
+**Status:** steps 1–4 ✅ in v0.7.0 (inbox, suggestions, review and import with cover, Navidrome rescan). Step 5, the setup wizard, comes next; until then the inbox uses genre folders and never renames.
+
 - Optional **Import** path in the Unraid template, separate from the library (Navidrome never sees untagged tracks).
 - **First-run setup wizard:** mode, key notation, inbox, library folder pattern and **how independently Tagwerk may work** (always ask / auto-apply confident results). All changeable later in Settings.
 - Inbox pipeline, local steps: read tags, parse **filenames** (record pools, stores, promos, downloads), clean-up rules (BPM 0 → empty, spacing, "feat.", genre spelling, misplaced Discogs IDs).
 - Inbox page: "done" and "needs your help", with Tagwerk's best guesses to confirm or correct.
-- Finished tracks are **moved into the library** by the owner's pattern (copy → verify → delete), then Navidrome rescans.
+- Finished tracks are **moved into the library** by the owner's folder pattern (copy → verify → delete), then Navidrome rescans. By default **the filename never changes**: only the folder (and the tags) do.
+- Folder patterns offered in the wizard (the owner browses the share in a file explorer, so folders and filenames must be easy to remember):
+  - **Genre buckets** (proposed default): `Genre/<original filename>`, with 10–15 broad buckets the owner picks; genre tags are mapped onto them ("Deep House" → `House`), unknown → `_Unsorted`.
+  - **Subgenres**: the genre tag holds the main genre first, subgenres after it (`Drum & Bass; Liquid`); the first value picks the folder. A small, editable **genre map** (plain text in the settings table, shipped with common electronic genres and spelling variants like `DnB` → `Drum & Bass`) sorts tracks tagged only with a subgenre and proposes adding the main genre. One dictionary lookup per imported track: no extra database or service.
+  - **Artist**: `Artist/<original filename>`.
+  - **Date added**: `2026/2026-10/<original filename>`.
+  - **Custom pattern** with placeholders for the folder (e.g. `{genre}/{year}`); the filename is never part of it.
+  - **Import never renames files**: the file keeps its exact name. Renaming is a separate, optional feature for **final** tracks (see below). The original filename is never written into tags.
+  - Real albums stay together in an album folder.
+  - Only new tracks from the inbox are sorted; reorganising the existing library is a separate, later feature (check Navidrome's handling of moved files first).
+
+## After v0.7: Final tracks
+- A **Final check** page for library tracks: fully tagged tracks (title, artist, genre, BPM, key, cover) shown one at a time with all tags and the cover; **Mark as final** and go to the next.
+- The mark itself is stored **only in Tagwerk's database**: no tag is written for it.
+- Final tracks are **locked**: they can't be edited in Tagwerk until unlocked (batch edits skip them and say so). If another program changes the file, the mark stays but the track is flagged "changed outside Tagwerk".
+- **Renaming happens only when "Mark as final" is pressed**, and only if the owner enabled it (wizard, changeable in Settings). Before that, tags can be written any number of times without touching the filename. The page shows the new name before confirming. **Removing the final mark asks what to do with the name**: keep the current name, go back to the name before it was marked final, or type a name.
+- **Settings → Filename for final tracks**: which tags make up the name, e.g. `{artist} - {title} [{bpm} {key}]` (empty bracket parts disappear; characters Windows/SMB don't allow are replaced), with a live preview.
+- Before building the renaming: check how Navidrome keeps play counts and ratings for renamed files.
 
 ## v0.8: Online identification
 - Metadata source interface; sources: AcoustID fingerprint (fpcalc in the image), MusicBrainz, Discogs (free token), and public store APIs if their terms allow (iTunes Search, Deezer).

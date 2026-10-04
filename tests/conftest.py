@@ -41,6 +41,7 @@ def settings(tmp_path, music_dir, monkeypatch) -> Settings:
     config.mkdir()
     monkeypatch.setenv("MUSIC_DIR", str(music_dir))
     monkeypatch.setenv("CONFIG_DIR", str(config))
+    monkeypatch.setenv("IMPORT_DIR", str(tmp_path / "import"))  # created by tests that need it
     get_settings.cache_clear()
     yield get_settings()
     get_settings.cache_clear()

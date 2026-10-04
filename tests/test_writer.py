@@ -241,3 +241,24 @@ def test_image_info_and_store(images):
     image_id = images.put(PNG)
     assert images.put(PNG) == image_id and images.get(image_id) == PNG  # stored once
     assert not images.exists("../tagwerk.db")
+
+
+@pytest.mark.parametrize("fmt", ["mp3", "wav", "aiff"])
+def test_removing_a_comment_removes_every_copy(tmp_path, fmt):
+    """Taggers leave copies like "ID3v1 Comment"; the reader shows them, so they go too."""
+    from mutagen.id3 import COMM
+
+    path = copy(tmp_path, fmt)
+    audio = mutagen.File(path)
+    audio.tags.add(COMM(encoding=3, lang="eng", desc="ID3v1 Comment", text=["old copy"]))
+    audio.tags.add(COMM(encoding=3, lang="eng", desc="iTunNORM", text=["00000A 00000B"]))
+    audio.save()
+    assert read_file(path).comment == "Whatsapp Unreleased; old copy"
+    before = raw(path)
+
+    snapshot = writer.write(path, {"comment": None})
+    assert read_file(path).comment is None
+    assert ("id3", "COMM:iTunNORM:eng") in raw(path)  # hidden player data stays
+
+    writer.undo(path, snapshot)
+    assert raw(path) == before

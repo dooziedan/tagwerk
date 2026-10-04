@@ -29,7 +29,8 @@ def test_single_edit_review_apply_and_undo(client, music_dir):
               "label": "Fixture Records", "catalognumber": "FIX001"}  # fmt: skip
     body = "&".join(f"{k}={v.replace(' ', '+').replace(';', '%3B')}" for k, v in fields.items())
     saved = client.post(f"/tracks/{track}/edit", content=body, headers=FORM, follow_redirects=False)
-    assert saved.status_code == 303 and saved.headers["location"] == "/changes?staged=2"
+    assert saved.status_code == 303 and saved.headers["location"] == "/tracks?saved=2"
+    assert "Saved 2 pending changes" in client.get(saved.headers["location"]).text
 
     review = client.get("/changes").text
     assert "Silent Track" in review and "Edited" in review and "130" in review
@@ -153,3 +154,61 @@ def test_remove_cover_from_several_tracks(client, music_dir):
     write_job.wait(30)
     for name in ("tagged.mp3", "tagged.m4a"):
         assert not read_file(music_dir / ALBUM / name).has_cover
+
+
+def test_saving_returns_to_the_page_the_user_came_from(client):
+    ids = scanned(client)
+    track = ids[f"{ALBUM}/tagged.flac"]
+    came_from = "/tracks?genre=Electronic&sort=bpm"
+    form = client.get(
+        f"/tracks/edit?ids={track}", headers={"referer": f"http://testserver{came_from}"}
+    )
+    assert f'name="back" value="{came_from}' in form.text.replace("&amp;", "&")
+    saved = client.post(
+        "/tracks/edit",
+        data={"ids": [track], "change_label": "on", "label": "Back Label", "back": came_from},
+        follow_redirects=False,
+    )
+    assert saved.headers["location"] == came_from + "&saved=1"
+
+
+def test_back_url_never_leaves_the_app(client):
+    ids = scanned(client)
+    track = ids[f"{ALBUM}/tagged.flac"]
+    for evil in ("https://evil.example/x", "//evil.example/x", "javascript:alert(1)"):
+        saved = client.post(
+            f"/tracks/{track}/edit", data={"label": "Safe", "back": evil}, follow_redirects=False
+        )
+        assert saved.headers["location"].startswith("/tracks?saved=")
+
+
+def test_page_titles_are_plain_text(client):
+    """A <script> inside <title> is shown as text and never runs (v0.6.1 bug in the track list)."""
+    ids = scanned(client)
+    track = ids[f"{ALBUM}/tagged.flac"]
+    pages = ["/", "/tracks", "/albums", "/artists", "/fields", "/changes", "/changes/history",
+             "/settings", "/inbox", f"/tracks/{track}", f"/tracks/{track}/edit"]  # fmt: skip
+    for page in pages:
+        title = re.search(r"<title>(.*?)</title>", client.get(page).text, re.S).group(1)
+        assert "<" not in title, page
+
+
+def test_back_leads_to_where_the_track_was_opened(client):
+    ids = scanned(client)
+    track = ids[f"{ALBUM}/tagged.flac"]
+    origin = "/tracks?genre=Electronic"
+    page = client.get(f"/tracks/{track}", headers={"referer": f"http://testserver{origin}"})
+    html = page.text.replace("&amp;", "&")
+    assert f'<a href="{origin}">← Back</a>' in html
+    edit_link = re.search(r'href="(/tracks/\d+/edit\?back=[^"]+)"', html).group(1)
+    form = client.get(edit_link).text.replace("&amp;", "&")
+    assert f'name="back" value="{origin}"' in form
+    # "← Back" on the edit form returns to the track page, which still knows its origin.
+    cancel = re.search(r'<a href="([^"]+)">← Back</a>', form).group(1)
+    assert cancel.startswith(f"/tracks/{track}?back=")
+    assert f'<a href="{origin}">← Back</a>' in client.get(cancel).text.replace("&amp;", "&")
+    # After saving: back to the list the track was opened from.
+    saved = client.post(
+        f"/tracks/{track}/edit", data={"label": "X", "back": origin}, follow_redirects=False
+    )
+    assert re.fullmatch(re.escape(origin) + r"&saved=\d+", saved.headers["location"])

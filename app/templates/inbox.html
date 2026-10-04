@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Inbox · Tagwerk{% endblock %}
+{% block content %}
+{% set n = prefs.key_notation %}
+<div class="page-head">
+  <h1>Inbox</h1>
+  {% if configured %}{% include "partials/inbox_status.html" %}{% endif %}
+</div>
+
+{% if not configured %}
+<article>
+  <p><strong>No import folder yet.</strong> New music waits in the inbox until it is tagged, then Tagwerk moves it into your library.</p>
+  <p>To set it up on Unraid, edit the Tagwerk container and fill in <strong>Import Inbox</strong>, e.g. <code>/mnt/user/music-inbox</code>. Use a folder <em>outside</em> your music share, so Navidrome doesn't show unfinished tracks.</p>
+  <small class="muted">Tagwerk looks for the folder at <code>{{ import_dir }}</code> inside the container.</small>
+</article>
+{% elif not total %}
+<article class="empty-state">
+  <p><strong>The inbox is empty.</strong></p>
+  <p class="muted">Put new tracks (downloads, record pools, promos) into your import folder. They show up here.</p>
+</article>
+{% else %}
+{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if write.running or (write.status in ("done", "failed") and write.progress.action == "import") %}
+{% with job = write %}{% include "partials/write_status.html" %}{% endwith %}
+{% endif %}
+{% set q = "" if show == "all" else "?show=" ~ show %}
+<nav class="view-tabs" aria-label="Show">
+  {% for key, label, count in views if key != "unreadable" or count or key == show %}
+  <a href="/inbox{% if key != 'all' %}?show={{ key }}{% endif %}" data-view="{{ key }}"{% if key == show %} aria-current="page"{% endif %}>{{ label }} <span class="view-count">{{ count }}</span></a>
+  {% endfor %}
+</nav>
+<p class="muted">Click a track to check and correct its values. Filenames never change.</p>
+<p class="muted" id="inbox-empty"{% if shown %} hidden{% endif %}>No tracks here right now.</p>
+
+<form id="inbox-import" method="post" action="/inbox/import"></form>
+<table class="inbox-list">
+  <thead>
+    <tr>
+      <th scope="col" class="check-col"><input type="checkbox" aria-label="Select all" id="inbox-all" onclick="visibleBoxes().forEach(b => b.checked = this.checked); inboxSelection()"></th>
+      <th scope="col">Track</th>
+      <th scope="col">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r, in_views in rows %}{% set t = r.track %}
+    <tr data-views="{{ in_views | join(' ') }}"{% if show not in in_views %} hidden{% endif %}>
+      <td class="check-col"><input type="checkbox" name="ids" form="inbox-import" value="{{ t.id }}" aria-label="Select {{ t.title or t.path }}" onchange="inboxSelection()"></td>
+      <td>
+        <a href="/inbox/{{ t.id }}{{ q }}" class="inbox-track">
+          <span class="inbox-title">{{ r.title or t.path.rsplit("/", 1)[-1] }}</span>
+          {% if not t.error %}<span class="muted">{{ r.artist or "Unknown artist" }}</span>{% endif %}
+        </a>
+        <small class="muted inbox-file">{{ t.path }}</small>
+      </td>
+      <td class="inbox-status">
+        {% if t.error %}<span class="status status-warn" title="{{ t.error }}">Unreadable</span>
+        {% else %}
+          {% if r.changes %}<span class="status">{{ r.changes }} change{{ "s" if r.changes != 1 }}</span>{% endif %}
+          {% if r.edited %}<span class="status status-you">edited</span>{% endif %}
+          {% if r.missing %}<span class="status status-help">Needs {{ r.missing | join(", ") | lower }}</span>
+          {% elif not r.changes %}<span class="ok">✓ Ready</span>{% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{# Appears at the bottom of the window when tracks are ticked; the list doesn't move. #}
+<div class="action-bar" id="inbox-actions" hidden>
+  <div class="container action-bar-inner">
+    <strong id="inbox-count"></strong>
+    <button type="submit" form="inbox-import" id="inbox-import-button" {% if busy %}disabled{% endif %}>Import</button>
+    <small class="muted">Writes the tags shown on each track's page and moves it into the library by genre. Filenames stay the same. Tracks without title or artist stay in the inbox.</small>
+  </div>
+</div>
+<script>
+  // Tabs filter the list here in the browser (no reload), so ticked tracks stay ticked.
+  function visibleBoxes() {
+    return [...document.querySelectorAll("tbody tr:not([hidden]) input[name=ids]")];
+  }
+  document.querySelectorAll(".view-tabs a").forEach((tab) => tab.addEventListener("click", (e) => {
+    e.preventDefault();
+    const view = tab.dataset.view, query = view === "all" ? "" : "?show=" + view;
+    document.querySelectorAll(".view-tabs a").forEach((t) => t.removeAttribute("aria-current"));
+    tab.setAttribute("aria-current", "page");
+    let shown = 0;
+    document.querySelectorAll("tbody tr[data-views]").forEach((row) => {
+      row.hidden = !row.dataset.views.split(" ").includes(view);
+      if (!row.hidden) shown++;
+      row.querySelector("a.inbox-track").href = row.querySelector("a.inbox-track").pathname + query;
+    });
+    document.getElementById("inbox-empty").hidden = shown > 0;
+    history.replaceState(history.state, "", "/inbox" + query);
+    inboxSelection();
+  }));
+  function inboxSelection() {
+    const n = document.querySelectorAll("input[name=ids]:checked").length;
+    document.getElementById("inbox-actions").hidden = n === 0;
+    document.getElementById("inbox-count").textContent = n + " selected";
+    const visible = visibleBoxes(), all = document.getElementById("inbox-all");
+    all.checked = visible.length > 0 && visible.every((b) => b.checked);
+    document.getElementById("inbox-import-button").textContent = n === 1 ? "Import 1 track" : `Import ${n} tracks`;
+    document.body.classList.toggle("with-action-bar", n > 0);  // room so the bar covers nothing
+  }
+</script>
+{% endif %}
+{% endblock %}

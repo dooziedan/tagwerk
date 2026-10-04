@@ -51,6 +51,12 @@ def first_track_id(base: str) -> int | None:
     return tracks[0]["id"] if tracks else None
 
 
+def first_inbox_id(base: str) -> int | None:
+    with urllib.request.urlopen(f"{base}/api/inbox") as r:
+        tracks = [t for t in json.load(r) if not t["error"]]
+    return tracks[0]["id"] if tracks else None
+
+
 def main(base: str, out: Path) -> int:
     out.mkdir(parents=True, exist_ok=True)
     track = first_track_id(base)
@@ -62,6 +68,10 @@ def main(base: str, out: Path) -> int:
     }
     if track:
         pages["track"] = f"/tracks/{track}"
+    pages["inbox"] = "/inbox"
+    inbox = first_inbox_id(base)
+    if inbox:
+        pages["inbox-track"] = f"/inbox/{inbox}"
 
     errors: list[str] = []
     count = 0

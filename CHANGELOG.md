@@ -5,6 +5,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-04
+
+### Added
+- **Import inbox** (v0.7, step 1): an optional **Import Inbox** folder in the Unraid template (`/import`). The new **Inbox** page lists the tracks in it with their tags and what each one is missing (title, artist, genre, BPM, key, cover). Read-only for now: nothing is changed or moved yet. Inbox tracks are kept apart from the library, so they don't appear in counts or lists.
+- **Inbox suggestions** (v0.7, step 2): for each inbox track Tagwerk shows what it would change, still read-only:
+  - from the **filename**: artist, title, BPM and key (`01. Artist - Title (Extended Mix) [128 8A].mp3`; track numbers, label brackets and underscores are handled). Unclear names are marked **check**.
+  - **clean-up** of existing tags: spacing, "ft." → "feat.", genre spelling (`DnB` → `Drum & Bass`), and the main genre before subgenres (`Liquid` → `Drum & Bass; Liquid`).
+  - Mix names in square brackets are kept (`[Carvalho Drunk Mix]` → `(Carvalho Drunk Mix)`), a BPM after the mix name is read (`(Edit) 124`), and names in CAPITALS or lower case get normal capitalisation (marked **check**).
+  - **Track types in brackets get capital letters**, as DJs and stores write them (MusicBrainz writes them in lower case): `(club remix)` → `(Club Remix)`, `[vip]` → `[VIP]`. Remixer names stay as written.
+  - Title tags that repeat the artist or the BPM are tidied: `Haddaway - What is Love` → `What is Love`, `Body (Zillionaire Edit) 126` → `Body (Zillionaire Edit)`.
+  - Tags already in the file always win; suggestions only fill empty fields or tidy values.
+- **Inbox layout**: a compact list (the name each track will have, its filename, one status: "4 changes", "Needs genre", "✓ Ready") with checkboxes for actions on several tracks. Clicking a track opens its **review page**: every field filled in with Tagwerk's suggestion, marked *suggested*, *your value* or as in the file; correct anything, then **Save and next ›** to work through the inbox. Corrections are stored by Tagwerk and only written to the file on import.
+- **Filenames stay as they are**: writing tags and importing never rename files. (Renaming will be an opt-in feature for tracks you mark as final.)
+- **Import** (v0.7, step 3): tick tracks in the inbox and press **Import**, or use **Import** on a track's page. Tagwerk writes the tags shown on the track's page (your values, else its suggestions), then moves the file into the library: **copy, verify, delete the original**. The folder is the main genre (`Drum & Bass/`, `House/`, or `_Unsorted/`); the **filename stays exactly the same**. A file that already exists in the library is never overwritten: the track stays in the inbox with a note. Tracks need at least a title and an artist.
+- **Cover art on import**: on an inbox track's page, click the cover to replace it with a JPEG or PNG, or remove it (same as on the edit page). The choice is written into the file on import; undo brings the old cover back.
+- **Inbox tabs**: All · Needs help · Edited · Ready (· Unreadable), each with its count. A tab shows only those tracks (instantly, without reloading, so ticked tracks stay ticked when switching tabs), and **Save and next ›** on a track's page stays within the tab.
+- Imports appear in **History & undo**: undo restores the old tags and moves the file back into the inbox.
+- **Navidrome rescan** (v0.7, step 4): optional **Navidrome URL / User / Password** in the Unraid template. After every apply, import and undo, Tagwerk asks Navidrome to rescan (Subsonic API `startScan`; the user needs admin rights), so changes show up there right away. **Settings → Navidrome** shows the last result and has **Test connection** and **Rescan now**. The password is only sent as a salted token. Tested against Navidrome 0.64.2.
+- A built-in **genre map** of spelling variants and subgenres (Drum & Bass, House, Techno, Trance, …). Lookups are simple dictionary checks: no database, no network.
+
+### Changed
+- **Saving edits returns you to where you were**, e.g. the filtered track list, with a short note ("Saved 3 pending changes · Review →") instead of jumping to the Changes page. Editing one track after another is now quick.
+- "← Back" links on the track and edit pages lead to the page you came from (keeping filters), without relying on the browser history.
+- Header on tablets and phones (below 800px): Inbox, Changes and Settings move into the menu, which shows how many items wait. On narrow phones the logo appears without the word "Tagwerk".
+
+### Fixed
+- Inbox: the **Import** button could stay greyed out, because opening the page starts a quick check of the import folder. That check no longer blocks the button; an import waits for it to finish.
+- **Removing a comment didn't work** for MP3/WAV/AIFF files that contain extra comment copies (e.g. "ID3v1 Comment", left by older taggers): Tagwerk showed them, but only removed the main one. Reading and writing now use the same rule, so every copy is removed (and restored on undo). iTunes' hidden technical comments stay untouched.
+- Track list: **"Edit selected"** stayed greyed out after ticking tracks, so several tracks could only be edited with "Edit all matching". The script was accidentally placed inside the page title.
+
 ## [0.6.1] - 2026-10-04
 
 ### Added

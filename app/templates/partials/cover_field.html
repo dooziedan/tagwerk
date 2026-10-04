@@ -1,0 +1,63 @@
+{# Cover art row for edit forms: the cover is the button (click to replace), Remove, Reset.
+   Expects `cover`: src (current image URL or none), badge, status, removable, remove_text,
+   with_check (batch form with "Change" column), error. Posts cover_action + cover_file. #}
+<div class="edit-row cover-row{% if cover.with_check %} with-check{% endif %}">
+  {% if cover.with_check %}<span></span>{% endif %}
+  <span class="edit-label">Cover art{% if cover.badge %} <span class="badge">{{ cover.badge }}</span>{% endif %}</span>
+  <div class="cover-edit">
+    <input type="hidden" name="cover_action" id="cover-action" value="keep">
+    <label class="cover-pick" title="Choose a new cover">
+      <input type="file" name="cover_file" id="cover-file" class="visually-hidden" accept="image/jpeg,image/png" aria-label="Choose a new cover image"
+             {% if cover.error %}aria-invalid="true" aria-describedby="e-cover"{% endif %}>
+      <img id="cover-img" class="cover" {% if cover.src %}src="{{ cover.src }}"{% endif %} alt="Cover art" width="120" height="120"{% if not cover.src %} hidden{% endif %}>
+      <div id="cover-none" class="cover cover-missing" aria-hidden="true"{% if cover.src %} hidden{% endif %}>♪</div>
+      <span class="cover-pen" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+    </label>
+    <div class="cover-side">
+      <small id="cover-status" class="cover-status" aria-live="polite">{{ cover.status }}</small>
+      <div class="cover-buttons">
+        <button type="button" class="outline secondary small" id="cover-remove"{% if not cover.removable %} hidden{% endif %}>Remove</button>
+        <button type="button" class="outline secondary small" id="cover-reset" hidden>Reset</button>
+      </div>
+      {% if cover.error %}<small id="e-cover" class="form-error">{{ cover.error }}</small>{% endif %}
+      <small class="muted">JPEG or PNG · saved inside the music file</small>
+    </div>
+  </div>
+</div>
+<script>
+  // Cover art: "keep" until the user picks an image (click the cover) or removes it.
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const file = $("cover-file"), img = $("cover-img"), none = $("cover-none");
+    const action = $("cover-action"), status = $("cover-status");
+    const remove = $("cover-remove"), reset = $("cover-reset");
+    const initial = { src: img.getAttribute("src"), img: img.hidden, none: none.hidden,
+                      status: status.textContent, remove: remove.hidden };
+    function show(hasImage) { img.hidden = !hasImage; none.hidden = hasImage; }
+    function set(value, text) {
+      action.value = value;
+      status.textContent = text;
+      reset.hidden = value === "keep";
+      remove.hidden = value === "remove" || (value === "keep" && initial.remove);
+    }
+    file.addEventListener("cancel", () => file.blur());
+    file.addEventListener("change", function () {
+      file.blur();
+      if (!file.files.length) return;
+      img.src = URL.createObjectURL(file.files[0]);
+      show(true);
+      set("replace", "New: " + file.files[0].name);
+    });
+    remove.addEventListener("click", function () {
+      file.value = "";
+      show(false);
+      set("remove", {{ cover.remove_text | tojson }});
+    });
+    reset.addEventListener("click", function () {
+      file.value = "";
+      if (initial.src) img.src = initial.src; else img.removeAttribute("src");
+      img.hidden = initial.img; none.hidden = initial.none;
+      set("keep", initial.status);
+    });
+  })();
+</script>

@@ -17,9 +17,17 @@ class Settings(BaseSettings):
 
     # Where the music library is mounted inside the container.
     music_dir: Path = Path("/music")
+    # Import inbox: new music waits here until it is tagged and moved into the library.
+    # Optional; the Inbox page explains how to set it up when the folder doesn't exist.
+    import_dir: Path = Path("/import")
     # Persistent app data: database, logs, settings.
     config_dir: Path = Path("/config")
     log_level: str = "info"
+    # Optional: Navidrome to rescan after Tagwerk changed files. Use the server's IP address
+    # (e.g. http://192.168.1.10:4533), not localhost. The user needs admin rights.
+    navidrome_url: str = ""
+    navidrome_user: str = ""
+    navidrome_password: str = ""
 
     @property
     def database_url(self) -> str:

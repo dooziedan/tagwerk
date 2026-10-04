@@ -1,0 +1,13 @@
+{# Inbox check button and progress. While a check runs, it polls itself every second. #}
+{% set p = job.progress %}
+{% if job.running %}
+<div id="inbox-scan" class="scan" hx-get="/partials/inbox?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
+  <progress {% if p.total %}value="{{ p.processed }}" max="{{ p.total }}"{% endif %}></progress>
+  <small>{% if p.total %}Checking… {{ p.processed | number }} / {{ p.total | number }} files{% else %}Looking for new tracks…{% endif %}</small>
+</div>
+{% else %}
+<div id="inbox-scan" class="scan">
+  <button class="outline secondary small" hx-post="/partials/inbox" hx-target="#inbox-scan" hx-swap="outerHTML">Check again</button>
+  {% if job.status == "failed" %}<small>❌ {{ job.error }}</small>{% endif %}
+</div>
+{% endif %}
