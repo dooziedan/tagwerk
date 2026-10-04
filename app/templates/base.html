@@ -1,17 +1,35 @@
 <!doctype html>
-<html lang="en">
+{% set ui = prefs or none %}
+<html lang="en" data-style="{{ ui.style if ui else 'calm' }}"{% if ui and ui.appearance != 'system' %} data-theme="{{ ui.appearance }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tagwerk{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <link rel="icon" href="{{ url_for('static', path='logo.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', path='favicon-32.png') }}" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="{{ url_for('static', path='apple-touch-icon.png') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
 </head>
 <body>
   <header class="container">
     <nav>
-      <ul><li><a href="/" class="brand"><strong>Tagwerk</strong></a></li></ul>
+      <ul>
+        <li>
+          <a href="/" class="brand" aria-label="Tagwerk, dashboard">
+            <svg class="brand-mark" viewBox="0 0 64 64" width="32" height="32" aria-hidden="true">
+              <path class="brand-tag" fill-rule="evenodd" d="M4 32 L18 12 H54 a6 6 0 0 1 6 6 V46 a6 6 0 0 1 -6 6 H18 Z M11.4 32 a3.6 3.6 0 1 0 7.2 0 a3.6 3.6 0 1 0 -7.2 0 Z"/>
+              <rect class="brand-bar-1" x="25" y="30" width="5.5" height="14" rx="2.2"/>
+              <rect class="brand-bar-2" x="33" y="21" width="5.5" height="23" rx="2.2"/>
+              <rect class="brand-bar-3" x="41" y="26" width="5.5" height="18" rx="2.2"/>
+              <rect class="brand-bar-4" x="49" y="33" width="5.5" height="11" rx="2.2"/>
+            </svg>
+            <strong>Tagwerk</strong>
+          </a>
+        </li>
+      </ul>
       <ul>
         {% if prefs %}
         <li>

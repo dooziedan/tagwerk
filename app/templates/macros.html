@@ -1,8 +1,15 @@
+{# Headline number with a smaller unit: "834.1 KB" -> 834.1 + small KB, "19 min" -> 19 + small min. #}
+{% macro kpi_value(text) %}
+{%- set parts = (text ~ "").split(" ", 1) -%}
+<span class="kpi-value">{{ parts[0] }}{% if parts | length > 1 %}<small class="kpi-unit">{{ parts[1] }}</small>{% endif %}</span>
+{%- endmacro %}
+
 {# Horizontal bar list: one hue, the value always printed next to the bar.
    `value` decides the right-hand text: "percent" (count · %) or "size" (count · MB). #}
-{% macro bars(items, value="percent", unit="tracks", empty="Nothing to show yet.") %}
+{% macro bars(items, value="percent", unit="tracks", empty="Nothing to show yet.", tone="tempo") %}
+{# tone picks the chart colour token --tw-chart-<tone> (theme.css): tempo, missing, formats, genres, decades #}
 {% if items %}
-<ul class="bars">
+<ul class="bars" style="--bar-color: var(--tw-chart-{{ tone }})">
   {% for bar in items %}
   <li title="{{ bar.label }}: {{ bar.count | number }} {{ unit }} ({{ bar.percent }}%)">
     <span class="bar-label">{% if bar.url %}<a href="{{ bar.url }}">{{ bar.label }}</a>{% else %}{{ bar.label }}{% endif %}</span>

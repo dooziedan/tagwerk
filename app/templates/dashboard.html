@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import bars %}
+{% from "macros.html" import bars, kpi_value %}
 {% block content %}
 
 {% if not status.ok %}
@@ -41,17 +41,51 @@
   <a class="kpi-link" href="/tracks?flag=lossless"><article class="kpi" title="FLAC, WAV and AIFF"><span class="kpi-value">{{ (100 * stats.lossless / stats.tracks) | round | int }}%</span><span class="kpi-label">Lossless</span></article></a>
   {% else %}
   <a class="kpi-link" href="/albums"><article class="kpi"><span class="kpi-value">{{ stats.albums | number }}</span><span class="kpi-label">Albums</span></article></a>
-  <article class="kpi"><span class="kpi-value">{{ stats.total_duration | duration }}</span><span class="kpi-label">Playing time</span></article>
+  <article class="kpi">{{ kpi_value(stats.total_duration | duration) }}<span class="kpi-label">Playing time</span></article>
   {% endif %}
-  <article class="kpi"><span class="kpi-value">{{ stats.total_size | filesize }}</span><span class="kpi-label">Size</span></article>
+  <article class="kpi">{{ kpi_value(stats.total_size | filesize) }}<span class="kpi-label">Size</span></article>
 </section>
 
-{% if dj %}
-<div class="grid-2">
+{# Boxes are defined once, then arranged per mode: missing tags first, genres last. #}
+{% set missing_box %}
   <article>
-    <header><strong>Tempo</strong> <small class="muted">BPM, tracks with a BPM tag</small></header>
-    {{ bars(stats.bpm, empty="No BPM tags yet.") }}
+    <header><strong>Missing tags</strong> <small class="muted">share of readable tracks</small></header>
+    {{ bars(stats.missing, tone="missing") }}
+    <footer>
+      <ul class="notes">
+        <li><a href="/tracks?flag=untagged">{{ stats.untagged | plural('file') }}</a> without any tags.</li>
+        {% if dj and stats.bpm_zero %}<li><a href="/tracks?flag=bpm_zero">{{ stats.bpm_zero | plural('file') }}</a> store BPM as 0 ("unknown"), counted as missing.</li>{% endif %}
+        {% if prefs.show_musicbrainz %}<li><a href="/tracks?flag=invalid_mbid">{{ stats.invalid_mbids | plural('file') }}</a> with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
+        {% if not dj %}<li><a href="/tracks?flag=has_lyrics">{{ stats.with_lyrics | plural('track') }}</a> with lyrics (embedded or .lrc file).</li>{% endif %}
+        {% if stats.unreadable %}<li>⚠️ <a href="/tracks?flag=unreadable">{{ stats.unreadable | plural('file') }}</a> could not be read.</li>{% endif %}
+        <li><a href="/fields">See every tag field in your files →</a></li>
+      </ul>
+    </footer>
   </article>
+{% endset %}
+{% set formats_box %}
+  <article>
+    <header><strong>Formats</strong></header>
+    {{ bars(stats.formats, value="size", tone="formats") }}
+    {% if dj %}
+    <footer>
+      <ul class="notes">
+        <li><a href="/tracks?flag=lossless">{{ stats.lossless | plural('lossless file') }}</a> (FLAC, WAV, AIFF).</li>
+        <li>{% if stats.low_bitrate %}⚠️ {% endif %}<a href="/tracks?flag=low_bitrate">{{ stats.low_bitrate | plural('lossy file') }}</a> below {{ stats.low_bitrate_kbps }} kbps.</li>
+      </ul>
+    </footer>
+    {% endif %}
+  </article>
+{% endset %}
+{% set genres_box %}
+  <article>
+    <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
+    {{ bars(stats.genres, empty="No genres in the tags yet.", tone="genres") }}
+  </article>
+{% endset %}
+
+{% if dj %}
+{% set keys_box %}
   <article>
     <header><strong>Keys</strong> <small class="muted">{{ key_notations[prefs.key_notation] }}</small></header>
     {% if stats.keys | selectattr("count") | list %}
@@ -75,62 +109,43 @@
         {% if prefs.key_notation == "camelot" %}A = minor, B = major.{% elif prefs.key_notation == "openkey" %}m = minor, d = major.{% endif %}
       </small></figcaption>
     </figure>
-    <h3 class="sub-heading">Most common keys <small class="muted">share of tracks with a key</small></h3>
+    <details class="key-list">
+      <summary>Most common keys <small class="muted">share of tracks with a key</small></summary>
     {{ bars((stats.keys | selectattr("count") | sort(attribute="count", reverse=true) | list)[:8]) }}
+    </details>
     {% else %}
     <p class="muted"><small>No key tags yet.</small></p>
     {% endif %}
     {% if stats.unrecognized_keys %}<p><small>⚠️ <a href="/tracks?flag=key_unrecognized">{{ stats.unrecognized_keys | plural('file') }}</a> with a key tag Tagwerk doesn't recognize.</small></p>{% endif %}
   </article>
+{% endset %}
+<div class="grid-2">
+{{ missing_box }}
+{{ keys_box }}
+</div>
+<div class="grid-2">
+{{ formats_box }}
+  <article>
+    <header><strong>Tempo</strong> <small class="muted">BPM, tracks with a BPM tag</small></header>
+    {{ bars(stats.bpm, empty="No BPM tags yet.", tone="tempo") }}
+  </article>
+</div>
+<div class="full-width">
+{{ genres_box }}
 </div>
 {% else %}
 <div class="grid-2">
-  <article>
-    <header><strong>Decades</strong> <small class="muted">tracks with a year</small></header>
-    {{ bars(stats.decades, empty="No years in the tags yet.") }}
-    {% if stats.unknown_year %}<p class="muted"><small>{{ stats.unknown_year | plural('track') }} without a year.</small></p>{% endif %}
-  </article>
-  <article>
-    <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
-    {{ bars(stats.genres, empty="No genres in the tags yet.") }}
-  </article>
+{{ missing_box }}
+{{ formats_box }}
 </div>
-{% endif %}
-
 <div class="grid-2">
   <article>
-    <header><strong>Missing tags</strong> <small class="muted">share of readable tracks</small></header>
-    {{ bars(stats.missing) }}
-    <footer>
-      <ul class="notes">
-        <li><a href="/tracks?flag=untagged">{{ stats.untagged | plural('file') }}</a> without any tags.</li>
-        {% if dj and stats.bpm_zero %}<li><a href="/tracks?flag=bpm_zero">{{ stats.bpm_zero | plural('file') }}</a> store BPM as 0 ("unknown"), counted as missing.</li>{% endif %}
-        {% if prefs.show_musicbrainz %}<li><a href="/tracks?flag=invalid_mbid">{{ stats.invalid_mbids | plural('file') }}</a> with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
-        {% if not dj %}<li><a href="/tracks?flag=has_lyrics">{{ stats.with_lyrics | plural('track') }}</a> with lyrics (embedded or .lrc file).</li>{% endif %}
-        {% if stats.unreadable %}<li>⚠️ <a href="/tracks?flag=unreadable">{{ stats.unreadable | plural('file') }}</a> could not be read.</li>{% endif %}
-        <li><a href="/fields">See every tag field in your files →</a></li>
-      </ul>
-    </footer>
+    <header><strong>Decades</strong> <small class="muted">tracks with a year</small></header>
+    {{ bars(stats.decades, empty="No years in the tags yet.", tone="decades") }}
+    {% if stats.unknown_year %}<p class="muted"><small>{{ stats.unknown_year | plural('track') }} without a year.</small></p>{% endif %}
   </article>
-  <article>
-    <header><strong>Formats</strong></header>
-    {{ bars(stats.formats, value="size") }}
-    {% if dj %}
-    <footer>
-      <ul class="notes">
-        <li><a href="/tracks?flag=lossless">{{ stats.lossless | plural('lossless file') }}</a> (FLAC, WAV, AIFF).</li>
-        <li>{% if stats.low_bitrate %}⚠️ {% endif %}<a href="/tracks?flag=low_bitrate">{{ stats.low_bitrate | plural('lossy file') }}</a> below {{ stats.low_bitrate_kbps }} kbps.</li>
-      </ul>
-    </footer>
-    {% endif %}
-  </article>
+{{ genres_box }}
 </div>
-
-{% if dj %}
-<article>
-  <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
-  {{ bars(stats.genres, empty="No genres in the tags yet.") }}
-</article>
 {% endif %}
 
 <p class="muted"><small>Last scan: <time data-local datetime="{{ stats.last_scan | isoutc }}">{{ stats.last_scan | isoutc }}</time></small></p>

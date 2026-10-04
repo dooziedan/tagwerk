@@ -1,6 +1,6 @@
 [project]
 name = "tagwerk"
-version = "0.5.0"
+version = "0.5.1"
 description = "Self-hosted music library manager: dashboard, tag editing, MusicBrainz lookup and Navidrome integration."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -36,6 +36,7 @@ app = [
     "templates/*.html",
     "templates/partials/*.html",
     "static/*",
+    "static/fonts/*",
     "migrations/*.py",
     "migrations/*.mako",
     "migrations/versions/*.py",

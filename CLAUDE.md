@@ -20,6 +20,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - Supported formats: MP3, FLAC, WAV, AIFF, M4A, OGG, Opus. Any tag feature must handle all of them (fixtures in `tests/fixtures/`).
 - When the tag reader learns new fields, bump `SCAN_VERSION` in `app/scanner.py` so existing rows get re-read.
 - `app/rawtags.py` must never raise: an odd field must not make a file unreadable. New raw field names that feed a Tagwerk field go into its `used_as` tables too.
+- Look and colours: follow `docs/design.md`; colours only via tokens in `app/static/theme.css`. Check UI changes with `scripts/screenshots.py` (Chromium, Firefox, WebKit) before a PR.
 - **No `color-mix()` or other newer CSS for anything essential**: the owner's browser didn't apply it (white-on-white wheel in v0.3.1). Chart colours go into SVG attributes; CSS custom properties are fine.
 - New NOT NULL columns need a `server_default` in the migration: real databases already have rows.
 - **Everything must run inside the Docker image** (the owner deploys to Unraid). No host tools at runtime; any new library (e.g. audio analysis) goes into the image. ffmpeg is a dev-only tool for generating fixtures.
@@ -30,6 +31,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - Metadata sources implement the shared interface in `app/sources/` (from Phase 4).
 - The UI uses the same API routes as `/docs`. No JS build step: Jinja2 + htmx + Pico CSS, vendored in `app/static/`.
 - Every user-visible change: update `CHANGELOG.md` (Unreleased). New design decisions: add an ADR in `docs/decisions/`.
+- **Local preview first:** run every change locally (Docker, e.g. http://localhost:8003 with a demo library) and wait for the owner's OK before committing and pushing.
 - Work on feature branches with PRs; commit or push only when asked. Releases are git tags `vX.Y.Z` (CI publishes the image).
 - **Public repo: never put Claude session links (claude.ai/code/session…) or other private URLs/IDs in commits, PR descriptions or files.** Attribution is only `Co-Authored-By: Claude …` in commits and the "Generated with Claude Code" line in PRs.
 

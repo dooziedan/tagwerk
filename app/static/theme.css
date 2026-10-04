@@ -1,0 +1,281 @@
+/* Tagwerk design tokens: two themes (Calm, Pop), each in light and dark. See docs/design.md.
+
+   Loaded after pico.min.css and before app.css. It sets Pico's own variables, so every Pico
+   component follows the theme, plus a few Tagwerk tokens (--tw-*).
+
+   Rules:
+   - Plain colour values only. No color-mix() or other newer CSS: the owner's Safari didn't
+     apply it (white-on-white wheel in v0.3.1).
+   - Text >= 4.5:1 and chart marks >= 3:1 against their background. Values in the comments
+     are the measured WCAG contrast ratios.
+   - Light/dark follows the system unless the user picks one: <html data-theme="light|dark">.
+     The theme is <html data-style="calm|pop">. */
+
+/* --- Typography: Inter, shipped with the app (static/fonts, SIL Open Font License) ---------- */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/InterVariable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/InterVariable-Italic.woff2") format("woff2");
+}
+:root {
+  --pico-font-family-sans-serif: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    var(--pico-font-family-emoji);
+  --pico-font-family: var(--pico-font-family-sans-serif);
+}
+body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little calmer */
+
+/* --- Palette ------------------------------------------------------------------------------ */
+:root {
+  --tw-charcoal: #264653;
+  --tw-verdigris: #2a9d8f;
+  --tw-jasmine: #e9c46a;
+  --tw-sandy: #f4a261;
+  --tw-peach: #e76f51;
+}
+
+/* --- Light: shared by both themes ---------------------------------------------------------- */
+:root[data-style] {
+  --pico-background-color: #f6f8f8;
+  --pico-color: #1d2b30;                      /* 13.7 on background */
+  --pico-muted-color: #5b6b70;                /* 5.2 on background, 5.6 on cards */
+  --pico-muted-border-color: #e1e8ea;
+  --pico-h1-color: #16323b;
+  --pico-h2-color: #16323b;
+  --pico-h3-color: #1d2b30;
+  --pico-h4-color: #1d2b30;
+  --pico-h5-color: #1d2b30;
+  --pico-h6-color: #1d2b30;
+  --pico-card-background-color: #ffffff;
+  --pico-card-sectioning-background-color: #fafcfc;
+  --pico-card-border-color: #e1e8ea;
+  --pico-card-box-shadow: 0 1px 2px rgba(22, 50, 59, 0.06), 0 2px 8px rgba(22, 50, 59, 0.05);
+  --pico-table-border-color: #e1e8ea;
+  --pico-table-row-stripped-background-color: #f3f7f7;
+  --pico-code-background-color: #eef3f4;
+  --pico-code-color: #264653;
+  --pico-form-element-background-color: #ffffff;
+  --pico-form-element-border-color: #cfdadd;
+  --pico-form-element-color: #1d2b30;
+  --pico-dropdown-background-color: #ffffff;
+  --pico-dropdown-border-color: #e1e8ea;
+  --pico-dropdown-color: #1d2b30;
+  --pico-dropdown-hover-background-color: #eef6f5;
+  --pico-progress-background-color: #e1e8ea;
+
+  --tw-bar-track: #dde7e8;
+  --tw-chip-hover: #eef6f5;
+  --tw-link: #1f7a6f;                         /* 4.8 on background */
+  --tw-brand-tag: #264653;
+}
+
+/* Calm light: one accent, Verdigris */
+:root[data-style="calm"] {
+  --pico-primary: #1f7a6f;
+  --pico-primary-background: #1f7a6f;         /* white text 5.2 */
+  --pico-primary-border: #1f7a6f;
+  --pico-primary-underline: rgba(31, 122, 111, 0.5);
+  --pico-primary-hover: #17695f;
+  --pico-primary-hover-background: #17695f;
+  --pico-primary-hover-border: #17695f;
+  --pico-primary-hover-underline: #17695f;
+  --pico-primary-focus: rgba(42, 157, 143, 0.35);
+  --pico-primary-inverse: #ffffff;
+  --pico-progress-color: #2a9d8f;
+  --tw-chart-tempo: #2a9d8f;                  /* 3.3 */
+  --tw-chart-missing: #2a9d8f;
+  --tw-chart-formats: #2a9d8f;
+  --tw-chart-genres: #2a9d8f;
+  --tw-chart-decades: #2a9d8f;
+  --tw-kpi-1: transparent;
+  --tw-kpi-2: transparent;
+  --tw-kpi-3: transparent;
+  --tw-kpi-4: transparent;
+  --tw-kpi-5: transparent;
+  --tw-brand-tag: #1f7a6f;
+  --tw-brand-bar-1: #ffffff;
+  --tw-brand-bar-2: #ffffff;
+  --tw-brand-bar-3: #ffffff;
+  --tw-brand-bar-4: #ffffff;
+}
+
+/* Pop light: the full palette. Light colours are darkened where they must be read. */
+:root[data-style="pop"] {
+  --pico-primary: #1f7a6f;                    /* links: Verdigris, 4.8 */
+  --pico-primary-background: #b8452b;        /* buttons: Burnt Peach, white text 5.4 */
+  --pico-primary-border: #b8452b;
+  --pico-primary-underline: rgba(31, 122, 111, 0.5);
+  --pico-primary-hover: #17695f;
+  --pico-primary-hover-background: #9e3a23;
+  --pico-primary-hover-border: #9e3a23;
+  --pico-primary-hover-underline: #17695f;
+  --pico-primary-focus: rgba(231, 111, 81, 0.35);
+  --pico-primary-inverse: #ffffff;
+  --pico-progress-color: #e76f51;
+  --tw-chart-tempo: #2a9d8f;                  /* Verdigris 3.3 */
+  --tw-chart-missing: #d35539;                /* Burnt Peach, darker: 4.1 */
+  --tw-chart-formats: #d27a2c;                /* Sandy Brown, darker: 3.2 */
+  --tw-chart-genres: #a9851b;                 /* Jasmine, darker: 3.5 */
+  --tw-chart-decades: #264653;                /* Charcoal Blue 10.1 */
+  --tw-kpi-1: #264653;
+  --tw-kpi-2: #2a9d8f;
+  --tw-kpi-3: #e9c46a;
+  --tw-kpi-4: #f4a261;
+  --tw-kpi-5: #e76f51;
+  --tw-brand-tag: #264653;
+  --tw-brand-bar-1: #2a9d8f;
+  --tw-brand-bar-2: #e9c46a;
+  --tw-brand-bar-3: #f4a261;
+  --tw-brand-bar-4: #e76f51;
+}
+
+/* --- Dark: shared by both themes. Used when the system is dark (unless the user chose light)
+   or when the user chose dark. The two blocks below are identical on purpose. ------------- */
+@media (prefers-color-scheme: dark) {
+  :root[data-style]:not([data-theme="light"]) {
+    --pico-background-color: #0f1f26;
+    --pico-color: #e8eef0;                    /* 14.4 */
+    --pico-muted-color: #9db2ba;              /* 7.6 */
+    --pico-muted-border-color: #27434e;
+    --pico-h1-color: #f1f5f6;
+    --pico-h2-color: #f1f5f6;
+    --pico-h3-color: #e8eef0;
+    --pico-h4-color: #e8eef0;
+    --pico-h5-color: #e8eef0;
+    --pico-h6-color: #e8eef0;
+    --pico-card-background-color: #16303a;
+    --pico-card-sectioning-background-color: #1a3743;
+    --pico-card-border-color: #27434e;
+    --pico-card-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --pico-table-border-color: #27434e;
+    --pico-table-row-stripped-background-color: #183441;
+    --pico-code-background-color: #1b3a46;
+    --pico-code-color: #cfe3e6;
+    --pico-form-element-background-color: #122a33;
+    --pico-form-element-border-color: #2c4b57;
+    --pico-form-element-color: #e8eef0;
+    --pico-dropdown-background-color: #16303a;
+    --pico-dropdown-border-color: #27434e;
+    --pico-dropdown-color: #e8eef0;
+    --pico-dropdown-hover-background-color: #1f3f4b;
+    --pico-progress-background-color: #27434e;
+    --tw-bar-track: #27434e;
+    --tw-chip-hover: #1f3f4b;
+    --tw-link: #4cc0b0;
+  }
+}
+:root[data-style][data-theme="dark"] {
+  --pico-background-color: #0f1f26;
+  --pico-color: #e8eef0;
+  --pico-muted-color: #9db2ba;
+  --pico-muted-border-color: #27434e;
+  --pico-h1-color: #f1f5f6;
+  --pico-h2-color: #f1f5f6;
+  --pico-h3-color: #e8eef0;
+  --pico-h4-color: #e8eef0;
+  --pico-h5-color: #e8eef0;
+  --pico-h6-color: #e8eef0;
+  --pico-card-background-color: #16303a;
+  --pico-card-sectioning-background-color: #1a3743;
+  --pico-card-border-color: #27434e;
+  --pico-card-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --pico-table-border-color: #27434e;
+  --pico-table-row-stripped-background-color: #183441;
+  --pico-code-background-color: #1b3a46;
+  --pico-code-color: #cfe3e6;
+  --pico-form-element-background-color: #122a33;
+  --pico-form-element-border-color: #2c4b57;
+  --pico-form-element-color: #e8eef0;
+  --pico-dropdown-background-color: #16303a;
+  --pico-dropdown-border-color: #27434e;
+  --pico-dropdown-color: #e8eef0;
+  --pico-dropdown-hover-background-color: #1f3f4b;
+  --pico-progress-background-color: #27434e;
+  --tw-bar-track: #27434e;
+  --tw-chip-hover: #1f3f4b;
+  --tw-link: #4cc0b0;
+}
+
+/* Calm dark */
+@media (prefers-color-scheme: dark) {
+  :root[data-style="calm"]:not([data-theme="light"]) {
+    --pico-primary: #4cc0b0;                  /* 6.2 on cards */
+    --pico-primary-background: #2a9d8f;       /* dark text 5.1 */
+    --pico-primary-border: #2a9d8f;
+    --pico-primary-underline: rgba(76, 192, 176, 0.5);
+    --pico-primary-hover: #6fd1c3;
+    --pico-primary-hover-background: #35b0a1;
+    --pico-primary-hover-border: #35b0a1;
+    --pico-primary-hover-underline: #6fd1c3;
+    --pico-primary-inverse: #0f1f26;
+    --tw-brand-tag: #2a9d8f;
+    --tw-brand-bar-1: #0f1f26;
+    --tw-brand-bar-2: #0f1f26;
+    --tw-brand-bar-3: #0f1f26;
+    --tw-brand-bar-4: #0f1f26;
+  }
+}
+:root[data-style="calm"][data-theme="dark"] {
+  --pico-primary: #4cc0b0;
+  --pico-primary-background: #2a9d8f;
+  --pico-primary-border: #2a9d8f;
+  --pico-primary-underline: rgba(76, 192, 176, 0.5);
+  --pico-primary-hover: #6fd1c3;
+  --pico-primary-hover-background: #35b0a1;
+  --pico-primary-hover-border: #35b0a1;
+  --pico-primary-hover-underline: #6fd1c3;
+  --pico-primary-inverse: #0f1f26;
+  --tw-brand-tag: #2a9d8f;
+  --tw-brand-bar-1: #0f1f26;
+  --tw-brand-bar-2: #0f1f26;
+  --tw-brand-bar-3: #0f1f26;
+  --tw-brand-bar-4: #0f1f26;
+}
+
+/* Pop dark: the original palette colours all pass on dark cards. */
+@media (prefers-color-scheme: dark) {
+  :root[data-style="pop"]:not([data-theme="light"]) {
+    --pico-primary: #e9c46a;                  /* links: Jasmine 10.1 */
+    --pico-primary-background: #e76f51;       /* buttons: Burnt Peach, dark text 5.5 */
+    --pico-primary-border: #e76f51;
+    --pico-primary-underline: rgba(233, 196, 106, 0.5);
+    --pico-primary-hover: #f2d68f;
+    --pico-primary-hover-background: #ee8a70;
+    --pico-primary-hover-border: #ee8a70;
+    --pico-primary-hover-underline: #f2d68f;
+    --pico-primary-inverse: #0f1f26;
+    --tw-link: #e9c46a;
+    --tw-chart-tempo: #2a9d8f;                /* 4.2 */
+    --tw-chart-missing: #e76f51;              /* 4.5 */
+    --tw-chart-formats: #f4a261;              /* 6.7 */
+    --tw-chart-genres: #e9c46a;               /* 8.3 */
+    --tw-chart-decades: #8fb8c4;
+    --tw-brand-tag: #2f5866;
+  }
+}
+:root[data-style="pop"][data-theme="dark"] {
+  --pico-primary: #e9c46a;
+  --pico-primary-background: #e76f51;
+  --pico-primary-border: #e76f51;
+  --pico-primary-underline: rgba(233, 196, 106, 0.5);
+  --pico-primary-hover: #f2d68f;
+  --pico-primary-hover-background: #ee8a70;
+  --pico-primary-hover-border: #ee8a70;
+  --pico-primary-hover-underline: #f2d68f;
+  --pico-primary-inverse: #0f1f26;
+  --tw-link: #e9c46a;
+  --tw-chart-tempo: #2a9d8f;
+  --tw-chart-missing: #e76f51;
+  --tw-chart-formats: #f4a261;
+  --tw-chart-genres: #e9c46a;
+  --tw-chart-decades: #8fb8c4;
+  --tw-brand-tag: #2f5866;
+}

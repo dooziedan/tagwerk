@@ -28,12 +28,19 @@ class WheelSegment:
 
 
 def camelot_colour(number: int, letter: str, count: int) -> tuple[str, str]:
-    """Segment and text colour. Each number has its own hue going round the wheel, like the
-    well-known Camelot wheel; major (B) is stronger than minor (A). Empty keys are grey."""
+    """Segment and text colour, in the familiar Camelot wheel colours (same in every theme).
+
+    Like the Mixed In Key wheel, the hue goes round clockwise: 1 aqua-green, 2 green,
+    3 yellow-green, 4 yellow, 5 orange, 6 red, 7 pink, 8 magenta, 9 purple, 10 blue,
+    11 sky blue, 12 cyan. Minor (A, inner ring) is lighter than major (B). The shades are
+    an approximation tuned so the dark text reads at >= 4.5:1 on every segment; blue and
+    purple majors are a little lighter for that reason. Empty keys are grey.
+    """
     if count == 0:
-        return "#9aa0a8", TEXT  # grey, same dark text
-    hue = (165 + (number - 1) * 30) % 360
-    lightness = 66 if letter == "B" else 80
+        return "#9aa0a8", TEXT
+    hue = (150 - (number - 1) * 30) % 360
+    # Minor 80%, major 66%; blue and purple majors 71% because those hues look darker.
+    lightness = 80 if letter == "A" else 71 if hue in (240, 270) else 66
     return f"hsl({hue}, 62%, {lightness}%)", TEXT
 
 

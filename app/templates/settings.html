@@ -6,6 +6,29 @@
 
 <form method="post" action="/settings">
   <fieldset>
+    <legend><strong>Theme</strong></legend>
+    {% for value, label in styles.items() %}
+    <label>
+      <input type="radio" name="style" value="{{ value }}" {% if prefs.style == value %}checked{% endif %}>
+      {{ label }}
+    </label>
+    <p class="option-hint muted">
+      {% if value == "calm" %}One accent colour, quiet and focused.{% else %}The full colour palette: every section gets its own colour.{% endif %}
+    </p>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend><strong>Appearance</strong></legend>
+    {% for value, label in appearances.items() %}
+    <label>
+      <input type="radio" name="appearance" value="{{ value }}" {% if prefs.appearance == value %}checked{% endif %}>
+      {{ label }}
+    </label>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
     <legend><strong>Mode</strong></legend>
     {% for value, label in modes.items() %}
     <label>
