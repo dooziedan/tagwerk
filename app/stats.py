@@ -2,53 +2,34 @@
 
 Both modes share the totals and formats. DJ mode adds BPM, keys and audio quality;
 Collector mode adds decades and lyrics. "Missing tags" checks differ per mode.
+
+Every number uses the same conditions as the track list (``app.library``), and carries the
+URL of the list that shows exactly those tracks.
 """
 
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, and_, distinct, func, not_, or_
-from sqlmodel import Session, col, select
+from sqlalchemy import distinct, func
+from sqlmodel import Session, select
 
 from app.keys import CAMELOT_CODES, display
+from app.library import (
+    ALBUM_ARTIST,
+    FLAGS,
+    LOW_BITRATE_KBPS,
+    MISSING,
+    TrackFilter,
+    count,
+    is_missing,
+)
 from app.models import Track
 from app.preferences import Preferences
-from app.tags import LOSSLESS_FORMATS
 
-# An album belongs to its album artist; files without one fall back to the track artist.
-# That's also how Navidrome groups its artist list.
-_album_artist = func.coalesce(func.nullif(Track.albumartist, ""), Track.artist)
-
-# Lossy files below this are flagged in DJ mode. 2% tolerance, because some encoders report
-# a constant 320 kbps file as e.g. 319 kbps.
-LOW_BITRATE_KBPS = 320
-_LOW_BITRATE_LIMIT = LOW_BITRATE_KBPS * 1000 * 0.98
 BPM_BUCKET = 5  # BPM histogram bar width
 BPM_MIN, BPM_MAX = 60, 200  # tempos outside are grouped as "< 60" / "200+"
 
-
-def _missing(column) -> ColumnElement[bool]:
-    return or_(column.is_(None), column == "")
-
-
-_MISSING = {
-    "Title": _missing(Track.title),
-    "Artist": _missing(Track.artist),
-    "Album": _missing(Track.album),
-    "Album artist": _missing(Track.albumartist),
-    "Track number": Track.tracknumber.is_(None),
-    "Year": Track.year.is_(None),
-    "Genre": _missing(Track.genre),
-    "Cover art": col(Track.has_cover).is_(False),
-    "Lyrics": and_(col(Track.has_lyrics).is_(False), col(Track.has_lrc).is_(False)),
-    "ReplayGain": Track.replaygain_track_gain.is_(None),
-    "BPM": Track.bpm.is_(None),
-    "Key": Track.key_camelot.is_(None),
-    "Label": _missing(Track.label),
-    "Comment": _missing(Track.comment),
-    "MusicBrainz IDs": or_(_missing(Track.mb_albumid), col(Track.mbid_invalid).is_(True)),
-}
 
 # Which checks each mode shows, in display order.
 MISSING_BY_MODE = {
@@ -74,6 +55,7 @@ class Bar:
     count: int
     percent: float  # share of the relevant total, 0-100
     size: int | None = None  # bytes, for formats
+    url: str = ""  # the track list behind this number
 
 
 @dataclass
@@ -83,6 +65,7 @@ class KeyCell:
     count: int
     percent: float  # of tracks with a recognized key
     intensity: int  # 0-100, for shading relative to the most common key
+    url: str = ""
 
 
 @dataclass
@@ -105,6 +88,7 @@ class LibraryStats:
     keys: list[KeyCell] = field(default_factory=list)
     with_bpm_and_key: int = 0
     unrecognized_keys: int = 0  # key tag present but not a key Tagwerk understands
+    bpm_zero: int = 0  # files that store BPM as 0 ("unknown")
     lossless: int = 0
     low_bitrate: int = 0
     low_bitrate_kbps: int = LOW_BITRATE_KBPS
@@ -124,7 +108,7 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
         )
     ).one()
     readable = Track.error.is_(None)
-    readable_count = _count(session, readable)
+    readable_count = count(session, readable)
 
     checks = list(MISSING_BY_MODE[prefs.mode])
     if prefs.show_musicbrainz:
@@ -133,19 +117,19 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
     stats = LibraryStats(
         mode=prefs.mode,
         tracks=tracks,
-        artists=session.exec(select(func.count(distinct(_album_artist)))).one(),
+        artists=session.exec(select(func.count(distinct(ALBUM_ARTIST)))).one(),
         albums=_album_count(session),
         total_size=size,
         total_duration=duration,
         formats=_formats(session, tracks),
         genres=_genres(session, tracks),
         missing=[
-            Bar(name, n, _pct(n, readable_count))
+            Bar(name, n, _pct(n, readable_count), url=TrackFilter(missing=name).url())
             for name in checks
-            for n in [_count(session, and_(readable, _MISSING[name]))]
+            for n in [count(session, readable, MISSING[name])]
         ],
-        untagged=_count(session, and_(readable, Track.tag_format.is_(None))),
-        invalid_mbids=_count(session, col(Track.mbid_invalid).is_(True)),
+        untagged=_flag(session, "untagged"),
+        invalid_mbids=_flag(session, "invalid_mbid"),
         unreadable=tracks - readable_count,
         last_scan=last_scan,
     )
@@ -156,24 +140,18 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
     return stats
 
 
+def _flag(session: Session, name: str) -> int:
+    return count(session, FLAGS[name][1])
+
+
 def _add_dj(session: Session, stats: LibraryStats, prefs: Preferences) -> None:
     stats.bpm = _bpm_histogram(session)
     stats.keys = _key_cells(session, prefs.key_notation)
-    stats.with_bpm_and_key = _count(
-        session, and_(Track.bpm.is_not(None), Track.key_camelot.is_not(None))
-    )
-    stats.unrecognized_keys = _count(
-        session, and_(not_(_missing(Track.key)), Track.key_camelot.is_(None))
-    )
-    stats.lossless = _count(session, col(Track.format).in_(LOSSLESS_FORMATS))
-    stats.low_bitrate = _count(
-        session,
-        and_(
-            col(Track.format).not_in(LOSSLESS_FORMATS),
-            Track.bitrate.is_not(None),
-            Track.bitrate < _LOW_BITRATE_LIMIT,
-        ),
-    )
+    stats.with_bpm_and_key = _flag(session, "bpm_and_key")
+    stats.unrecognized_keys = _flag(session, "key_unrecognized")
+    stats.bpm_zero = _flag(session, "bpm_zero")
+    stats.lossless = _flag(session, "lossless")
+    stats.low_bitrate = _flag(session, "low_bitrate")
 
 
 def _add_collector(session: Session, stats: LibraryStats) -> None:
@@ -185,14 +163,16 @@ def _add_collector(session: Session, stats: LibraryStats) -> None:
         .order_by(decade)
     ).all()
     dated = sum(n for _, n in rows)
-    stats.decades = [Bar(f"{d}s", n, _pct(n, dated)) for d, n in rows]
+    stats.decades = [
+        Bar(f"{d}s", n, _pct(n, dated), url=TrackFilter(decade=d).url()) for d, n in rows
+    ]
     stats.unknown_year = stats.tracks - dated
-    stats.with_lyrics = _count(session, or_(col(Track.has_lyrics), col(Track.has_lrc)))
+    stats.with_lyrics = _flag(session, "has_lyrics")
 
 
 def _formats(session: Session, tracks: int) -> list[Bar]:
     return [
-        Bar(fmt.upper(), n, _pct(n, tracks), size=fmt_size)
+        Bar(fmt.upper(), n, _pct(n, tracks), size=fmt_size, url=TrackFilter(format=fmt).url())
         for fmt, n, fmt_size in session.exec(
             select(Track.format, func.count(Track.id), func.sum(Track.size))
             .group_by(Track.format)
@@ -211,7 +191,10 @@ def _genres(session: Session, tracks: int, limit: int = 12) -> list[Bar]:
     ):
         for name in {g.strip() for g in genre.split(";") if g.strip()}:
             counter[name] += n
-    return [Bar(name, n, _pct(n, tracks)) for name, n in counter.most_common(limit)]
+    return [
+        Bar(name, n, _pct(n, tracks), url=TrackFilter(genre=name).url())
+        for name, n in counter.most_common(limit)
+    ]
 
 
 def _bpm_histogram(session: Session) -> list[Bar]:
@@ -234,12 +217,12 @@ def _bpm_histogram(session: Session) -> list[Bar]:
     if BPM_MAX in counter:
         buckets.append(BPM_MAX)
 
-    def label(k: int) -> str:
+    def label_and_url(k: int) -> tuple[str, str]:
         if k < BPM_MIN:
-            return f"< {BPM_MIN}"
+            return f"< {BPM_MIN}", TrackFilter(bpm_max=BPM_MIN).url()
         if k >= BPM_MAX:
-            return f"{BPM_MAX}+"
-        return f"{k}–{k + BPM_BUCKET - 1}"
+            return f"{BPM_MAX}+", TrackFilter(bpm_min=BPM_MAX).url()
+        return f"{k}–{k + BPM_BUCKET - 1}", TrackFilter(bpm_min=k, bpm_max=k + BPM_BUCKET).url()
 
     total = len(bpms)
     bars: list[Bar] = []
@@ -248,7 +231,10 @@ def _bpm_histogram(session: Session) -> list[Bar]:
         if counter[k] == 0 and bars and bars[-1].count == 0 and "–" in bars[-1].label:
             bars[-1].label = f"{bars[-1].label.split('–')[0]}–{k + BPM_BUCKET - 1}"
         else:
-            bars.append(Bar(label(k), counter[k], _pct(counter[k], total)))
+            label, url = label_and_url(k)
+            bars.append(
+                Bar(label, counter[k], _pct(counter[k], total), url=url if counter[k] else "")
+            )
     return bars
 
 
@@ -269,18 +255,15 @@ def _key_cells(session: Session, notation: str) -> list[KeyCell]:
             count=counts.get(code, 0),
             percent=_pct(counts.get(code, 0), total),
             intensity=round(100 * counts.get(code, 0) / most) if most else 0,
+            url=TrackFilter(key=code).url() if counts.get(code) else "",
         )
         for code in CAMELOT_CODES
     ]
 
 
 def _album_count(session: Session) -> int:
-    albums = select(_album_artist, Track.album).where(~_missing(Track.album)).distinct()
+    albums = select(ALBUM_ARTIST, Track.album).where(~is_missing(Track.album)).distinct()
     return session.exec(select(func.count()).select_from(albums.subquery())).one()
-
-
-def _count(session: Session, condition: ColumnElement[bool]) -> int:
-    return session.exec(select(func.count(Track.id)).where(condition)).one()
 
 
 def _pct(part: int, whole: int) -> float:

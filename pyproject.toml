@@ -1,6 +1,6 @@
 [project]
 name = "tagwerk"
-version = "0.4.0"
+version = "0.5.0"
 description = "Self-hosted music library manager: dashboard, tag editing, MusicBrainz lookup and Navidrome integration."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -47,6 +47,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+# SIM300 flags `ALBUM_ARTIST == value` as a "Yoda condition", but module-level SQL
+# expressions in capitals are normal here.
+ignore = ["SIM300"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

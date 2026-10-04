@@ -34,13 +34,13 @@
 
 {% set dj = stats.mode == "dj" %}
 <section class="kpis" aria-label="Library totals">
-  <article class="kpi"><span class="kpi-value">{{ stats.tracks | number }}</span><span class="kpi-label">Tracks</span></article>
-  <article class="kpi" title="Album artist, or track artist where no album artist is set"><span class="kpi-value">{{ stats.artists | number }}</span><span class="kpi-label">Artists</span></article>
+  <a class="kpi-link" href="/tracks"><article class="kpi"><span class="kpi-value">{{ stats.tracks | number }}</span><span class="kpi-label">Tracks</span></article></a>
+  <a class="kpi-link" href="/artists"><article class="kpi" title="Album artist, or track artist where no album artist is set"><span class="kpi-value">{{ stats.artists | number }}</span><span class="kpi-label">Artists</span></article></a>
   {% if dj %}
-  <article class="kpi" title="Tracks with both BPM and a recognized key"><span class="kpi-value">{{ (100 * stats.with_bpm_and_key / stats.tracks) | round | int }}%</span><span class="kpi-label">BPM &amp; key set</span></article>
-  <article class="kpi" title="FLAC, WAV and AIFF"><span class="kpi-value">{{ (100 * stats.lossless / stats.tracks) | round | int }}%</span><span class="kpi-label">Lossless</span></article>
+  <a class="kpi-link" href="/tracks?flag=bpm_and_key"><article class="kpi" title="Tracks with both BPM and a recognized key"><span class="kpi-value">{{ (100 * stats.with_bpm_and_key / stats.tracks) | round | int }}%</span><span class="kpi-label">BPM &amp; key set</span></article></a>
+  <a class="kpi-link" href="/tracks?flag=lossless"><article class="kpi" title="FLAC, WAV and AIFF"><span class="kpi-value">{{ (100 * stats.lossless / stats.tracks) | round | int }}%</span><span class="kpi-label">Lossless</span></article></a>
   {% else %}
-  <article class="kpi"><span class="kpi-value">{{ stats.albums | number }}</span><span class="kpi-label">Albums</span></article>
+  <a class="kpi-link" href="/albums"><article class="kpi"><span class="kpi-value">{{ stats.albums | number }}</span><span class="kpi-label">Albums</span></article></a>
   <article class="kpi"><span class="kpi-value">{{ stats.total_duration | duration }}</span><span class="kpi-label">Playing time</span></article>
   {% endif %}
   <article class="kpi"><span class="kpi-value">{{ stats.total_size | filesize }}</span><span class="kpi-label">Size</span></article>
@@ -60,12 +60,12 @@
       <svg viewBox="-100 -100 200 200" role="img" aria-labelledby="wheel-title" font-family="inherit">
         <title id="wheel-title">Camelot wheel: number of tracks per key</title>
         {% for seg in key_wheel(stats.keys) %}
-        <g class="wheel-seg">
+        <a href="{{ seg.cell.url or '#' }}" class="wheel-seg{% if not seg.cell.url %} empty{% endif %}">
           <title>{{ seg.cell.label }}{% if seg.cell.label != seg.cell.camelot %} ({{ seg.cell.camelot }}){% endif %}: {{ seg.cell.count | plural('track') }}, {{ seg.cell.percent }}%</title>
           <path d="{{ seg.path }}" fill="{{ seg.fill }}"></path>
           <text x="{{ seg.x }}" y="{{ seg.y - 2.5 }}" fill="{{ seg.text }}" font-size="6.2" text-anchor="middle" opacity="0.8">{{ seg.cell.label }}</text>
           <text x="{{ seg.x }}" y="{{ seg.y + 6.5 }}" fill="{{ seg.text }}" font-size="8.5" font-weight="700" text-anchor="middle">{{ seg.cell.count | number }}</text>
-        </g>
+        </a>
         {% endfor %}
         <text x="0" y="-1" fill="currentColor" font-size="13" font-weight="700" text-anchor="middle">{{ with_key | number }}</text>
         <text x="0" y="10" fill="currentColor" font-size="6.5" text-anchor="middle" opacity="0.7">tracks with key</text>
@@ -80,7 +80,7 @@
     {% else %}
     <p class="muted"><small>No key tags yet.</small></p>
     {% endif %}
-    {% if stats.unrecognized_keys %}<p><small>⚠️ {{ stats.unrecognized_keys | plural('file') }} with a key tag Tagwerk doesn't recognize.</small></p>{% endif %}
+    {% if stats.unrecognized_keys %}<p><small>⚠️ <a href="/tracks?flag=key_unrecognized">{{ stats.unrecognized_keys | plural('file') }}</a> with a key tag Tagwerk doesn't recognize.</small></p>{% endif %}
   </article>
 </div>
 {% else %}
@@ -103,10 +103,11 @@
     {{ bars(stats.missing) }}
     <footer>
       <ul class="notes">
-        <li>{{ stats.untagged | plural('file') }} without any tags.</li>
-        {% if prefs.show_musicbrainz %}<li>{{ stats.invalid_mbids | plural('file') }} with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
-        {% if not dj %}<li>{{ stats.with_lyrics | plural('track') }} with lyrics (embedded or .lrc file).</li>{% endif %}
-        {% if stats.unreadable %}<li>⚠️ {{ stats.unreadable | plural('file') }} could not be read.</li>{% endif %}
+        <li><a href="/tracks?flag=untagged">{{ stats.untagged | plural('file') }}</a> without any tags.</li>
+        {% if dj and stats.bpm_zero %}<li><a href="/tracks?flag=bpm_zero">{{ stats.bpm_zero | plural('file') }}</a> store BPM as 0 ("unknown"), counted as missing.</li>{% endif %}
+        {% if prefs.show_musicbrainz %}<li><a href="/tracks?flag=invalid_mbid">{{ stats.invalid_mbids | plural('file') }}</a> with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
+        {% if not dj %}<li><a href="/tracks?flag=has_lyrics">{{ stats.with_lyrics | plural('track') }}</a> with lyrics (embedded or .lrc file).</li>{% endif %}
+        {% if stats.unreadable %}<li>⚠️ <a href="/tracks?flag=unreadable">{{ stats.unreadable | plural('file') }}</a> could not be read.</li>{% endif %}
         <li><a href="/fields">See every tag field in your files →</a></li>
       </ul>
     </footer>
@@ -117,8 +118,8 @@
     {% if dj %}
     <footer>
       <ul class="notes">
-        <li>{{ stats.lossless | plural('lossless file') }} (FLAC, WAV, AIFF).</li>
-        <li>{% if stats.low_bitrate %}⚠️ {% endif %}{{ stats.low_bitrate | plural('lossy file') }} below {{ stats.low_bitrate_kbps }} kbps.</li>
+        <li><a href="/tracks?flag=lossless">{{ stats.lossless | plural('lossless file') }}</a> (FLAC, WAV, AIFF).</li>
+        <li>{% if stats.low_bitrate %}⚠️ {% endif %}<a href="/tracks?flag=low_bitrate">{{ stats.low_bitrate | plural('lossy file') }}</a> below {{ stats.low_bitrate_kbps }} kbps.</li>
       </ul>
     </footer>
     {% endif %}

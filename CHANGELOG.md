@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-04
+
+### Added
+- **Track list** (menu → Library → Tracks): search title, artist, album, label and path; filter by missing tag, format, key, tempo range, genre, decade, folder, artist, album, raw tag field and more; sort by any column; 50 tracks per page. Columns follow the mode (DJ: BPM, key, genre, label; Collector: album, track, year, genre). Active filters show as chips you can remove one by one.
+- **Every number on the dashboard is a link** to exactly those tracks: missing tags, formats, genres, decades, tempo ranges, Camelot wheel segments, lossless / low-bitrate / untagged notes.
+- **Track page**: all tags, audio properties, file details, every raw tag field, and the cover (embedded, or `cover.jpg` / `folder.jpg` next to the file).
+- **Artists** and **Albums** pages with search.
+- Tag fields: "Show all tracks with this field", and every value's count links to its tracks.
+- DJ dashboard: how many files store BPM as 0, linked to the list.
+- API: `GET /api/tracks`, `/api/tracks/{id}`, `/api/artists`, `/api/albums`.
+
+### Changed
+- Menu: "Library" dropdown (Tracks, Albums, Artists, Tag fields). On phones, Settings moved into it.
+- Genres are matched the same way everywhere: "House;Techno" and "House; Techno" both count as House and Techno.
+
 ## [0.4.0] - 2026-10-04
 
 ### Added

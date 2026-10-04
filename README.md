@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: early development (v0.4).** Scanning and the dashboards work. Editing, Navidrome and online lookups are next on the [roadmap](docs/roadmap.md).
+> **Status: early development (v0.5).** Scanning, dashboards and browsing work. Editing and the import inbox are next on the [roadmap](docs/roadmap.md).
 
 ## Features
 
@@ -11,6 +11,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
   - **DJ:** tempo spread, key grid (Camelot, Open Key or musical notation), BPM/key coverage, lossless share and low-bitrate files, missing BPM/key/label/comment.
   - **Collector:** decades, genres, albums, lyrics and ReplayGain coverage, missing album tags.
 - ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
+- ✅ **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover. Every dashboard number links to its tracks.
 - ✅ **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, empty and `0` values, and the most common values.
 
 Planned (see the [roadmap](docs/roadmap.md)):

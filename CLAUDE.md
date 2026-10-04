@@ -25,6 +25,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - **Everything must run inside the Docker image** (the owner deploys to Unraid). No host tools at runtime; any new library (e.g. audio analysis) goes into the image. ffmpeg is a dev-only tool for generating fixtures.
 - Modes (DJ / Collector) only change what is shown and checked, never what is stored ([ADR 0006](docs/decisions/0006-modes.md)). The owner is a DJ: many tracks are edits/bootlegs not on MusicBrainz.
 - Scope: Tagwerk manages the Unraid library (the owner's master). Rekordbox / the DJ SSD are out of scope. Plan: `docs/roadmap.md`.
+- Dashboard numbers and track lists share the conditions in `app/library.py`; a new dashboard number needs a `TrackFilter` URL, and `test_every_dashboard_number_matches_its_track_list` must keep passing.
 - Scans store tags as found on disk. Flag bad data (`mbid_invalid`, `error`), don't silently fix it.
 - Metadata sources implement the shared interface in `app/sources/` (from Phase 4).
 - The UI uses the same API routes as `/docs`. No JS build step: Jinja2 + htmx + Pico CSS, vendored in `app/static/`.

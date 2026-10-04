@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Tracks · Tagwerk{% endblock %}
+{% block content %}
+{% set dj = prefs.mode == "dj" %}
+{% set n = prefs.key_notation %}
+<div class="page-head">
+  <h1>Tracks</h1>
+  <p class="muted">{{ result.total | plural('track') }}</p>
+</div>
+
+<form method="get" action="/tracks" class="track-filters">
+  {# Keep filters that have no form field (from dashboard links), so searching doesn't drop them. #}
+  {% for name, value in f.params().items() if name not in ("q", "format", "missing", "flag") %}
+  <input type="hidden" name="{{ name }}" value="{{ value }}">
+  {% endfor %}
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Search title, artist, album, label, path" aria-label="Search" class="tf-search">
+  <select name="missing" aria-label="Missing tag">
+    <option value="">Any tags</option>
+    {% for m in missing_options %}<option value="{{ m }}" {% if f.missing == m %}selected{% endif %}>Missing {{ m | lower }}</option>{% endfor %}
+  </select>
+  <select name="flag" aria-label="Other filter">
+    <option value="">All tracks</option>
+    {% for value, label in flags.items() %}<option value="{{ value }}" {% if f.flag == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="format" aria-label="Format">
+    <option value="">All formats</option>
+    {% for fmt in formats %}<option value="{{ fmt }}" {% if f.format == fmt %}selected{% endif %}>{{ fmt | upper }}</option>{% endfor %}
+  </select>
+  <select name="sort" aria-label="Sort by">
+    {% for value, (label, _) in sorts.items() %}<option value="{{ value }}" {% if sort == value %}selected{% endif %}>Sort: {{ label }}</option>{% endfor %}
+  </select>
+  <label class="desc-toggle"><input type="checkbox" name="desc" value="true" {% if desc %}checked{% endif %}> Reverse</label>
+  <button type="submit" class="tf-submit">Show</button>
+</form>
+
+{% if chips %}
+<p class="chips">
+  {% for label, remove_url in chips %}<a class="chip" href="{{ remove_url }}" title="Remove this filter">{{ label }} <span aria-hidden="true">×</span></a>{% endfor %}
+  <a href="/tracks" class="muted"><small>Clear all</small></a>
+</p>
+{% endif %}
+
+{% if not result.tracks %}
+<article><p>No tracks match. {% if chips %}Try removing a filter.{% else %}Run a scan from the <a href="/">dashboard</a>.{% endif %}</p></article>
+{% else %}
+<div class="overflow-auto">
+<table class="striped track-table">
+  <thead>
+    <tr>
+      <th scope="col">Title / Artist</th>
+      {% if dj %}
+      <th scope="col" class="num">BPM</th><th scope="col">Key</th><th scope="col">Genre</th><th scope="col">Label</th>
+      {% else %}
+      <th scope="col">Album</th><th scope="col" class="num">#</th><th scope="col" class="num">Year</th><th scope="col">Genre</th>
+      {% endif %}
+      <th scope="col">Format</th>
+      <th scope="col" class="num">Length</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in result.tracks %}
+    <tr>
+      <td class="title-cell">
+        <a href="/tracks/{{ t.id }}">{{ t.title or t.path.rsplit("/", 1)[-1] }}</a>
+        {% if t.error %} <span title="{{ t.error }}">⚠️</span>{% endif %}
+        <br><small class="muted">{{ t.artist or "Unknown artist" }}</small>
+      </td>
+      {% if dj %}
+      <td class="num">{{ t.bpm | bpm if t.bpm else "–" }}</td>
+      <td>{% if t.key_camelot %}{{ key_label(t.key_camelot, n) }}{% elif t.key %}<span class="muted" title="Not recognized">{{ t.key }}</span>{% else %}–{% endif %}</td>
+      <td><small>{{ t.genre or "–" }}</small></td>
+      <td><small>{{ t.label or "–" }}</small></td>
+      {% else %}
+      <td><small>{{ t.album or "–" }}</small></td>
+      <td class="num">{{ t.tracknumber or "–" }}</td>
+      <td class="num">{{ t.year or "–" }}</td>
+      <td><small>{{ t.genre or "–" }}</small></td>
+      {% endif %}
+      <td><small>{{ t.format | upper }}{% if t.bitrate and t.format not in ("flac", "wav", "aiff") %} · {{ (t.bitrate / 1000) | round | int }}k{% endif %}</small></td>
+      <td class="num"><small>{{ t.duration | mmss }}</small></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% set base = f.params() %}
+{% if result.pages > 1 %}
+<nav class="pagination" aria-label="Pages">
+  {% if result.page > 1 %}<a href="{{ page_url(base, sort, desc, result.page - 1) }}" role="button" class="outline secondary">← Previous</a>{% endif %}
+  <span>Page {{ result.page }} of {{ result.pages }}</span>
+  {% if result.page < result.pages %}<a href="{{ page_url(base, sort, desc, result.page + 1) }}" role="button" class="outline secondary">Next →</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% endblock %}

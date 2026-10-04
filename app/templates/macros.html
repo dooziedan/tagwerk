@@ -5,7 +5,7 @@
 <ul class="bars">
   {% for bar in items %}
   <li title="{{ bar.label }}: {{ bar.count | number }} {{ unit }} ({{ bar.percent }}%)">
-    <span class="bar-label">{{ bar.label }}</span>
+    <span class="bar-label">{% if bar.url %}<a href="{{ bar.url }}">{{ bar.label }}</a>{% else %}{{ bar.label }}{% endif %}</span>
     <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
     <span class="bar-value">{{ bar.count | number }} <small>· {% if value == "size" %}{{ bar.size | filesize }}{% else %}{{ bar.percent }}%{% endif %}</small></span>
   </li>
@@ -15,3 +15,4 @@
 <p class="muted"><small>{{ empty }}</small></p>
 {% endif %}
 {% endmacro %}
+
