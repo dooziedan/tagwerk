@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ t.title or t.path }} · Inbox · Tagwerk{% endblock %}
+{% block content %}
+{% set n = prefs.key_notation %}
+<div class="review-nav">
+  {% set q = "" if show == "all" else "?show=" ~ show %}
+  <a href="/inbox{{ q }}">← Inbox</a>
+  <span class="muted">{{ position }} of {{ total }}{% if show != "all" %} · {{ view_label }}{% endif %}</span>
+  <span class="review-step">
+    {% if before %}<a href="/inbox/{{ before.id }}{{ q }}" aria-label="Previous track" title="Previous track">‹</a>{% else %}<span aria-hidden="true">‹</span>{% endif %}
+    {% if after %}<a href="/inbox/{{ after.id }}{{ q }}" aria-label="Next track" title="Next track">›</a>{% else %}<span aria-hidden="true">›</span>{% endif %}
+  </span>
+</div>
+
+<div class="review-head">
+  <div>
+    <h1>{{ summary.title or t.path.rsplit("/", 1)[-1] }}</h1>
+    <p class="track-sub">{{ summary.artist or "Unknown artist" }}</p>
+    <p class="muted"><small>{{ t.format | upper }}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <code>{{ t.path }}</code></small></p>
+    {% if summary.missing %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}
+    {% if not t.error %}<p class="muted"><small>On import goes to <code>{{ plan.destination }}</code></small></p>{% endif %}
+  </div>
+</div>
+
+{% if t.error %}
+<article><p>⚠️ This file can't be read: <code>{{ t.error }}</code>. It may still be downloading or be damaged.</p></article>
+{% else %}
+<form method="post" enctype="multipart/form-data" class="edit-form review-form">
+  <input type="hidden" name="show" value="{{ show }}">
+  {% set _ = cover.update({"error": errors.cover}) %}{% include "partials/cover_field.html" %}
+  {% for f in fields %}
+  <div class="edit-row{% if errors[f.field] %} has-error{% endif %}">
+    <label for="f-{{ f.field }}" class="edit-label">{{ f.label }}</label>
+    <div class="edit-input">
+      <input id="f-{{ f.field }}" name="{{ f.field }}" value="{{ f.value or '' }}" class="origin-{{ f.origin }}"
+             {% if errors[f.field] %}aria-invalid="true" aria-describedby="e-{{ f.field }}"{% endif %}>
+      {% if errors[f.field] %}<small id="e-{{ f.field }}" class="form-error">{{ errors[f.field] }}</small>
+      {% elif f.origin == "suggested" %}<small class="origin">Suggested · {{ "from filename" if f.suggestion.source == "filename" else f.suggestion.reason }}{% if not f.suggestion.sure %} · <span class="check">check</span>{% endif %}{% if f.in_file %} · in file: <span class="muted">{{ f.in_file }}</span>{% endif %}</small>
+      {% elif f.origin == "you" %}<small class="origin">Your value{% if f.in_file != f.value %} · in file: <span class="muted">{{ f.in_file or "(empty)" }}</span>{% endif %}</small>
+      {% elif hints[f.field] and not f.value %}<small class="muted">{{ hints[f.field] }}</small>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  <div class="edit-actions">
+    <button type="submit" name="then" value="next">{% if after %}Save and next ›{% else %}Save{% endif %}</button>
+    {% if after %}<button type="submit" name="then" value="list" class="secondary outline">Save</button>{% endif %}
+    <button type="submit" name="then" value="import" class="outline" {% if busy or plan.problems %}disabled title="{{ plan.problems | join(', ') | capitalize if plan.problems else 'A scan or write is running' }}"{% endif %}>Import</button>
+    {% if cover.badge or fields | selectattr("origin", "equalto", "you") | list %}<button type="submit" name="reset" value="1" class="secondary outline" formnovalidate>Back to suggestions</button>{% endif %}
+    <small class="muted">Save keeps your values for later. Import writes them into the file and moves it into the library; the filename stays the same.</small>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

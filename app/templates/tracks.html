@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Tracks · Tagwerk<script>
+{% block title %}Tracks · Tagwerk{% endblock %}
+{% block content %}
+<script>
   // Enable "Edit selected" only when something is ticked, and show how many.
   function updateSelection() {
     const n = document.querySelectorAll("input[name=ids]:checked").length;
@@ -9,8 +11,6 @@
     button.textContent = n ? `Edit ${n} selected` : "Edit selected";
   }
 </script>
-{% endblock %}
-{% block content %}
 {% set dj = prefs.mode == "dj" %}
 {% set n = prefs.key_notation %}
 <div class="page-head">

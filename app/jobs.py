@@ -14,10 +14,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from app import navidrome
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
 from app.images import ImageStore
+from app.importer import import_tracks
+from app.inbox import scan_inbox
 from app.scanner import ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
@@ -85,8 +88,25 @@ class ScanJob(Job):
         return self._start(work, progress)
 
 
+class InboxJob(Job):
+    """Reads the import inbox (read-only)."""
+
+    def __init__(self) -> None:
+        super().__init__("inbox", progress=ScanProgress())
+
+    def start(self, settings: Settings) -> bool:
+        progress = ScanProgress()
+
+        def work() -> None:
+            if not settings.import_dir.is_dir():
+                raise FileNotFoundError(f"Import folder not found: {settings.import_dir}")
+            scan_inbox(get_engine(settings.database_url), settings.import_dir, progress)
+
+        return self._start(work, progress)
+
+
 class WriteJob(Job):
-    """Applies pending changes, or undoes an applied change set."""
+    """Applies pending changes, imports inbox tracks, or undoes an applied change set."""
 
     def __init__(self) -> None:
         super().__init__("write", progress=WriteProgress())
@@ -95,18 +115,39 @@ class WriteJob(Job):
         progress = WriteProgress(action="apply")
         engine = get_engine(settings.database_url)
         images = image_store(settings)
-        return self._start(
-            lambda: apply_pending(engine, settings.music_dir, progress, images), progress
-        )
+
+        def work() -> None:
+            apply_pending(engine, settings.music_dir, progress, images)
+            navidrome.rescan_after_write(settings, progress.written)
+
+        return self._start(work, progress)
 
     def undo(self, settings: Settings, changeset_id: int) -> bool:
         progress = WriteProgress(action="undo")
         engine = get_engine(settings.database_url)
         images = image_store(settings)
-        return self._start(
-            lambda: undo_changeset(engine, settings.music_dir, changeset_id, progress, images),
-            progress,
-        )
+
+        def work() -> None:
+            undo_changeset(
+                engine, settings.music_dir, changeset_id, progress, images, settings.import_dir
+            )
+            navidrome.rescan_after_write(settings, progress.written)
+
+        return self._start(work, progress)
+
+    def import_tracks(self, settings: Settings, track_ids: list[int]) -> bool:
+        """Import inbox tracks into the library (see app/importer.py)."""
+        progress = WriteProgress(action="import")
+        engine = get_engine(settings.database_url)
+        images = image_store(settings)
+
+        def work() -> None:
+            import_tracks(
+                engine, settings.import_dir, settings.music_dir, track_ids, progress, images
+            )
+            navidrome.rescan_after_write(settings, progress.written)
+
+        return self._start(work, progress)
 
 
 def image_store(settings: Settings) -> ImageStore:
@@ -115,9 +156,10 @@ def image_store(settings: Settings) -> ImageStore:
 
 
 scan_job = ScanJob()
+inbox_job = InboxJob()
 write_job = WriteJob()
 
 
 def busy() -> bool:
-    """True while any job (scan, apply, undo) is running."""
-    return scan_job.running or write_job.running
+    """True while any job (scan, inbox scan, apply, undo) is running."""
+    return scan_job.running or inbox_job.running or write_job.running

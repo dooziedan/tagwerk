@@ -13,6 +13,7 @@ The owner wants Tagwerk to handle new music on its own as far as possible: track
 - Even in automatic mode, the old tags are **snapshotted first**, so every change can be undone. This is what remains of ADR 0003 for the inbox.
 - Automatic writing applies to **inbox tracks only**. Changes to tracks already in the library always go through review (ADR 0003 unchanged there).
 - Finished tracks are moved into the library by the owner's folder pattern: copy, verify, then delete the original.
+- **Filenames are the owner's choice.** By default they are never changed: Tagwerk writes tags and, on import, picks the folder. Import never renames; a new name built from the tags is given only when the owner marks a library track as **final** and has enabled renaming (wizard/Settings).
 
 ## Consequences
 - The writing engine (v0.6) must exist before the inbox (v0.7).

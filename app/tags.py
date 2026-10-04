@@ -105,6 +105,16 @@ class FileInfo:
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k != "raw"}
 
 
+def is_comment_frame(frame) -> bool:
+    """An ID3 COMM frame that counts as the track's comment.
+
+    All of them except iTunes' hidden technical ones (iTunNORM, iTunSMPB, ...). Taggers also
+    leave copies like "ID3v1 Comment"; reading and writing (app/writer.py) use this same rule,
+    so removing a comment removes every copy.
+    """
+    return frame.FrameID == "COMM" and not frame.desc.lower().startswith("itun")
+
+
 def read_file(path: Path) -> FileInfo:
     """Read audio properties and tags. Raises ``mutagen.MutagenError`` for broken files."""
     fmt = FORMATS.get(path.suffix.lower())
@@ -172,9 +182,7 @@ def _read_id3(tags: ID3, info: FileInfo) -> None:
     info.catalognumber = _id3_txxx(tags, "CATALOGNUMBER")
     info._replaygain = _id3_txxx(tags, "REPLAYGAIN_TRACK_GAIN")
     # Comments have a description; skip the hidden ones players write, like "iTunNORM".
-    info.comment = _join(
-        str(frame) for frame in tags.getall("COMM") if not frame.desc.lower().startswith("itun")
-    )
+    info.comment = _join(str(frame) for frame in tags.getall("COMM") if is_comment_frame(frame))
 
 
 def _id3_text(tags: ID3, key: str) -> str | None:

@@ -36,7 +36,7 @@ Files are never modified directly from a form or a lookup:
 | `app/library.py` | Track filters, sorting, paging; artists and albums. The dashboard counts with the same conditions, so every number matches its list | 0.5 |
 | `app/stats.py` | Dashboard numbers (using `app/library.py` conditions), each with the URL of its track list | 0.2 |
 | `app/covers.py` | Cover art for display: embedded or `cover.jpg`/`folder.jpg` next to the file | 0.5 |
-| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`, `library`, `changes`) | 0.2 |
+| `app/routes/` | Pages and API, one module per feature (`system`, `dashboard`, `scan`, `settings`, `fields`, `library`, `changes`, `inbox`) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
 | `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
 | `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field | 0.4 |
@@ -45,9 +45,15 @@ Files are never modified directly from a form or a lookup:
 | `app/changes.py` | Pending changes, apply and undo (run as jobs) | 0.6 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Mode, key notation, MusicBrainz visibility, stored in the `appsetting` table | 0.3 |
-| `app/navidrome.py` | Subsonic API client | Phase 3 |
+| `app/navidrome.py` | Asks Navidrome to rescan after a write (Subsonic `startScan`, salted-token login, standard library only) | 0.7 |
+| `app/inbox.py` | Keeps the `inboxtrack` table in sync with the import folder; the owner's values per track (`inboxvalue`) and the review of each field | 0.7 |
+| `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
+| `app/genres.py` | The genre map: spelling variants and subgenre → main genre | 0.7 |
+| `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back | 0.7 |
+| `app/images.py` | Content-addressed image store in `/config/images` (uploaded covers, covers kept for undo) | 0.6.1 |
+| `app/navigation.py` | Where "← Back" and "after saving" lead (only pages of the app) | 0.7 |
 | `app/sources/` | Metadata sources behind one interface (`base.py`) | Phase 4 |
-| `app/jobs.py` | Background jobs (scan, apply, undo) in a thread; one shared lock so they never overlap | 0.2 |
+| `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |
 

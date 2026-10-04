@@ -97,6 +97,7 @@ class ChangeSet(SQLModel, table=True):
     failed: int = 0
     fields: str = ""  # e.g. "BPM, Key"
     undone_at: datetime | None = None
+    kind: str = Field(default="edit", sa_column_kwargs={"server_default": "edit"})  # edit, import
 
 
 class ChangeEntry(SQLModel, table=True):
@@ -111,6 +112,8 @@ class ChangeEntry(SQLModel, table=True):
     mtime_after: float | None = None  # file time right after writing, to detect later edits
     error: str | None = None
     undone: bool = False
+    # Imports: where the file was in the inbox (relative to IMPORT_DIR). Undo moves it back.
+    moved_from: str | None = None
 
 
 class AppSetting(SQLModel, table=True):
@@ -118,3 +121,62 @@ class AppSetting(SQLModel, table=True):
 
     key: str = Field(primary_key=True)
     value: str  # JSON
+
+
+class InboxTrack(SQLModel, table=True):
+    """One audio file in the import inbox (IMPORT_DIR), not yet part of the library.
+
+    Kept apart from ``Track`` on purpose: inbox tracks never show up in library counts,
+    lists or statistics until they are moved into the library.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    # File
+    path: str = Field(unique=True, index=True)  # relative to IMPORT_DIR
+    format: str
+    size: int
+    mtime: float
+    duration: float | None = None
+    bitrate: int | None = None
+    sample_rate: int | None = None
+
+    # Tags as found in the file (same meaning as on Track)
+    tag_format: str | None = None
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    albumartist: str | None = None
+    tracknumber: int | None = None
+    tracktotal: int | None = None
+    discnumber: int | None = None
+    disctotal: int | None = None
+    date: str | None = None
+    year: int | None = None
+    genre: str | None = None
+    bpm: float | None = None
+    key: str | None = None
+    key_camelot: str | None = None
+    comment: str | None = None
+    label: str | None = None
+    catalognumber: str | None = None
+    mb_trackid: str | None = None
+    has_cover: bool = False
+
+    error: str | None = None  # set when the file could not be read
+    found_at: datetime = Field(default_factory=lambda: datetime.now(UTC))  # first seen
+    scanned_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class InboxValue(SQLModel, table=True):
+    """A value the owner set for an inbox track on its review page (overrides the suggestion).
+
+    Not written to the file until the track is imported. ``value`` None removes the field.
+    """
+
+    __table_args__ = (UniqueConstraint("track_id", "field"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    track_id: int = Field(foreign_key="inboxtrack.id", ondelete="CASCADE", index=True)
+    field: str  # a key of app.writer.EDITABLE
+    value: str | None = None

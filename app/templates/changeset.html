@@ -2,10 +2,10 @@
 {% block title %}Change details · Tagwerk{% endblock %}
 {% block content %}
 <p><a href="/changes/history">← History</a></p>
-<h1>Applied <time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></h1>
+<h1>{{ "Imported" if c.kind == "import" else "Applied" }} <time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></h1>
 <p>{{ c.fields }} · {{ c.written | plural('file') }} written{% if c.failed %}, {{ c.failed }} failed{% endif %}{% if c.undone_at %} · <strong>undone</strong>{% endif %}</p>
 {% if c.written and not c.undone_at %}
-<form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('Undo this change on {{ c.written }} file(s)?')">
+<form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('{% if c.kind == "import" %}Undo this import? {{ c.written }} file(s) get their old tags back and move back into the inbox.{% else %}Undo this change on {{ c.written }} file(s)?{% endif %}')">
   <button class="outline secondary" {% if busy %}disabled{% endif %}>Undo all</button>
 </form>
 {% endif %}
@@ -16,6 +16,7 @@
     {% if e.undone %} <span class="badge">undone</span>{% endif %}
   </header>
   {% if e.error %}<p class="form-error">⚠️ {{ e.error }}</p>{% endif %}
+  {% if e.moved_from %}<p class="muted"><small>Imported from the inbox: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>{% endif %}
   <table class="diff"><tbody>
     {% for name, (old, new) in diff.items() %}
     <tr>

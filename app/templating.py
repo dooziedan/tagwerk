@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from app import __version__
 from app.charts import key_wheel
-from app.keys import NOTATIONS, display
+from app.keys import NOTATIONS, display, to_camelot
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -93,12 +93,29 @@ def pending_count() -> int:
         return 0
 
 
+def inbox_count() -> int:
+    """Number of tracks in the import inbox, for the menu badge."""
+    try:
+        from sqlmodel import Session
+
+        from app.config import get_settings
+        from app.db import get_engine
+        from app.inbox import inbox_count as count
+
+        with Session(get_engine(get_settings().database_url)) as session:
+            return count(session)
+    except Exception:  # e.g. database not ready: no badge rather than a broken page
+        return 0
+
+
 templates.env.globals.update(
     pending_count=pending_count,
+    inbox_count=inbox_count,
     version=__version__,
     key_notations=NOTATIONS,
     key_wheel=key_wheel,
-    key_label=display,  # key_label("8A", "musical") -> "Am"
+    key_label=display,
+    key_code=to_camelot,  # key_code("Am") -> "8A"  # key_label("8A", "musical") -> "Am"
     page_url=page_url,
 )
 templates.env.filters.update(

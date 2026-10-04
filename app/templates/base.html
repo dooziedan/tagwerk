@@ -42,20 +42,24 @@
           </form>
         </li>
         {% endif %}
+        {% set inbox_n = inbox_count() %}
+        {% set pending_n = pending_count() %}
         <li>
           <details class="dropdown">
-            <summary>Library</summary>
+            <summary><span class="wide-inline">Library</span><span class="narrow-inline">Menu{% if inbox_n or pending_n %} <span class="count-badge" aria-label="{{ inbox_n + pending_n }} waiting">{{ inbox_n + pending_n }}</span>{% endif %}</span></summary>
             <ul dir="rtl">
               <li><a href="/tracks">Tracks</a></li>
               <li><a href="/albums">Albums</a></li>
               <li><a href="/artists">Artists</a></li>
               <li><a href="/fields">Tag fields</a></li>
+              <li class="narrow-only"><a href="/inbox">Inbox{% if inbox_n %} <span class="count-badge">{{ inbox_n }}</span>{% endif %}</a></li>
+              <li class="narrow-only"><a href="/changes">Changes{% if pending_n %} <span class="count-badge">{{ pending_n }}</span>{% endif %}</a></li>
               <li class="narrow-only"><a href="/settings">Settings</a></li>
             </ul>
           </details>
         </li>
-        {% set pending_n = pending_count() %}
-        <li><a href="/changes"{% if pending_n %} class="has-badge"{% endif %}>Changes{% if pending_n %} <span class="count-badge" aria-label="{{ pending_n }} pending">{{ pending_n }}</span>{% endif %}</a></li>
+        <li class="wide-only"><a href="/inbox"{% if inbox_n %} class="has-badge"{% endif %}>Inbox{% if inbox_n %} <span class="count-badge" aria-label="{{ inbox_n }} tracks">{{ inbox_n }}</span>{% endif %}</a></li>
+        <li class="wide-only"><a href="/changes"{% if pending_n %} class="has-badge"{% endif %}>Changes{% if pending_n %} <span class="count-badge" aria-label="{{ pending_n }} pending">{{ pending_n }}</span>{% endif %}</a></li>
         <li class="wide-only"><a href="/settings">Settings</a></li>
         <li class="wide-only"><a href="/docs">API</a></li>
       </ul>
@@ -64,6 +68,29 @@
   <main class="container">
     {% block content %}{% endblock %}
   </main>
+  {% set saved = request.query_params.get("saved") %}
+  {% set kept = request.query_params.get("kept") %}
+  {% if (saved and saved.isdigit()) or kept %}
+  {# Shown after saving: edits become pending changes ("saved"); inbox values wait for the
+     import ("kept"). The user stays where they were. #}
+  <div class="toast" role="status" id="toast">
+    {% if kept %}<span>✅ Saved. Written into the file when you import.</span>
+    {% else %}
+    <span>✅ {% if saved == "0" %}Nothing changed: the values were already the same.{% else %}Saved {{ saved | int | plural('pending change') }}.{% endif %}</span>
+    {% if saved != "0" %}<a href="/changes">Review →</a>{% endif %}
+    {% endif %}
+    <button type="button" class="toast-close" aria-label="Close" onclick="this.parentElement.remove()">×</button>
+  </div>
+  <script>
+    (function () {
+      const url = new URL(location.href);
+      url.searchParams.delete("saved");  // a reload shouldn't show the note again
+      url.searchParams.delete("kept");
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+      setTimeout(() => { const t = document.getElementById("toast"); if (t) t.remove(); }, 8000);
+    })();
+  </script>
+  {% endif %}
   <footer class="container">
     <small>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
   </footer>

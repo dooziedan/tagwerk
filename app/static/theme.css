@@ -74,6 +74,7 @@ body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little c
   --tw-bar-track: #dde7e8;
   --tw-chip-hover: #eef6f5;
   --tw-link: #1f7a6f;                         /* 4.8 on background */
+  --tw-check: #a14d00;                        /* "check this" hints: 5.5 on background */
   --tw-brand-tag: #264653;
 }
 
@@ -170,6 +171,7 @@ body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little c
     --tw-bar-track: #27434e;
     --tw-chip-hover: #1f3f4b;
     --tw-link: #4cc0b0;
+    --tw-check: #f4a261;                      /* Sandy Brown, 8.4 */
   }
 }
 :root[data-style][data-theme="dark"] {
@@ -202,6 +204,7 @@ body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little c
   --tw-bar-track: #27434e;
   --tw-chip-hover: #1f3f4b;
   --tw-link: #4cc0b0;
+  --tw-check: #f4a261;                      /* Sandy Brown, 8.4 */
 }
 
 /* Calm dark */

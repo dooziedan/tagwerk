@@ -6,7 +6,8 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app import preferences
+from app import navidrome, preferences
+from app.config import SettingsDep
 from app.db import SessionDep
 from app.keys import NOTATIONS
 from app.preferences import APPEARANCES, MODES, STYLES, Preferences, PreferencesDep
@@ -27,7 +28,9 @@ def put_settings(update: Preferences, session: SessionDep) -> Preferences:
 
 
 @router.get("/settings", response_class=HTMLResponse, include_in_schema=False)
-def settings_page(request: Request, prefs: PreferencesDep, saved: bool = False):
+def settings_page(
+    request: Request, prefs: PreferencesDep, settings: SettingsDep, saved: bool = False
+):
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -38,8 +41,31 @@ def settings_page(request: Request, prefs: PreferencesDep, saved: bool = False):
             "styles": STYLES,
             "appearances": APPEARANCES,
             "saved": saved,
+            "navidrome": {
+                "configured": navidrome.configured(settings),
+                "url": settings.navidrome_url,
+                "user": settings.navidrome_user,
+                "last": navidrome.last,
+            },
         },
     )
+
+
+@router.post("/settings/navidrome/{action}", include_in_schema=False)
+def navidrome_action(action: str, settings: SettingsDep):
+    """Settings buttons: test the connection, or rescan now."""
+    if action == "rescan":
+        navidrome.start_scan(settings)
+    else:
+        navidrome.ping(settings)
+    return RedirectResponse("/settings#navidrome", status_code=303)
+
+
+@router.post("/api/navidrome/rescan", tags=["settings"])
+def navidrome_rescan_api(settings: SettingsDep) -> dict:
+    """Ask Navidrome to rescan the library now (needs NAVIDROME_URL, _USER, _PASSWORD)."""
+    result = navidrome.start_scan(settings)
+    return {"ok": result.ok, "message": result.message}
 
 
 @router.post("/settings", include_in_schema=False)
