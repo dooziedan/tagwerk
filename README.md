@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: early development (v0.5).** Scanning, dashboards and browsing work. Editing and the import inbox are next on the [roadmap](docs/roadmap.md).
+> **Status: early development (v0.6).** Scanning, dashboards, browsing and **editing tags** (with review and undo) work. The import inbox is next on the [roadmap](docs/roadmap.md).
 
 ## Features
 
@@ -10,6 +10,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - ✅ **Two modes**, switchable in the menu:
   - **DJ:** tempo spread, key grid (Camelot, Open Key or musical notation), BPM/key coverage, lossless share and low-bitrate files, missing BPM/key/label/comment.
   - **Collector:** decades, genres, albums, lyrics and ReplayGain coverage, missing album tags.
+- ✅ **Edit tags** of one track or many at once (all 7 formats). Changes are reviewed as old → new before anything is written, and every apply can be undone.
 - ✅ **Two themes**, Calm and Pop, each in light and dark.
 - ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
 - ✅ **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover. Every dashboard number links to its tracks.
@@ -19,7 +20,6 @@ Planned (see the [roadmap](docs/roadmap.md)):
 
 - **Import inbox:** new tracks are tagged automatically as far as possible (filename, clean-up rules, online sources, BPM/key from the audio), you're asked only where Tagwerk is unsure, then they're moved into your library.
 
-- **Tag editing:** one album or one track at a time.
 - **MusicBrainz lookup:** tags and cover art filled in automatically, and every value stays editable.
 - **Navidrome integration:** Navidrome's stats next to your library's, and a rescan triggered after changes.
 - **Safe by design:** changes are staged, shown as *old → new*, and written only when you click Apply. The previous tags are kept so every change can be undone.

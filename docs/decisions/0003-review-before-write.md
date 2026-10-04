@@ -10,6 +10,8 @@ A tagging tool can damage a whole music library with one wrong click or a bad lo
 - **Apply** first stores a **snapshot** of the current tags, then writes. Any applied change can be undone from its snapshot.
 - Development and tests use a copy of a few albums, never the real library.
 
+Implemented in v0.6, see [ADR 0009](0009-writing-tags.md).
+
 ## Consequences
 - One extra click for the user, in exchange for safety and undo.
 - The database must track pending changes and snapshots (Phase 2).

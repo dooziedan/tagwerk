@@ -6,6 +6,7 @@ Any change here needs a migration: ``alembic revision --autogenerate -m "what ch
 
 from datetime import UTC, datetime
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -71,6 +72,45 @@ class RawTag(SQLModel, table=True):
     system: str  # id3, vorbis, mp4, riff-info
     name: str = Field(index=True)  # e.g. "TBPM", "bpm", "TXXX:fBPM"
     value: str  # shortened; binary data is stored as "<binary data>"
+
+
+class PendingChange(SQLModel, table=True):
+    """An edit that is saved but not yet written to the file (see the Changes page)."""
+
+    __table_args__ = (UniqueConstraint("track_id", "field"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    track_id: int = Field(foreign_key="track.id", index=True, ondelete="CASCADE")
+    field: str  # a key of app.writer.EDITABLE
+    old_value: str | None = None  # as shown when the change was made
+    new_value: str | None = None  # None removes the field
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ChangeSet(SQLModel, table=True):
+    """One "Apply": the changes written together, which can be undone together."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    applied_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    tracks: int = 0
+    written: int = 0
+    failed: int = 0
+    fields: str = ""  # e.g. "BPM, Key"
+    undone_at: datetime | None = None
+
+
+class ChangeEntry(SQLModel, table=True):
+    """One file in a ChangeSet: what changed, and the snapshot to undo it."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    changeset_id: int = Field(foreign_key="changeset.id", index=True, ondelete="CASCADE")
+    track_id: int | None = Field(default=None, foreign_key="track.id", ondelete="SET NULL")
+    path: str
+    changes: str  # JSON: {field: [old, new]}
+    snapshot: str | None = None  # JSON from app.writer.write(); None if writing failed
+    mtime_after: float | None = None  # file time right after writing, to detect later edits
+    error: str | None = None
+    undone: bool = False
 
 
 class AppSetting(SQLModel, table=True):

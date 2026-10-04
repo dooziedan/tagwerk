@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Change details · Tagwerk{% endblock %}
+{% block content %}
+<p><a href="/changes/history">← History</a></p>
+<h1>Applied <time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></h1>
+<p>{{ c.fields }} · {{ c.written | plural('file') }} written{% if c.failed %}, {{ c.failed }} failed{% endif %}{% if c.undone_at %} · <strong>undone</strong>{% endif %}</p>
+{% if c.written and not c.undone_at %}
+<form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('Undo this change on {{ c.written }} file(s)?')">
+  <button class="outline secondary" {% if busy %}disabled{% endif %}>Undo all</button>
+</form>
+{% endif %}
+{% for e, diff in rows %}
+<article class="change-card">
+  <header>
+    {% if e.track_id %}<a href="/tracks/{{ e.track_id }}">{{ e.path }}</a>{% else %}<code>{{ e.path }}</code>{% endif %}
+    {% if e.undone %} <span class="badge">undone</span>{% endif %}
+  </header>
+  {% if e.error %}<p class="form-error">⚠️ {{ e.error }}</p>{% endif %}
+  <table class="diff"><tbody>
+    {% for name, (old, new) in diff.items() %}
+    <tr>
+      <th scope="row">{{ labels[name] }}</th>
+      <td class="old">{% if old is none %}<span class="muted">(empty)</span>{% else %}<del>{{ old }}</del>{% endif %}</td>
+      <td class="arrow" aria-hidden="true">→</td>
+      <td class="new">{% if new is none %}<span class="muted">(removed)</span>{% else %}<ins>{{ new }}</ins>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody></table>
+</article>
+{% endfor %}
+{% endblock %}

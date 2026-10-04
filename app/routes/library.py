@@ -12,7 +12,7 @@ from app.config import SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep
 from app.library import FLAGS, MISSING, SORTS, TrackFilter, find_tracks, list_albums, list_artists
-from app.models import RawTag, Track
+from app.models import PendingChange, RawTag, Track
 from app.rawtags import SYSTEMS, used_as
 from app.tags import FORMATS
 from app.templating import templates
@@ -96,6 +96,9 @@ def track_page(request: Request, track_id: int, session: SessionDep):
             "raw": [(r, used_as(r.system, r.name)) for r in raw],
             "systems": SYSTEMS,
             "folder": track.path.rsplit("/", 1)[0] if "/" in track.path else "",
+            "pending": session.exec(
+                select(PendingChange).where(PendingChange.track_id == track_id)
+            ).all(),
         },
     )
 

@@ -1,5 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Tracks · Tagwerk{% endblock %}
+{% block title %}Tracks · Tagwerk<script>
+  // Enable "Edit selected" only when something is ticked, and show how many.
+  function updateSelection() {
+    const n = document.querySelectorAll("input[name=ids]:checked").length;
+    const button = document.getElementById("edit-selected");
+    if (!button) return;
+    button.disabled = n === 0;
+    button.textContent = n ? `Edit ${n} selected` : "Edit selected";
+  }
+</script>
+{% endblock %}
 {% block content %}
 {% set dj = prefs.mode == "dj" %}
 {% set n = prefs.key_notation %}
@@ -40,6 +50,13 @@
 </p>
 {% endif %}
 
+{% if result.tracks %}
+<form id="selection" method="get" action="/tracks/edit"></form>
+<div class="select-bar">
+  <button type="submit" form="selection" class="outline" id="edit-selected" disabled>Edit selected</button>
+  <a href="/tracks/edit?{{ (f.params() | urlencode) ~ ('&' if f.params() else '') }}all=true" class="secondary">Edit all {{ result.total | plural('matching track') }}</a>
+</div>
+{% endif %}
 {% if not result.tracks %}
 <article><p>No tracks match. {% if chips %}Try removing a filter.{% else %}Run a scan from the <a href="/">dashboard</a>.{% endif %}</p></article>
 {% else %}
@@ -47,6 +64,7 @@
 <table class="striped track-table">
   <thead>
     <tr>
+      <th scope="col" class="check-col"><input type="checkbox" aria-label="Select all on this page" onclick="document.querySelectorAll('input[name=ids]').forEach(b => b.checked = this.checked); updateSelection()"></th>
       <th scope="col">Title / Artist</th>
       {% if dj %}
       <th scope="col" class="num">BPM</th><th scope="col">Key</th><th scope="col">Genre</th><th scope="col">Label</th>
@@ -60,6 +78,7 @@
   <tbody>
     {% for t in result.tracks %}
     <tr>
+      <td class="check-col"><input type="checkbox" name="ids" value="{{ t.id }}" form="selection" aria-label="Select {{ t.title or 'track' }}" onchange="updateSelection()"></td>
       <td class="title-cell">
         <a href="/tracks/{{ t.id }}">{{ t.title or t.path.rsplit("/", 1)[-1] }}</a>
         {% if t.error %} <span title="{{ t.error }}">⚠️</span>{% endif %}

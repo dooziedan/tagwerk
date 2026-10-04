@@ -17,6 +17,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - The music folder is never `chown`ed or bulk-modified by the container.
 - Unraid compatibility: PUID/PGID/UMASK (defaults 99/100/022), all config via env vars, data only in `/config`. Reach Navidrome via host IP or Docker network, never `localhost`.
 - Schema changes go through Alembic migrations. Never edit an already released migration. `test_migrations_match_models` guards drift.
+- Only `app/writer.py` writes music files, only via `app/changes.py` (apply/undo jobs). New editable fields need reader + writer + raw mapping + tests for all formats, incl. exact undo ([ADR 0009](docs/decisions/0009-writing-tags.md)).
 - Supported formats: MP3, FLAC, WAV, AIFF, M4A, OGG, Opus. Any tag feature must handle all of them (fixtures in `tests/fixtures/`).
 - When the tag reader learns new fields, bump `SCAN_VERSION` in `app/scanner.py` so existing rows get re-read.
 - `app/rawtags.py` must never raise: an odd field must not make a file unreadable. New raw field names that feed a Tagwerk field go into its `used_as` tables too.

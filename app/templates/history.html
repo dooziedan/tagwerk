@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}History · Tagwerk{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>History</h1>
+  <a href="/changes" class="secondary">← Pending changes</a>
+</div>
+<p class="muted">Every “Apply”, newest first. Undo writes the saved old tags back. Files changed again afterwards (by Tagwerk or another tool) are skipped, so newer edits aren't lost.</p>
+{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if job.running or job.status in ("done", "failed") %}{% include "partials/write_status.html" %}{% endif %}
+
+{% if not changesets %}
+<article><p>Nothing applied yet.</p></article>
+{% else %}
+<div class="overflow-auto">
+<table class="striped">
+  <thead><tr><th scope="col">Applied</th><th scope="col">Fields</th><th scope="col" class="num">Files</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
+  <tbody>
+    {% for c in changesets %}
+    <tr>
+      <td><a href="/changes/history/{{ c.id }}"><time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></a></td>
+      <td>{{ c.fields }}</td>
+      <td class="num">{{ c.written | number }}{% if c.failed %} <small title="failed">(+{{ c.failed }} ⚠️)</small>{% endif %}</td>
+      <td>{% if c.undone_at %}<span class="muted">undone</span>{% elif c.written %}applied{% else %}<span class="muted">nothing written</span>{% endif %}</td>
+      <td class="num">
+        {% if c.written and not c.undone_at %}
+        <form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('Undo this change on {{ c.written }} file(s)?')">
+          <button class="outline secondary small" {% if busy %}disabled{% endif %}>Undo</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

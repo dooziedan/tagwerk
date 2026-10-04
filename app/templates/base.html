@@ -55,6 +55,8 @@
             </ul>
           </details>
         </li>
+        {% set pending_n = pending_count() %}
+        <li><a href="/changes"{% if pending_n %} class="has-badge"{% endif %}>Changes{% if pending_n %} <span class="count-badge" aria-label="{{ pending_n }} pending">{{ pending_n }}</span>{% endif %}</a></li>
         <li class="wide-only"><a href="/settings">Settings</a></li>
         <li class="wide-only"><a href="/docs">API</a></li>
       </ul>

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Edit · Tagwerk{% endblock %}
+{% block content %}
+<p><a href="javascript:history.back()">← Back</a></p>
+{% if many %}
+<h1>Edit {{ tracks | length | plural('track') }}</h1>
+<p class="muted">Tick <strong>Change</strong> next to each field you want to set for all of them. Other fields stay as they are on every track.</p>
+{% else %}
+{% set t = tracks[0] %}
+<h1>Edit: {{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>
+<p class="muted"><small><code>{{ t.path }}</code></small></p>
+{% endif %}
+<p class="notice">Nothing is written to your files yet. Saving creates <strong>pending changes</strong> you review and apply on the <a href="/changes">Changes</a> page.</p>
+
+{% if errors._form %}<p class="form-error" role="alert">{{ errors._form }}</p>{% endif %}
+
+<form method="post" action="{% if many %}/tracks/edit{% else %}/tracks/{{ tracks[0].id }}/edit{% endif %}" class="edit-form">
+  {% if many %}{% for t in tracks %}<input type="hidden" name="ids" value="{{ t.id }}">{% endfor %}{% endif %}
+  {% for name, label in fields %}
+  <div class="edit-row{% if many %} with-check{% endif %}{% if errors[name] %} has-error{% endif %}">
+    {% if many %}
+    <label class="edit-check"><input type="checkbox" name="change_{{ name }}" {% if name in checked %}checked{% endif %} aria-label="Change {{ label }}"> Change</label>
+    {% endif %}
+    <label for="f-{{ name }}" class="edit-label">{{ label }}{% if name in pending %} <span class="badge">pending</span>{% endif %}</label>
+    <div class="edit-input">
+      <input id="f-{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}"
+             {% if many and shared.get(name) is none %}placeholder="(different values)"{% endif %}
+             {% if errors[name] %}aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}
+             {% if many %}oninput="this.form['change_{{ name }}'].checked = true"{% endif %}>
+      {% if errors[name] %}<small id="e-{{ name }}" class="form-error">{{ errors[name] }}</small>
+      {% elif hints[name] %}<small class="muted">{{ hints[name] }}</small>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  <p class="muted"><small>An empty field removes that tag{% if many %} (only where “Change” is ticked){% endif %}.</small></p>
+  <button type="submit">Save as pending change</button>
+</form>
+{% endblock %}

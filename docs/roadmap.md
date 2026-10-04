@@ -40,7 +40,7 @@ Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master l
 ## v0.5.1: Design foundation ✅ (v0.5.1)
 - Design language with Calm and Pop themes, light and dark; logo and Unraid icon; cross-browser screenshot checks incl. Safari's engine. See [design.md](design.md).
 
-## v0.6: Editing with review, apply and undo (the writing engine)
+## v0.6: Editing with review, apply and undo (the writing engine) ✅ (v0.6.0)
 - Edit one track or many at once (e.g. a label for a whole album) → pending changes → review *old → new* → apply → undo.
 - Tag writing for all 7 formats, mapped back to the same fields the reader uses (ID3 for WAV/AIFF, Vorbis, MP4).
 - The edit form follows the mode: BPM, key, comment, label first in DJ mode; album fields first in Collector mode.

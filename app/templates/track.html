@@ -18,6 +18,8 @@
     </p>
     <p class="muted"><small><code>{{ t.path }}</code></small></p>
     {% if t.error %}<p>⚠️ Could not be read: <code>{{ t.error }}</code></p>{% endif %}
+    <p><a href="/tracks/{{ t.id }}/edit" role="button">Edit tags</a>
+    {% if pending %} <a href="/changes" class="secondary"><small>{{ pending | length | plural('pending change') }} →</small></a>{% endif %}</p>
   </div>
 </div>
 
