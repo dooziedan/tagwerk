@@ -11,6 +11,7 @@ A new decision gets the next number. A decision that is replaced is marked "Supe
 | [0004](0004-license.md) | License AGPL-3.0-or-later | Accepted |
 | [0005](0005-reading-tags.md) | One common tag format, Picard conventions, honest about bad data | Accepted |
 | [0006](0006-modes.md) | DJ and Collector modes change the view, never the data | Accepted |
+| [0007](0007-import-inbox.md) | Import inbox with opt-in automatic tagging (amends 0003) | Accepted |
 
 Template:
 

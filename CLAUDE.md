@@ -13,7 +13,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - Regenerate test audio: `.venv/bin/python tests/fixtures/generate.py` (ffmpeg)
 
 ## Rules
-- **Never write to music files without the review → apply flow**, and always snapshot old tags first. Develop against a test copy (`dev/music/`), never the real library.
+- **Never write to music files without the review → apply flow**, and always snapshot old tags first. Only exception: inbox tracks when the owner enabled automatic mode ([ADR 0007](docs/decisions/0007-import-inbox.md)), still with snapshots. Develop against a test copy (`dev/music/`), never the real library.
 - The music folder is never `chown`ed or bulk-modified by the container.
 - Unraid compatibility: PUID/PGID/UMASK (defaults 99/100/022), all config via env vars, data only in `/config`. Reach Navidrome via host IP or Docker network, never `localhost`.
 - Schema changes go through Alembic migrations. Never edit an already released migration. `test_migrations_match_models` guards drift.
@@ -24,6 +24,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - New NOT NULL columns need a `server_default` in the migration: real databases already have rows.
 - **Everything must run inside the Docker image** (the owner deploys to Unraid). No host tools at runtime; any new library (e.g. audio analysis) goes into the image. ffmpeg is a dev-only tool for generating fixtures.
 - Modes (DJ / Collector) only change what is shown and checked, never what is stored ([ADR 0006](docs/decisions/0006-modes.md)). The owner is a DJ: many tracks are edits/bootlegs not on MusicBrainz.
+- Scope: Tagwerk manages the Unraid library (the owner's master). Rekordbox / the DJ SSD are out of scope. Plan: `docs/roadmap.md`.
 - Scans store tags as found on disk. Flag bad data (`mbid_invalid`, `error`), don't silently fix it.
 - Metadata sources implement the shared interface in `app/sources/` (from Phase 4).
 - The UI uses the same API routes as `/docs`. No JS build step: Jinja2 + htmx + Pico CSS, vendored in `app/static/`.

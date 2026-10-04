@@ -1,5 +1,5 @@
 # 0003: Files are only changed through review → apply, with snapshots
-Date: 2026-10-03 · Status: Accepted
+Date: 2026-10-03 · Status: Accepted, amended by [0007](0007-import-inbox.md) for the import inbox
 
 ## Context
 A tagging tool can damage a whole music library with one wrong click or a bad lookup match. The library is also used by Navidrome, so mistakes show up immediately.
