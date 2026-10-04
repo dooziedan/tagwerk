@@ -6,12 +6,13 @@ Every container format stores tags differently:
 |------------|-----------------------------------|
 | MP3        | ID3                               |
 | WAV, AIFF  | ID3 (WAV may only have RIFF INFO) |
-| FLAC       | Vorbis comments                   |
+| FLAC, OGG, Opus | Vorbis comments              |
 | M4A        | MP4 atoms                         |
 
 ``read_file`` hides those differences and returns a ``FileInfo`` whose fields match the
 columns of ``app.models.Track``. The field names follow MusicBrainz Picard's conventions,
-because that's what most taggers (and Navidrome) understand.
+because that's what most taggers (and Navidrome) understand. DJ fields (BPM, key, comment,
+label) follow what Rekordbox reads and writes.
 """
 
 import re
@@ -25,6 +26,8 @@ from mutagen.flac import FLAC
 from mutagen.id3 import ID3
 from mutagen.mp4 import MP4Tags
 
+from app.keys import to_camelot
+
 # File extension -> format name used throughout the app.
 FORMATS = {
     ".mp3": "mp3",
@@ -33,7 +36,11 @@ FORMATS = {
     ".aif": "aiff",
     ".aiff": "aiff",
     ".m4a": "m4a",
+    ".ogg": "ogg",
+    ".opus": "opus",
 }
+
+LOSSLESS_FORMATS = {"flac", "wav", "aiff"}
 
 MBID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 MBID_FIELDS = ("mb_trackid", "mb_albumid", "mb_artistid", "mb_albumartistid")
@@ -70,10 +77,24 @@ class FileInfo:
     mb_albumartistid: str | None = None
     mbid_invalid: bool = False
     has_cover: bool = False
+    has_lyrics: bool = (
+        False  # embedded lyrics (a .lrc file next to the track is checked by the scanner)
+    )
 
-    # Raw "track" and "disc" values like "3/12", split into number and total by _finish().
-    _track: str | None = field(default=None, repr=False)
+    # DJ fields
+    bpm: float | None = None
+    key: str | None = None  # as written in the file, e.g. "Am" or "8A"
+    key_camelot: str | None = None  # parsed into Camelot ("8A"); None if missing or unrecognized
+    comment: str | None = None
+    label: str | None = None
+    catalognumber: str | None = None
+    replaygain_track_gain: float | None = None  # dB
+
+    # Raw text values, converted to numbers by _finish().
+    _track: str | None = field(default=None, repr=False)  # "3/12"
     _disc: str | None = field(default=None, repr=False)
+    _bpm: str | None = field(default=None, repr=False)
+    _replaygain: str | None = field(default=None, repr=False)  # "-6.20 dB"
 
     def as_columns(self) -> dict:
         """The values to store on a ``Track`` row."""
@@ -137,6 +158,17 @@ def _read_id3(tags: ID3, info: FileInfo) -> None:
     if ufid is not None:
         info.mb_trackid = ufid.data.decode("ascii", "replace") or None
     info.has_cover = bool(tags.getall("APIC"))
+    info.has_lyrics = any(str(f).strip() for f in tags.getall("USLT")) or bool(tags.getall("SYLT"))
+
+    info._bpm = _id3_text(tags, "TBPM")
+    info.key = _id3_text(tags, "TKEY")
+    info.label = _id3_text(tags, "TPUB") or _id3_txxx(tags, "LABEL")
+    info.catalognumber = _id3_txxx(tags, "CATALOGNUMBER")
+    info._replaygain = _id3_txxx(tags, "REPLAYGAIN_TRACK_GAIN")
+    # Comments have a description; skip the hidden ones players write, like "iTunNORM".
+    info.comment = _join(
+        str(frame) for frame in tags.getall("COMM") if not frame.desc.lower().startswith("itun")
+    )
 
 
 def _id3_text(tags: ID3, key: str) -> str | None:
@@ -144,7 +176,15 @@ def _id3_text(tags: ID3, key: str) -> str | None:
     return _join(str(t) for t in frame.text) if frame is not None else None
 
 
-# --- Vorbis comments (FLAC) ---------------------------------------------------------------
+def _id3_txxx(tags: ID3, name: str) -> str | None:
+    """A user-defined TXXX frame, matching its name case-insensitively."""
+    for frame in tags.getall("TXXX"):
+        if frame.desc.lower() == name.lower():
+            return _join(str(t) for t in frame.text)
+    return None
+
+
+# --- Vorbis comments (FLAC, OGG, Opus) ------------------------------------------------------
 
 
 def _read_vorbis(tags: VCommentDict, info: FileInfo) -> None:
@@ -170,6 +210,14 @@ def _read_vorbis(tags: VCommentDict, info: FileInfo) -> None:
     info.mb_artistid = get("musicbrainz_artistid")
     info.mb_albumartistid = get("musicbrainz_albumartistid")
     info.has_cover = "metadata_block_picture" in tags
+    info.has_lyrics = bool(get("lyrics", "unsyncedlyrics"))
+
+    info._bpm = get("bpm", "tempo")
+    info.key = get("initialkey", "key")
+    info.comment = get("comment", "description")
+    info.label = get("label", "organization", "publisher")
+    info.catalognumber = get("catalognumber")
+    info._replaygain = get("replaygain_track_gain")
 
 
 # --- MP4 atoms (M4A) ----------------------------------------------------------------------
@@ -181,8 +229,11 @@ def _read_mp4(tags: MP4Tags, info: FileInfo) -> None:
     def text(key: str) -> str | None:
         return _join(str(v) for v in tags[key]) if key in tags else None
 
+    # Freeform names vary in case between taggers ("LABEL", "label"), so match loosely.
+    freeform_keys = {k.lower(): k for k in tags if k.startswith(_MP4_FREEFORM)}
+
     def freeform(name: str) -> str | None:
-        values = tags.get(_MP4_FREEFORM + name)
+        values = tags.get(freeform_keys.get((_MP4_FREEFORM + name).lower(), ""))
         return _join(bytes(v).decode("utf-8", "replace") for v in values) if values else None
 
     info.tag_format = "mp4"
@@ -201,6 +252,15 @@ def _read_mp4(tags: MP4Tags, info: FileInfo) -> None:
     info.mb_artistid = freeform("MusicBrainz Artist Id")
     info.mb_albumartistid = freeform("MusicBrainz Album Artist Id")
     info.has_cover = bool(tags.get("covr"))
+    info.has_lyrics = bool(text("\xa9lyr"))
+
+    if tags.get("tmpo"):
+        info._bpm = str(tags["tmpo"][0])
+    info.key = freeform("initialkey") or freeform("KEY")
+    info.comment = text("\xa9cmt")
+    info.label = freeform("LABEL") or freeform("publisher")
+    info.catalognumber = freeform("CATALOGNUMBER")
+    info._replaygain = freeform("replaygain_track_gain")
 
 
 # --- RIFF INFO (WAV without ID3) ----------------------------------------------------------
@@ -211,6 +271,7 @@ _RIFF_INFO_FIELDS = {
     b"IPRD": "album",
     b"ICRD": "date",
     b"IGNR": "genre",
+    b"ICMT": "comment",
     b"ITRK": "_track",
     b"IPRT": "_track",
 }
@@ -273,6 +334,10 @@ def _finish(info: FileInfo) -> None:
         info.disctotal = info.disctotal or total
     if info.date and (match := re.match(r"\d{4}", info.date)):
         info.year = int(match.group())
+    bpm = _to_float(info._bpm)
+    info.bpm = round(bpm, 2) if bpm and bpm > 0 else None  # Some taggers write "0" for unknown
+    info.key_camelot = to_camelot(info.key)
+    info.replaygain_track_gain = _to_float(info._replaygain)
     info.mbid_invalid = any(
         value and not all(MBID_RE.match(part) for part in value.split("; "))
         for value in (getattr(info, name) for name in MBID_FIELDS)
@@ -282,6 +347,14 @@ def _finish(info: FileInfo) -> None:
 def _split_number(value: str) -> tuple[int | None, int | None]:
     number, _, total = value.partition("/")
     return _to_int(number), _to_int(total)
+
+
+def _to_float(value: str | None) -> float | None:
+    """'128', '127,50' or '-6.20 dB' -> number."""
+    if not value:
+        return None
+    match = re.match(r"\s*([-+]?\d+(?:[.,]\d+)?)", value)
+    return float(match.group(1).replace(",", ".")) if match else None
 
 
 def _to_int(value: str | None) -> int | None:

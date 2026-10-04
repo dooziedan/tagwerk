@@ -2,12 +2,15 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: early development (v0.2).** Scanning and the library dashboard work. Editing, Navidrome and MusicBrainz are next on the [roadmap](docs/roadmap.md).
+> **Status: early development (v0.3).** Scanning and the dashboards work. Editing, Navidrome and online lookups are next on the [roadmap](docs/roadmap.md).
 
 ## Features
 
-- ✅ **Library scan:** reads MP3, FLAC, WAV, AIFF and M4A (ID3, Vorbis comments, MP4 tags, RIFF INFO). Read-only, and unchanged files are skipped on rescans.
-- ✅ **Dashboard:** tracks, artists, albums, size, playing time, formats, missing tags, and MusicBrainz fields holding other IDs (e.g. Discogs).
+- ✅ **Library scan:** reads MP3, FLAC, WAV, AIFF, M4A, OGG and Opus (ID3, Vorbis comments, MP4 tags, RIFF INFO), including BPM, key, comment, label, catalog number, ReplayGain and lyrics (embedded or `.lrc`). Read-only, and unchanged files are skipped on rescans.
+- ✅ **Two modes**, switchable in the menu:
+  - **DJ:** tempo spread, key grid (Camelot, Open Key or musical notation), BPM/key coverage, lossless share and low-bitrate files, missing BPM/key/label/comment.
+  - **Collector:** decades, genres, albums, lyrics and ReplayGain coverage, missing album tags.
+- ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
 
 Planned:
 

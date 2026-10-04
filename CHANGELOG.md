@@ -5,6 +5,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-04
+
+### Added
+- **DJ and Collector modes**, switchable in the menu and saved in `/config`.
+  - DJ: tempo spread, key grid, BPM & key coverage, lossless share, lossy files below 256 kbps, missing BPM/key/label/comment.
+  - Collector: decades, genres, lyrics and ReplayGain coverage, missing album tags.
+- OGG and Opus files.
+- New fields read from all formats: BPM, key, comment, label, catalog number, ReplayGain track gain, embedded lyrics, and `.lrc` lyrics files next to tracks.
+- Keys in any common notation (Am, A minor, 8A, 1m, F#/Gb…) are recognized and shown as Camelot, Open Key or musical notation (setting). Unrecognized key tags are counted.
+- Settings page and API: `GET`/`PUT /api/settings`.
+
+### Changed
+- MusicBrainz checks are now optional and off by default.
+- WAV files with only RIFF INFO tags now also show their comment.
+- On phones, the menu shows only the mode switch and Settings.
+
+### Upgrade notes
+- The database upgrades automatically. The first scan after updating re-reads every file once to fill in the new fields, so it takes as long as a first scan.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

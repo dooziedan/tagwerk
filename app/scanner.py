@@ -19,6 +19,11 @@ log = logging.getLogger(__name__)
 
 COMMIT_EVERY = 200  # files per database transaction
 
+# Bump this whenever the tag reader learns new fields: rows from older versions are then
+# re-read once on the next scan, even if the file itself didn't change.
+#   1 = v0.2 (basic tags)   2 = v0.3 (DJ fields, lyrics, OGG/Opus)
+SCAN_VERSION = 2
+
 
 @dataclass
 class ScanProgress:
@@ -34,28 +39,38 @@ class ScanProgress:
     current: str = ""  # file being read right now
 
 
-def find_audio_files(music_dir: Path) -> list[Path]:
-    """All supported audio files below ``music_dir``, skipping hidden folders like .Trash."""
-    files = []
+def find_files(music_dir: Path) -> tuple[list[Path], set[Path]]:
+    """Supported audio files below ``music_dir``, and .lrc lyrics files (without extension).
+
+    Hidden files and folders (.Trash, macOS ._ files) and @ folders are skipped.
+    """
+    audio, lyrics = [], set()
     for root, dirs, names in os.walk(music_dir):
         dirs[:] = sorted(d for d in dirs if not d.startswith((".", "@")))
-        files.extend(
-            Path(root, name)
-            for name in sorted(names)
-            if not name.startswith(".") and Path(name).suffix.lower() in FORMATS
-        )
-    return files
+        for name in sorted(names):
+            if name.startswith("."):
+                continue
+            suffix = Path(name).suffix.lower()
+            if suffix in FORMATS:
+                audio.append(Path(root, name))
+            elif suffix == ".lrc":
+                lyrics.add(Path(root, name).with_suffix(""))
+    return audio, lyrics
 
 
 def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> None:
-    files = find_audio_files(music_dir)
+    files, lrc_files = find_files(music_dir)
     progress.total = len(files)
     log.info("Scan started: %d audio files in %s", len(files), music_dir)
 
     with Session(engine) as session:
         known = {
-            row.path: (row.id, row.mtime, row.size)
-            for row in session.exec(select(Track.path, Track.id, Track.mtime, Track.size))
+            row.path: row
+            for row in session.exec(
+                select(
+                    Track.path, Track.id, Track.mtime, Track.size, Track.scan_version, Track.has_lrc
+                )
+            )
         }
         seen: set[str] = set()
 
@@ -71,19 +86,32 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 progress.processed = i
                 continue
 
+            has_lrc = path.with_suffix("") in lrc_files
             existing = known.get(rel)
-            if existing and existing[1] == stat.st_mtime and existing[2] == stat.st_size:
+            up_to_date = (
+                existing is not None
+                and existing.mtime == stat.st_mtime
+                and existing.size == stat.st_size
+                and existing.scan_version >= SCAN_VERSION
+            )
+            if up_to_date and existing.has_lrc == has_lrc:
                 progress.unchanged += 1
+            elif up_to_date:
+                # Only a .lrc file was added or removed: no need to read the audio file.
+                session.get(Track, existing.id).has_lrc = has_lrc
+                progress.updated += 1
             else:
                 columns = _read_columns(path, rel, progress)
                 columns.update(
                     path=rel,
                     size=stat.st_size,
                     mtime=stat.st_mtime,
+                    has_lrc=has_lrc,
+                    scan_version=SCAN_VERSION,
                     scanned_at=datetime.now(UTC),
                 )
                 if existing:
-                    track = session.get(Track, existing[0])
+                    track = session.get(Track, existing.id)
                     for key, value in columns.items():
                         setattr(track, key, value)
                     progress.updated += 1

@@ -17,7 +17,11 @@ The owner is learning to code: explain changes in plain language and keep the co
 - The music folder is never `chown`ed or bulk-modified by the container.
 - Unraid compatibility: PUID/PGID/UMASK (defaults 99/100/022), all config via env vars, data only in `/config`. Reach Navidrome via host IP or Docker network, never `localhost`.
 - Schema changes go through Alembic migrations. Never edit an already released migration. `test_migrations_match_models` guards drift.
-- Supported formats: MP3, FLAC, WAV, AIFF, M4A. Any tag feature must handle all five (fixtures in `tests/fixtures/`).
+- Supported formats: MP3, FLAC, WAV, AIFF, M4A, OGG, Opus. Any tag feature must handle all of them (fixtures in `tests/fixtures/`).
+- When the tag reader learns new fields, bump `SCAN_VERSION` in `app/scanner.py` so existing rows get re-read.
+- New NOT NULL columns need a `server_default` in the migration: real databases already have rows.
+- **Everything must run inside the Docker image** (the owner deploys to Unraid). No host tools at runtime; any new library (e.g. audio analysis) goes into the image. ffmpeg is a dev-only tool for generating fixtures.
+- Modes (DJ / Collector) only change what is shown and checked, never what is stored ([ADR 0006](docs/decisions/0006-modes.md)). The owner is a DJ: many tracks are edits/bootlegs not on MusicBrainz.
 - Scans store tags as found on disk. Flag bad data (`mbid_invalid`, `error`), don't silently fix it.
 - Metadata sources implement the shared interface in `app/sources/` (from Phase 4).
 - The UI uses the same API routes as `/docs`. No JS build step: Jinja2 + htmx + Pico CSS, vendored in `app/static/`.

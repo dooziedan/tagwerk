@@ -32,11 +32,60 @@ def test_scan_then_dashboard(client):
     assert client.get("/api/scan").json()["status"] == "done"
 
     stats = client.get("/api/stats").json()
-    assert stats["tracks"] == 8
+    assert stats["tracks"] == 10
 
     page = client.get("/").text
     assert "Formats" in page and "Missing tags" in page
-    assert "M4A" in page
+    assert "M4A" in page and "OPUS" in page
+    assert "Decades" in page  # Collector is the default mode
+
+
+def test_settings_api(client):
+    assert client.get("/api/settings").json() == {
+        "mode": "collector",
+        "key_notation": "camelot",
+        "show_musicbrainz": False,
+    }
+    saved = client.put(
+        "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}
+    ).json()
+    assert saved["mode"] == "dj"
+    assert client.get("/api/settings").json() == saved
+
+
+def test_settings_form_and_unknown_values(client):
+    response = client.post(
+        "/settings",
+        content="mode=dj&key_notation=bogus",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    prefs = client.get("/api/settings").json()
+    assert prefs["mode"] == "dj"
+    assert prefs["key_notation"] == "camelot"  # unknown value falls back to the default
+    assert prefs["show_musicbrainz"] is False  # unchecked box
+    assert "Settings" in client.get("/settings").text
+
+
+def test_mode_switch_shows_dj_dashboard(client):
+    client.post("/api/scan")
+    scan_job.wait(timeout=30)
+    client.put("/api/settings", json={"mode": "dj", "key_notation": "openkey"})
+    page = client.get("/").text
+    assert "DJ library" in page
+    assert "Tempo" in page and "Keys" in page
+    assert ">1m<" in page  # Am shown in Open Key notation
+    assert "Decades" not in page
+
+    response = client.post(
+        "/settings/mode",
+        content="mode=collector",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert "Decades" in client.get("/").text
 
 
 def test_missing_music_folder_shows_setup_problem(client, music_dir):
