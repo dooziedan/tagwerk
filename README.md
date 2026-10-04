@@ -42,6 +42,7 @@ Planned (see the [roadmap](docs/roadmap.md)):
    | App Data | Leave the default `/mnt/user/appdata/tagwerk` |
    | Import Inbox (optional) | A folder for new music, e.g. `/mnt/user/music-inbox`. Use a folder **outside** your music share, so Navidrome doesn't show unfinished tracks. |
    | Navidrome URL / User / Password (optional) | e.g. `http://192.168.1.10:4533` and a Navidrome user with admin rights, so Tagwerk can trigger a rescan. Not `localhost`. |
+   | Navidrome Library (optional) | If Navidrome has several libraries: the name of the one using your music folder, e.g. `Music Library`. |
    | WebUI Port | `8000`, or any free port |
    | PUID / PGID (advanced) | Leave Unraid's defaults `99` / `100` |
 
@@ -59,6 +60,7 @@ All settings are environment variables (the fields in the Unraid template):
 | `CONFIG_DIR` | `/config` | Database, settings and images (covers kept for undo) |
 | `IMPORT_DIR` | `/import` | Import inbox (optional) |
 | `NAVIDROME_URL` / `NAVIDROME_USER` / `NAVIDROME_PASSWORD` | empty | Navidrome to rescan after changes (optional; admin user) |
+| `NAVIDROME_LIBRARY` | empty | With several Navidrome libraries: the name of the one using your music folder; only it is rescanned |
 | `PUID` / `PGID` | `99` / `100` | User and group the app runs as |
 | `UMASK` | `022` | Permission mask for new files |
 
