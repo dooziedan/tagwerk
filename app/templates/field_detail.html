@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "macros.html" import bars %}
+{% block title %}{{ d.summary.name }} · Tag fields · Tagwerk{% endblock %}
+{% block content %}
+{% set s = d.summary %}
+<p><a href="/fields">← All tag fields</a></p>
+<h1><code>{{ s.name }}</code></h1>
+<p>
+  {{ systems[s.system] }} field in {{ s.files | plural('file') }} ({{ s.percent }}% of the library).
+  {% if s.used_as %}Tagwerk reads it as <span class="badge">{{ s.used_as }}</span>.{% else %}Tagwerk ignores this field.{% endif %}
+</p>
+
+<section class="kpis" aria-label="Field totals">
+  <article class="kpi"><span class="kpi-value">{{ s.files | number }}</span><span class="kpi-label">Files</span></article>
+  <article class="kpi"><span class="kpi-value">{{ s.distinct | number }}</span><span class="kpi-label">Different values</span></article>
+  <article class="kpi"><span class="kpi-value">{{ s.empty | number }}</span><span class="kpi-label">Empty</span></article>
+  <article class="kpi" title="0 usually means 'unknown', e.g. BPM written by MusicBrainz Picard"><span class="kpi-value">{{ s.zero | number }}</span><span class="kpi-label">Zero</span></article>
+</section>
+
+<div class="grid-2">
+  <article>
+    <header><strong>Values</strong> <small class="muted">most common first{% if d.values | length < s.distinct %}, top {{ d.values | length }}{% endif %}</small></header>
+    <div class="overflow-auto">
+    <table class="striped">
+      <thead><tr><th scope="col">Value</th><th scope="col" class="num">Files</th></tr></thead>
+      <tbody>
+        {% for value, count in d.values %}
+        <tr><td><code>{{ value if value else "(empty)" }}</code></td><td class="num">{{ count | number }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </article>
+  <article>
+    <header><strong>Example files</strong> <small class="muted">first {{ d.examples | length }} by path</small></header>
+    <ul class="examples">
+      {% for path, value in d.examples %}
+      <li><span class="path">{{ path }}</span><br><code>{{ value if value else "(empty)" }}</code></li>
+      {% endfor %}
+    </ul>
+  </article>
+</div>
+{% endblock %}

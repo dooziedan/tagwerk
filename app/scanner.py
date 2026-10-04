@@ -12,7 +12,8 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, delete, select
 
-from app.models import Track
+from app.models import RawTag, Track
+from app.rawtags import RawField
 from app.tags import FORMATS, FileInfo, read_file
 
 log = logging.getLogger(__name__)
@@ -21,8 +22,8 @@ COMMIT_EVERY = 200  # files per database transaction
 
 # Bump this whenever the tag reader learns new fields: rows from older versions are then
 # re-read once on the next scan, even if the file itself didn't change.
-#   1 = v0.2 (basic tags)   2 = v0.3 (DJ fields, lyrics, OGG/Opus)
-SCAN_VERSION = 2
+#   1 = v0.2 (basic tags)   2 = v0.3 (DJ fields, lyrics, OGG/Opus)   3 = v0.4 (raw tag fields)
+SCAN_VERSION = 3
 
 
 @dataclass
@@ -101,7 +102,7 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 session.get(Track, existing.id).has_lrc = has_lrc
                 progress.updated += 1
             else:
-                columns = _read_columns(path, rel, progress)
+                columns, raw = _read_file(path, rel, progress)
                 columns.update(
                     path=rel,
                     size=stat.st_size,
@@ -114,10 +115,17 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                     track = session.get(Track, existing.id)
                     for key, value in columns.items():
                         setattr(track, key, value)
+                    session.exec(delete(RawTag).where(RawTag.track_id == track.id))
                     progress.updated += 1
                 else:
-                    session.add(Track(**columns))
+                    track = Track(**columns)
+                    session.add(track)
+                    session.flush()  # assigns track.id
                     progress.added += 1
+                session.add_all(
+                    RawTag(track_id=track.id, system=f.system, name=f.name, value=f.value)
+                    for f in raw
+                )
 
             progress.processed = i
             if i % COMMIT_EVERY == 0:
@@ -133,8 +141,8 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
     log.info("Scan finished: %s", progress)
 
 
-def _read_columns(path: Path, rel: str, progress: ScanProgress) -> dict:
-    """Tag columns for a file; on a broken file, empty tags plus the error message."""
+def _read_file(path: Path, rel: str, progress: ScanProgress) -> tuple[dict, list[RawField]]:
+    """Track columns and raw tag fields; for a broken file, empty tags plus the error."""
     try:
         info = read_file(path)
         error = None
@@ -143,4 +151,4 @@ def _read_columns(path: Path, rel: str, progress: ScanProgress) -> dict:
         info = FileInfo(format=FORMATS[path.suffix.lower()])
         error = f"{type(exc).__name__}: {exc}"[:500]
         progress.errors += 1
-    return {**info.as_columns(), "error": error}
+    return {**info.as_columns(), "error": error}, info.raw

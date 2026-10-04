@@ -107,6 +107,7 @@
         {% if prefs.show_musicbrainz %}<li>{{ stats.invalid_mbids | plural('file') }} with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
         {% if not dj %}<li>{{ stats.with_lyrics | plural('track') }} with lyrics (embedded or .lrc file).</li>{% endif %}
         {% if stats.unreadable %}<li>⚠️ {{ stats.unreadable | plural('file') }} could not be read.</li>{% endif %}
+        <li><a href="/fields">See every tag field in your files →</a></li>
       </ul>
     </footer>
   </article>
