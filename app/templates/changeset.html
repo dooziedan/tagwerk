@@ -2,10 +2,10 @@
 {% block title %}Change details · Tagwerk{% endblock %}
 {% block content %}
 <p><a href="/changes/history">← History</a></p>
-<h1>{{ {"import": "Imported", "folder": "Moved"}.get(c.kind, "Applied") }} <time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></h1>
+<h1>{{ {"import": "Imported", "folder": "Moved", "final": "Final mark", "convert": "Converted"}.get(c.kind, "Applied") }} <time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></h1>
 <p>{{ c.fields }} · {{ c.written | plural('file') }} written{% if c.failed %}, {{ c.failed }} failed{% endif %}{% if c.undone_at %} · <strong>undone</strong>{% endif %}</p>
 {% if c.written and not c.undone_at %}
-<form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('{% if c.kind == "import" %}Undo this import? {{ c.written }} file(s) get their old tags back and move back into the inbox.{% elif c.kind == "folder" %}Undo this? {{ c.written }} file(s) move back into _Unsorted.{% else %}Undo this change on {{ c.written }} file(s)?{% endif %}')">
+<form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('{% if c.kind == "import" %}Undo this import? {{ c.written }} file(s) get their old tags back and move back into the inbox.{% elif c.kind == "folder" %}Undo this? {{ c.written }} file(s) move back into _Unsorted.{% elif c.kind == "final" %}Undo this? The final mark is removed and a renamed file gets its old name back.{% elif c.kind == "convert" %}Undo this? {{ c.written }} original file(s) come back into the library, and the AIFF files made from them are removed.{% else %}Undo this change on {{ c.written }} file(s)?{% endif %}')">
   <button class="outline secondary" {% if busy %}disabled{% endif %}>Undo all</button>
 </form>
 {% endif %}
@@ -16,9 +16,11 @@
     {% if e.undone %} <span class="badge">undone</span>{% endif %}
   </header>
   {% if e.error %}<p class="form-error">⚠️ {{ e.error }}</p>{% endif %}
-  {% if e.moved_from and c.kind == "folder" %}<p class="muted"><small>Moved: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>
+  {% if c.kind == "convert" %}<p class="muted"><small>{% if e.moved_from %}<code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>; the original is in the original files folder{% else %}Not converted{% endif %}{% if e.undone %} (undone){% endif %}</small></p>
+  {% elif c.kind == "final" %}<p class="muted"><small>{% if e.moved_from and e.moved_from != e.path %}Renamed: <code>{{ e.moved_from.rsplit("/", 1)[-1] }}</code> → <code>{{ e.path.rsplit("/", 1)[-1] }}</code>{% else %}{{ c.fields }}{% endif %}{% if e.undone %} (undone){% endif %}</small></p>
+  {% elif e.moved_from and c.kind == "folder" %}<p class="muted"><small>Moved: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>
   {% elif e.moved_from %}<p class="muted"><small>Imported from the inbox: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>{% endif %}
-  {% if c.kind != "folder" %}
+  {% if c.kind not in ("folder", "final", "convert") %}
   <table class="diff"><tbody>
     {% for name, (old, new) in diff.items() %}
     <tr>

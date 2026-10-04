@@ -14,4 +14,5 @@ services:
       - ./dev/config:/config
       - "${MUSIC_PATH:-./dev/music}:/music"   # point MUSIC_PATH at a TEST COPY of a few albums
       - "${IMPORT_PATH:-./dev/import}:/import" # new music waiting in the inbox
+      - "${ORIGINALS_PATH:-./dev/originals}:/originals" # originals after converting to AIFF
     restart: unless-stopped

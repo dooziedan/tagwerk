@@ -5,12 +5,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     MUSIC_DIR=/music \
+    ORIGINALS_DIR=/originals \
     CONFIG_DIR=/config \
     PUID=99 \
     PGID=100 \
     UMASK=022
 
 WORKDIR /opt/tagwerk
+
+# ffmpeg (with ffprobe) converts lossless tracks to AIFF (app/convert.py, ADR 0013).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first so this layer is cached between code changes.
 COPY pyproject.toml README.md LICENSE ./

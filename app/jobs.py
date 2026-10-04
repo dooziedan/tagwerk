@@ -17,7 +17,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app import folders, navidrome, preferences, trash
+from app import convert, final, folders, navidrome, preferences, trash
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
@@ -161,7 +161,13 @@ class WriteJob(Job):
 
         def work() -> None:
             undo_changeset(
-                engine, settings.music_dir, changeset_id, progress, images, settings.import_dir
+                engine,
+                settings.music_dir,
+                changeset_id,
+                progress,
+                images,
+                settings.import_dir,
+                settings,
             )
             navidrome.rescan_after_write(settings, progress.written)
 
@@ -190,6 +196,26 @@ class WriteJob(Job):
             folders.create_folder(engine, settings.music_dir, genre, progress)
             navidrome.rescan_after_write(settings, progress.written)
 
+        return self._start(work, progress)
+
+    def mark_final(self, settings: Settings, track_id: int) -> bool:
+        """Mark a track as final (renaming it if switched on, see app/final.py)."""
+        progress = WriteProgress(action="final")
+        engine = get_engine(settings.database_url)
+        return self._start(lambda: final.mark(engine, settings, track_id, progress), progress)
+
+    def unmark_final(self, settings: Settings, track_id: int, name: str | None) -> bool:
+        """Remove the final mark; ``name``: a new filename, or None to keep it."""
+        progress = WriteProgress(action="unfinal")
+        engine = get_engine(settings.database_url)
+        work = lambda: final.unmark(engine, settings, track_id, name, progress)  # noqa: E731
+        return self._start(work, progress)
+
+    def convert(self, settings: Settings, track_ids: list[int]) -> bool:
+        """Convert library tracks to AIFF (see app/convert.py)."""
+        progress = WriteProgress(action="convert")
+        engine = get_engine(settings.database_url)
+        work = lambda: convert.convert(engine, settings, track_ids, progress)  # noqa: E731
         return self._start(work, progress)
 
 

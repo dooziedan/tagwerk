@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Final check · Tagwerk{% endblock %}
+{% block content %}
+{% set n = prefs.key_notation %}
+<div class="page-head">
+  <h1>Final check</h1>
+  <a href="/tracks?flag=final" class="secondary">{{ finals | plural('final track') }} →</a>
+</div>
+<p class="muted">Complete tracks (title, artist, genre, BPM, key and cover), one at a time. A final track is locked against edits until you remove the mark. The mark is kept in Tagwerk only: nothing is written into the file for it.</p>
+<p><strong>{{ ready | number }}</strong> to check · <a href="/tracks?flag=final">{{ finals | number }} final</a>{% if changed %} · <a href="/tracks?flag=final_changed" class="status status-warn">{{ changed | plural('final track') }} changed outside Tagwerk</a>{% endif %}</p>
+
+{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if job.running or (job.status in ("done", "failed") and job.progress.action == "final") %}
+{% include "partials/write_status.html" %}
+{% endif %}
+
+{% if not t %}
+<article class="empty-state">
+  <p><strong>Nothing to check right now.</strong></p>
+  <p class="muted">Tracks show up here once they have title, artist, genre, BPM, key and cover art, and no unwritten changes. <a href="/tracks?missing=BPM">Tracks without BPM</a> · <a href="/tracks?missing=Cover+art">without cover</a></p>
+</article>
+{% else %}
+<article class="final-card">
+  <div class="track-head">
+    <img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">
+    <div>
+      <h2>{{ t.title }}</h2>
+      <p class="track-sub">{{ t.artist }}</p>
+      <p class="muted"><small>{{ t.format | upper }}{% if t.bitrate %} · {{ (t.bitrate / 1000) | round | int }} kbps{% endif %}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <a href="/tracks/{{ t.id }}?{{ {'back': '/final?id=' ~ t.id} | urlencode }}">Track page</a></small></p>
+    </div>
+  </div>
+  <table class="kv">
+    {% for label, value in fields %}
+    <tr><th scope="row">{{ label }}</th><td>{% if label == "Key" and t.key_camelot %}{{ key_label(t.key_camelot, n) }}{% elif value in (None, "") %}<span class="muted">–</span>{% else %}{{ value }}{% endif %}</td></tr>
+    {% endfor %}
+    <tr><th scope="row">File</th><td>
+      <code>{{ t.path }}</code>
+      {% if plan.rename_to %}<br>→ renamed to <ins><code>{{ plan.rename_to }}</code></ins> <small class="muted">(your pattern <code>{{ prefs.filename_pattern }}</code>)</small>
+      {% elif prefs.rename_on_final %}<br><small class="muted">The name already matches your pattern.</small>
+      {% else %}<br><small class="muted">The name stays. Renaming final tracks is off (<a href="/settings#final">Settings</a>).</small>{% endif %}
+    </td></tr>
+  </table>
+  <div class="apply-actions final-actions">
+    <form method="post" action="/final/{{ t.id }}"><button type="submit" {% if busy %}disabled{% endif %}>{% if plan.rename_to %}Rename and mark as final{% else %}Mark as final{% endif %}</button></form>
+    <a href="/final?after={{ t.path | urlencode }}" role="button" class="outline secondary">Skip ›</a>
+    <a href="/tracks/{{ t.id }}/edit?{{ {'back': '/final?id=' ~ t.id} | urlencode }}" role="button" class="outline secondary">Edit tags</a>
+  </div>
+  {% if plan.rename_to %}<small class="muted">Before renaming, Tagwerk makes sure Navidrome has read the file's current tags, so play counts and ratings stay with the track. You can undo from the History page.</small>{% endif %}
+</article>
+{% endif %}
+{% endblock %}

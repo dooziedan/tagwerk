@@ -10,7 +10,19 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import get_settings
 from app.db import migrate
-from app.routes import changes, dashboard, fields, inbox, library, scan, settings, setup, system
+from app.routes import (
+    changes,
+    convert,
+    dashboard,
+    fields,
+    final,
+    inbox,
+    library,
+    scan,
+    settings,
+    setup,
+    system,
+)
 
 log = logging.getLogger("app")
 
@@ -48,4 +60,6 @@ app.include_router(fields.router)
 # Before library: /tracks/edit must not be taken for the track page /tracks/{id}.
 app.include_router(inbox.router)
 app.include_router(changes.router)
+app.include_router(final.router)
+app.include_router(convert.router)
 app.include_router(library.router)

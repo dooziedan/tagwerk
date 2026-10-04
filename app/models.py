@@ -184,3 +184,18 @@ class InboxValue(SQLModel, table=True):
     track_id: int = Field(foreign_key="inboxtrack.id", ondelete="CASCADE", index=True)
     field: str  # a key of app.writer.EDITABLE
     value: str | None = None
+
+
+class FinalTrack(SQLModel, table=True):
+    """A library track the owner marked as final: done, and locked against edits.
+
+    Only stored here: no tag is written for it. ``mtime`` is the file's time when it was marked,
+    so a later change by another program shows up as "changed outside Tagwerk".
+    """
+
+    track_id: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+    marked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    mtime: float
+    # The filename before Tagwerk renamed it on marking (None: not renamed). Removing the mark
+    # can go back to it.
+    name_before: str | None = None

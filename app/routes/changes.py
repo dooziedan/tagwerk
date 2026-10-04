@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, col, select
 from starlette.datastructures import FormData, UploadFile
 
-from app import changes, folders, preferences, writer
+from app import changes, final, folders, preferences, writer
 from app.config import Settings, SettingsDep
 from app.db import SessionDep
 from app.images import MAX_SIZE, ImageError, image_info
@@ -149,6 +149,8 @@ def keep_unsorted_api(body: FolderRequest, session: SessionDep) -> dict:
 @router.get("/tracks/{track_id}/edit", response_class=HTMLResponse, include_in_schema=False)
 def edit_track_form(request: Request, track_id: int, session: SessionDep):
     track = _track(session, track_id)
+    if final.final_ids(session, [track.id]):  # locked: the track page explains how to unlock
+        return RedirectResponse(f"/tracks/{track.id}?locked=1", status_code=303)
     prefs = preferences.load(session)
     values = {f: writer.current_value(track, f) or "" for f in writer.EDITABLE}
     pending = {
@@ -186,7 +188,8 @@ def edit_many_form(request: Request, session: SessionDep, f: FilterDep):
         return RedirectResponse("/tracks", status_code=303)
     prefs = preferences.load(session)
     back = back_url(request, request.headers.get("referer"), fallback="/tracks")
-    return _edit_page(request, prefs, tracks, {}, {}, back=back)
+    locked = len(final.final_ids(session, [t.id for t in tracks]))
+    return _edit_page(request, prefs, tracks, {}, {}, back=back, locked=locked)
 
 
 @router.post("/tracks/edit", include_in_schema=False)
@@ -205,8 +208,17 @@ async def edit_many(request: Request, session: SessionDep, settings: SettingsDep
         prefs = preferences.load(session)
         typed = {f: str(form.get(f, "")) for f in writer.EDITABLE}
         back = back_url(request, form.get("back"), fallback="/tracks")
+        locked = len(final.final_ids(session, ids))
         return _edit_page(
-            request, prefs, tracks, typed, errors, checked=set(values), back=back, status_code=422
+            request,
+            prefs,
+            tracks,
+            typed,
+            errors,
+            checked=set(values),
+            back=back,
+            status_code=422,
+            locked=locked,
         )
     if cover is not KEEP_COVER:
         count += changes.stage_cover(session, ids, cover)
@@ -264,6 +276,7 @@ def _edit_page(
     checked=None,
     back="/tracks",
     status_code=200,
+    locked=0,
 ):
     many = len(tracks) > 1
     shared = {}
@@ -288,6 +301,7 @@ def _edit_page(
             "pending": pending or {},
             "checked": checked or set(),
             "with_cover": sum(1 for t in tracks if t.has_cover),
+            "locked": locked,  # final tracks among them: skipped when saving
             "back": back,  # after saving, the user returns here
             # "← Back" without saving: the track page (keeping where it was opened from),
             # or the list for several tracks.

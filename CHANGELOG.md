@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-10-04
+
+### Added
+- **Final check** (Library menu): complete tracks (title, artist, genre, BPM, key, cover) one at a time, with **Mark as final** or **Skip**. Final tracks are locked against edits (batch edits skip them and say so) and show **✓ Final** on their page. The mark is kept in Tagwerk only; nothing is written into the file.
+- **Renaming final tracks** (if switched on in Settings → Final tracks): marking renames the file by your pattern, e.g. `Artist - Title [126 8A].mp3`, in the same folder; a `.lrc` file goes along; nothing is overwritten. Before renaming, Tagwerk makes sure Navidrome has scanned the file's current tags, so play counts and ratings stay with the track.
+- **Remove final mark** on a track's page: keep the name, go back to the name before it was marked final, or type a new one. Marking can also be undone from the History page.
+- Track list filters **Final** and **Final, changed outside Tagwerk** (when another program wrote to a final track).
+- **Convert to AIFF** for lossless tracks (FLAC, WAV, ALAC): tick tracks in the track list (or open a track) and choose **Convert to AIFF…**. A review page shows where each AIFF goes (your import folder layout, same filename) and which tracks are skipped (lossy files, including compressed audio inside a WAV; AIFFs). Every tag and picture is carried over, the new file is checked against the original (length, tags, cover) before anything moves, and the original goes to the new **Original Files** folder (`/originals`, set it in the Unraid template) for you to decide about. Undo from the History page.
+- The Docker image now includes ffmpeg (for converting), so it is about twice as big.
+
 ## [0.7.3] - 2026-10-04
 
 ### Added

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Convert to AIFF · Tagwerk{% endblock %}
+{% block content %}
+<p><a href="/tracks">← Tracks</a></p>
+<h1>Convert to AIFF</h1>
+<p class="muted">Lossless files (FLAC, WAV, ALAC) become AIFF with all their tags and cover art. The new file goes into the folder your <a href="/settings#import">import folders</a> setting picks, with the same name and the extension <code>.aiff</code>. The original moves to <code>{{ originals_dir }}</code> under the same path and waits there for you to decide.</p>
+
+{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if job.running or (job.status in ("done", "failed") and job.progress.action == "convert") %}
+{% include "partials/write_status.html" %}
+{% endif %}
+{% if unavailable %}<article class="result-warn"><p>⚠️ {{ unavailable }}</p></article>{% endif %}
+
+{% if not plans %}
+<article><p>No tracks picked. Tick tracks in the <a href="/tracks?format=flac">track list</a> and choose <strong>Convert to AIFF</strong>.</p></article>
+{% else %}
+<p>{{ ready | length | plural('track') }} can be converted{% if plans | length > ready | length %}, {{ (plans | length) - (ready | length) }} {{ "is" if (plans | length) - (ready | length) == 1 else "are" }} skipped{% endif %}.</p>
+<table class="diff moves convert-list">
+  <thead><tr><th scope="col">Track</th><th scope="col"></th><th scope="col">New AIFF</th></tr></thead>
+  <tbody>
+    {% for p in plans %}{% set t = p.track %}
+    <tr>
+      <td class="old"><a href="/tracks/{{ t.id }}">{{ t.title or t.path.rsplit("/", 1)[-1] }}</a><br><small class="muted"><code>{{ t.path }}</code> · {{ t.format | upper }}{% if t.bits_per_sample %} · {{ t.bits_per_sample }} bit{% endif %}{% if t.sample_rate %} · {{ (t.sample_rate / 1000) | round(1) }} kHz{% endif %}</small></td>
+      <td class="arrow" aria-hidden="true">{% if not p.skip %}→{% endif %}</td>
+      <td class="new">{% if p.skip %}<span class="muted">Skipped: {{ p.skip }}</span>{% else %}<ins><code>{{ p.target }}</code></ins>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if ready %}
+<form method="post" action="/convert" class="apply-actions">
+  {% for p in ready %}<input type="hidden" name="ids" value="{{ p.track.id }}">{% endfor %}
+  <button type="submit" {% if busy or unavailable %}disabled{% endif %}>Convert {{ ready | length | plural('track') }} to AIFF</button>
+</form>
+<small class="muted">Each new file is checked before anything moves: same length, same tags, same cover. Before converting, Tagwerk makes sure Navidrome has read the current tags, so play counts and ratings stay with the track. You can undo from the History page: the original comes back, the AIFF goes.</small>
+{% endif %}
+{% endif %}
+{% endblock %}

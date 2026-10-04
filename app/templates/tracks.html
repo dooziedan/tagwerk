@@ -9,6 +9,7 @@
     if (!button) return;
     button.disabled = n === 0;
     button.textContent = n ? `Edit ${n} selected` : "Edit selected";
+    document.getElementById("convert-selected").disabled = n === 0;
   }
 </script>
 {% set dj = prefs.mode == "dj" %}
@@ -55,6 +56,7 @@
 <div class="select-bar">
   <button type="submit" form="selection" class="outline" id="edit-selected" disabled>Edit selected</button>
   <a href="/tracks/edit?{{ (f.params() | urlencode) ~ ('&' if f.params() else '') }}all=true" class="secondary">Edit all {{ result.total | plural('matching track') }}</a>
+  <button type="submit" form="selection" formaction="/convert" class="outline secondary" id="convert-selected" disabled>Convert to AIFF…</button>
 </div>
 {% endif %}
 {% if not result.tracks %}

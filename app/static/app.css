@@ -151,7 +151,7 @@ a.wheel-seg.empty { pointer-events: none; }
 .card-more { margin: 0.5rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--pico-muted-border-color); }
 .card-more > summary { font-size: 0.9rem; color: var(--pico-muted-color); }
 .card-more table { margin: 0.5rem 0 0; }
-.track-head h1 { margin-bottom: 0.25rem; }
+.track-head h1, .track-head h2 { margin-bottom: 0.25rem; }
 .track-sub { margin-bottom: 0.25rem; }
 .cover { width: 160px; height: 160px; object-fit: cover; border-radius: 6px; flex: none; background: var(--pico-muted-border-color); }
 .cover-missing { display: flex; align-items: center; justify-content: center; font-size: 3rem; color: var(--pico-muted-color); }
@@ -279,6 +279,14 @@ nav details.dropdown[open] > summary:not([role]) { color: var(--pico-primary-hov
 .status-help { color: var(--tw-check); border-color: var(--tw-check); }
 .status-you { color: var(--pico-primary); border-color: var(--pico-primary); }
 .status-warn { color: var(--pico-del-color); border-color: var(--pico-del-color); }
+.status-final { color: var(--pico-primary); border-color: var(--pico-primary); font-weight: 600; }
+.unfinal { margin-top: 0.5rem; }
+.unfinal summary[role="button"] { display: inline-block; width: auto; }
+.unfinal form { margin-top: 0.75rem; }
+.unfinal input[type="text"] { margin: 0.25rem 0 0; }
+.final-card .kv { margin-bottom: 1rem; }
+.final-actions form { margin: 0; }
+.final-actions [role="button"] { margin: 0; }
 .status-dup { color: var(--pico-del-color); border-color: var(--pico-del-color); font-weight: 600; }
 .duplicate-box { border-left: 4px solid var(--pico-del-color); }
 .duplicate-box table { margin-bottom: 0.75rem; font-size: 0.9rem; }
