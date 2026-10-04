@@ -22,6 +22,39 @@
   </div>
 </div>
 
+{% if deleted %}<p role="status" class="notice">🗑️ The previous track was moved to the trash. <a href="/inbox#trash">Recently deleted</a></p>{% endif %}
+{% if request.query_params.get("error") == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+
+{% if summary.duplicates %}
+<article class="duplicate-box">
+  <p><strong>Already in your library?</strong> This looks like {{ "a track" if summary.duplicates | length == 1 else summary.duplicates | length ~ " tracks" }} you already have.</p>
+  <table>
+    <thead><tr><th scope="col">Copy</th><th scope="col">Quality</th><th scope="col">Length</th><th scope="col" class="num">Size</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>This file</strong> <small class="muted">(inbox)</small><br><small><code>{{ t.path }}</code></small></td>
+        <td>{{ t.format | upper }}{% if t.bitrate %} · {{ (t.bitrate / 1000) | round | int }} kbps{% endif %}</td>
+        <td>{{ t.duration | mmss }}</td>
+        <td class="num">{{ t.size | filesize }}</td>
+      </tr>
+      {% for m in summary.duplicates %}{% set c = m.track %}
+      <tr>
+        <td><a href="/tracks/{{ c.id }}">Library</a> <small class="muted">· {{ m.reason }}</small><br><small><code>{{ c.path }}</code></small></td>
+        <td>{{ c.format | upper }}{% if c.bitrate %} · {{ (c.bitrate / 1000) | round | int }} kbps{% endif %}</td>
+        <td>{{ c.duration | mmss }}</td>
+        <td class="num">{{ c.size | filesize }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="/inbox/{{ t.id }}/delete" class="apply-actions">
+    <input type="hidden" name="show" value="{{ show }}">
+    <button type="submit" class="secondary" {% if busy %}disabled{% endif %}>Move this file to the trash</button>
+  </form>
+  <small class="muted">The trash keeps it for {{ keep_days }} days (restore on the Inbox page); your library copy is never touched. If it's a different version, just import it as usual.</small>
+</article>
+{% endif %}
+
 {% if t.error %}
 <article><p>⚠️ This file can't be read: <code>{{ t.error }}</code>. It may still be downloading or be damaged.</p></article>
 {% else %}
@@ -44,7 +77,7 @@
   <div class="edit-actions">
     <button type="submit" name="then" value="next">{% if after %}Save and next ›{% else %}Save{% endif %}</button>
     {% if after %}<button type="submit" name="then" value="list" class="secondary outline">Save</button>{% endif %}
-    <button type="submit" name="then" value="import" class="outline" {% if busy or plan.problems %}disabled title="{{ plan.problems | join(', ') | capitalize if plan.problems else 'A scan or write is running' }}"{% endif %}>Import</button>
+    <button type="submit" name="then" value="import" class="outline" {% if busy or plan.problems %}disabled title="{% set why = plan.problems | join(', ') %}{{ why[:1] | upper ~ why[1:] if why else 'A scan or write is running' }}"{% endif %}>Import</button>
     {% if cover.badge or fields | selectattr("origin", "equalto", "you") | list %}<button type="submit" name="reset" value="1" class="secondary outline" formnovalidate>Back to suggestions</button>{% endif %}
     <small class="muted">Save keeps your values for later. Import writes them into the file and moves it into the library; the filename stays the same.</small>
   </div>

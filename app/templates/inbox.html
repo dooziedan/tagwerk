@@ -7,6 +7,14 @@
   {% if configured %}{% include "partials/inbox_status.html" %}{% endif %}
 </div>
 
+{% if configured %}
+{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if error == "delete" %}<p class="form-error" role="alert">Some files couldn't be moved to the trash; they may have been moved or renamed. Check the folder and try again.</p>{% endif %}
+{% if error == "restore" %}<p class="form-error" role="alert">That file couldn't be restored: it's no longer in the trash, or a file with the same name is in the inbox again.</p>{% endif %}
+{% if deleted and deleted != "0" %}<p role="status" class="notice">🗑️ Moved {{ deleted | int | plural('file') }} to the trash. You can restore {{ "it" if deleted == "1" else "them" }} under <a href="#trash">Recently deleted</a> for {{ keep_days }} days.</p>{% endif %}
+{% if restored %}<p role="status" class="notice">↩️ Restored. The file is back in the inbox.</p>{% endif %}
+{% endif %}
+
 {% if not configured %}
 <article>
   <p><strong>No import folder yet.</strong> New music waits in the inbox until it is tagged, then Tagwerk moves it into your library.</p>
@@ -19,7 +27,6 @@
   <p class="muted">Put new tracks (downloads, record pools, promos) into your import folder. They show up here.</p>
 </article>
 {% else %}
-{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
 {% if write.running or (write.status in ("done", "failed") and write.progress.action == "import") %}
 {% with job = write %}{% include "partials/write_status.html" %}{% endwith %}
 {% endif %}
@@ -57,6 +64,7 @@
         <small class="muted inbox-file">{{ t.path }}</small>
       </td>
       <td class="inbox-status">
+        {% if r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}
         {% if t.error %}<span class="status status-warn" title="{{ t.error }}">Unreadable</span>
         {% else %}
           {% if r.changes %}<span class="status">{{ r.changes }} change{{ "s" if r.changes != 1 }}</span>{% endif %}
@@ -74,6 +82,8 @@
   <div class="container action-bar-inner">
     <strong id="inbox-count"></strong>
     <button type="submit" form="inbox-import" id="inbox-import-button" {% if busy %}disabled{% endif %}>Import</button>
+    <button type="submit" form="inbox-import" formaction="/inbox/delete" class="outline secondary" id="inbox-delete-button"
+            onclick="return confirm(this.dataset.confirm)" {% if busy %}disabled{% endif %}>Move to trash</button>
     <small class="muted">Writes the tags shown on each track's page and moves it into the library by genre. Filenames stay the same. Tracks without title or artist stay in the inbox.</small>
   </div>
 </div>
@@ -104,8 +114,31 @@
     const visible = visibleBoxes(), all = document.getElementById("inbox-all");
     all.checked = visible.length > 0 && visible.every((b) => b.checked);
     document.getElementById("inbox-import-button").textContent = n === 1 ? "Import 1 track" : `Import ${n} tracks`;
+    document.getElementById("inbox-delete-button").dataset.confirm =
+      `Move ${n === 1 ? "1 file" : n + " files"} to the trash? You can restore them for {{ keep_days }} days.`;
     document.body.classList.toggle("with-action-bar", n > 0);  // room so the bar covers nothing
   }
+</script>
+{% endif %}
+
+{% if trash %}
+<details id="trash" class="trash-list"{% if restored or (deleted and deleted != "0") %} open{% endif %}>
+  <summary>Recently deleted <span class="view-count">{{ trash | length }}</span></summary>
+  <p class="muted"><small>Deleted files wait in the hidden folder <code>.tagwerk-trash</code> inside your import folder and are removed for good after {{ keep_days }} days. Your library is never touched.</small></p>
+  <table>
+    <tbody>
+      {% for d in trash %}
+      <tr>
+        <td><code>{{ d.path }}</code><br><small class="muted">{{ d.size | filesize }} · deleted <time data-local datetime="{{ d.deleted_at | isoutc }}">{{ d.deleted_at | isoutc }}</time> · removed for good <time data-local datetime="{{ d.removed_for_good | isoutc }}">{{ d.removed_for_good | isoutc }}</time></small></td>
+        <td class="num"><form method="post" action="/inbox/trash/{{ d.id }}/restore"><button class="outline secondary small" {% if busy %}disabled{% endif %}>Restore</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+<script>
+  // Links to /inbox#trash (e.g. after deleting on a track's page) open the list.
+  if (location.hash === "#trash") document.getElementById("trash").open = true;
 </script>
 {% endif %}
 {% endblock %}

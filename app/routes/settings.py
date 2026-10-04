@@ -147,15 +147,6 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
     return RedirectResponse("/settings?saved=true", status_code=303)
 
 
-@router.post("/settings/mode", include_in_schema=False)
-async def switch_mode(request: Request, prefs: PreferencesDep, session: SessionDep):
-    """The DJ / Collector switch in the menu. Returns to the page it was clicked on."""
-    form = await _form(request)
-    preferences.save(session, replace(prefs, mode=form.get("mode", prefs.mode)))
-    back = request.headers.get("referer", "/")
-    return RedirectResponse(back if back.startswith(str(request.base_url)) else "/", 303)
-
-
 async def _form(request: Request) -> dict[str, str]:
     """Read a simple HTML form (one value per field) without extra dependencies."""
     body = (await request.body()).decode()

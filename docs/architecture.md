@@ -50,6 +50,8 @@ Files are never modified directly from a form or a lookup:
 | `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
 | `app/genres.py` | The genre map: spelling variants and subgenre → main genre | 0.7 |
 | `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back | 0.7 |
+| `app/duplicates.py` | Finds likely library copies of inbox tracks (identical file, MusicBrainz ID, artist + title) ([ADR 0011](decisions/0011-inbox-duplicates-and-trash.md)) | 0.7 |
+| `app/trash.py` | The inbox trash: deleting moves inbox files to `.tagwerk-trash/`, restore, removal after 30 days | 0.7 |
 | `app/folders.py` | Proposes new genre folders for tracks in `_Unsorted`; creates them and moves the files only after the owner's OK; undo moves back ([ADR 0010](decisions/0010-new-genre-folders.md)) | 0.7 |
 | `app/images.py` | Content-addressed image store in `/config/images` (uploaded covers, covers kept for undo) | 0.6.1 |
 | `app/naming.py` | Folder and filename patterns (`{artist} - {title} [{bpm} {key}]`): empty bracket parts vanish, share-safe characters | 0.7 |

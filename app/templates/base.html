@@ -31,17 +31,6 @@
         </li>
       </ul>
       <ul>
-        {% if prefs %}
-        <li>
-          <form method="post" action="/settings/mode" class="mode-switch" aria-label="Mode">
-            <div role="group">
-              {% for value, label in {"dj": "DJ", "collector": "Collector"}.items() %}
-              <button name="mode" value="{{ value }}" {% if prefs.mode == value %}aria-pressed="true"{% else %}class="outline secondary"{% endif %}>{{ label }}</button>
-              {% endfor %}
-            </div>
-          </form>
-        </li>
-        {% endif %}
         {% set inbox_n = inbox_count() %}
         {% set pending_n = pending_count() %}
         <li>

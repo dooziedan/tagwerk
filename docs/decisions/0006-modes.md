@@ -5,7 +5,7 @@ Date: 2026-10-04 · Status: Accepted
 The owner is a DJ. For DJ work, BPM, key, label and audio quality matter, and MusicBrainz IDs mostly don't, because edits, bootlegs and promos aren't on MusicBrainz. Other people (or the owner on another day) care about albums, years, cover art and lyrics instead. One dashboard for both would either be cluttered or call half the library "incomplete" for the wrong reasons.
 
 ## Decision
-- Two **modes**, *DJ* and *Collector*, switchable from the menu.
+- Two **modes**, *DJ* and *Collector*, switchable from the menu. *(Since 0.7.3 the mode is chosen in the setup wizard and Settings; the switch left the header to keep it tidy.)*
 - A mode only decides **what is shown and which tags count as "missing"**. The scanner always reads and stores every field, whatever the mode.
 - Mode, key notation and MusicBrainz visibility are **preferences stored in the database** (`appsetting` table in `/config`), so they're the same on every device and survive container updates.
 - **Keys** are stored as written in the file plus a parsed Camelot code. The display notation (Camelot / Open Key / musical) is a preference. Files are never rewritten just to change notation.

@@ -24,6 +24,7 @@ from sqlmodel import Session, col, select
 
 from app import genres, naming, preferences, writer
 from app.changes import WriteProgress
+from app.duplicates import LibraryIndex
 from app.images import ImageStore
 from app.inbox import owner_values, review
 from app.models import ChangeEntry, ChangeSet, InboxTrack, Track
@@ -77,6 +78,8 @@ def plan(
     for name in REQUIRED:
         if not values.get(name):
             result.problems.append(f"needs {writer.EDITABLE[name].lower()}")
+    if (music_dir / result.destination).exists():
+        result.problems.append(f"{result.destination} already exists in the library")
     return result
 
 
@@ -84,11 +87,19 @@ def plan(
 STABLE_AFTER = 120  # seconds
 
 
-def ready_for_auto_import(session: Session, track: InboxTrack, music_dir: Path, now: float) -> bool:
+def ready_for_auto_import(
+    session: Session,
+    track: InboxTrack,
+    import_dir: Path,
+    music_dir: Path,
+    now: float,
+    library: LibraryIndex,
+) -> bool:
     """True when Tagwerk may import this track without asking (automation "auto").
 
     Only complete tracks: title, artist, genre, BPM, key and cover; every suggestion sure;
-    nothing that blocks an import; and the file unchanged for a while (no half downloads).
+    nothing that blocks an import; no likely copy in the library (the owner decides those);
+    and the file unchanged for a while (no half downloads).
     """
     if track.error or now - track.mtime < STABLE_AFTER:
         return False
@@ -101,6 +112,8 @@ def ready_for_auto_import(session: Session, track: InboxTrack, music_dir: Path, 
     mine = owner_values(session, track.id)
     has_cover = mine[writer.COVER] is not None if writer.COVER in mine else track.has_cover
     values = {f.field: f.value for f in fields}
+    if library.matches(track, values["title"], values["artist"], import_dir, music_dir):
+        return False
     return has_cover and all(values.get(n) for n in ("title", "artist", "genre", "bpm", "key"))
 
 
