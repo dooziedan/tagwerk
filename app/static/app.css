@@ -373,3 +373,18 @@ body.with-action-bar { padding-bottom: 6rem; }
 .placeholder-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: -0.5rem 0 0.5rem; }
 .placeholder-chips .chip { margin: 0; width: auto; padding: 0.1rem 0.55rem; font-size: 0.8rem; font-family: var(--pico-font-family-monospace); background: none; color: var(--pico-primary); border: 1px solid var(--pico-muted-border-color); border-radius: 999px; }
 .genre-map { font-family: var(--pico-font-family-monospace); font-size: 0.85rem; }
+
+/* Inbox review: what online sources found (app/identify.py) */
+.online-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+.online-head form, .online-candidate form { margin: 0; }
+.online-source { margin: 0.25rem 0; }
+.online-source summary { font-size: 0.95rem; }
+.online-candidate { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--pico-muted-border-color); }
+.online-cover { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex: none; }
+.online-text { display: flex; flex-direction: column; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.online-candidate button { width: auto; white-space: nowrap; }
+.form-error-inline { color: var(--pico-del-color); }
+@media (max-width: 600px) { .online-candidate { flex-wrap: wrap; } }
+.online-setting { display: block; margin-bottom: 0.75rem; }
+.online-setting small { display: block; margin-left: 2.75rem; }
+.online-setting small.status, .online-setting small.ok { display: inline-block; margin-left: 0.5rem; }

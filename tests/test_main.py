@@ -55,6 +55,7 @@ def test_settings_api(client):
         "kept_unsorted": [],
         "automation": "ask",
         "genre_map": "",
+        "online_sources": ["acoustid", "musicbrainz", "discogs", "deezer", "itunes"],
         "rename_on_final": False,
         "filename_pattern": "{artist} - {title}",
     }

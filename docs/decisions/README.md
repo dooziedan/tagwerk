@@ -18,6 +18,7 @@ A new decision gets the next number. A decision that is replaced is marked "Supe
 | [0011](0011-inbox-duplicates-and-trash.md) | Duplicates in the inbox, and an inbox trash | Accepted |
 | [0012](0012-final-tracks.md) | Final tracks, and renaming only when marking final | Accepted |
 | [0013](0013-convert-to-aiff.md) | Converting to AIFF, with originals kept aside | Accepted |
+| [0014](0014-online-identification.md) | Online identification of inbox tracks | Accepted |
 
 Template:
 

@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, func, select
 
-from app import genres, writer
+from app import genres, identify, writer
 from app.models import InboxTrack, InboxValue
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
@@ -116,14 +116,22 @@ def owner_values(session: Session, track_id: int) -> dict[str, str | None]:
     return {r.field: r.value for r in rows}
 
 
+def suggestions(session: Session, track: InboxTrack) -> dict[str, Proposal]:
+    """Tagwerk's suggestions per field: from the file and filename first, then from online
+    sources for fields still empty (app/identify.py)."""
+    local = {p.field: p for p in propose(track, genres.active(session))}
+    online = identify.suggestions(session, track, taken=set(local))
+    return local | {p.field: p for p in online}
+
+
 def review(session: Session, track: InboxTrack, order: list[str]) -> list[ReviewField]:
     """Every editable field: the owner's value, else Tagwerk's suggestion, else the file's."""
-    suggestions = {p.field: p for p in propose(track, genres.active(session))}
+    suggestions_ = suggestions(session, track)
     mine = owner_values(session, track.id)
     result = []
     for name in order:
         in_file = writer.current_value(track, name)
-        suggestion = suggestions.get(name)
+        suggestion = suggestions_.get(name)
         if name in mine:
             value, origin = mine[name], "you"
         elif suggestion:
@@ -148,12 +156,12 @@ def save_values(session: Session, track: InboxTrack, typed: dict[str, str]) -> d
             errors[name] = str(exc)
     if errors:
         return errors
-    suggestions = {p.field: p.value for p in propose(track, genres.active(session))}
+    suggested = {name: p.value for name, p in suggestions(session, track).items()}
     stored = {
         r.field: r for r in session.exec(select(InboxValue).where(InboxValue.track_id == track.id))
     }
     for name, value in values.items():
-        default = suggestions.get(name, writer.current_value(track, name))
+        default = suggested.get(name, writer.current_value(track, name))
         row = stored.get(name)
         if value == default:
             if row:

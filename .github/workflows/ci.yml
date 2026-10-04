@@ -14,7 +14,9 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
+      # ffmpeg: the image has it for converting to AIFF; the conversion tests need it too.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: pip install -e '.[dev]'
       - run: ruff check .
       - run: ruff format --check .
-      - run: pytest
+      - run: pytest -rs  # -rs lists skipped tests, so a missing tool shows up

@@ -22,7 +22,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import genres, naming, preferences, writer
+from app import genres, identify, naming, preferences, writer
 from app.changes import WriteProgress
 from app.duplicates import LibraryIndex
 from app.images import ImageStore
@@ -65,6 +65,9 @@ def plan(
     if writer.COVER in mine:  # a new cover, or None to remove it
         changes[writer.COVER] = mine[writer.COVER]
         old[writer.COVER] = writer.current_value(track, writer.COVER)
+    elif cover := identify.cover_suggestion(session, track):  # found online, no cover yet
+        changes[writer.COVER] = cover.image_id
+        old[writer.COVER] = None
     names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
     existing = naming.existing_folders(music_dir)
     folder = naming.folder(
@@ -110,7 +113,11 @@ def ready_for_auto_import(
     if any(not s.sure for s in suggested):
         return False
     mine = owner_values(session, track.id)
+    online_cover = None if writer.COVER in mine else identify.cover_suggestion(session, track)
+    if online_cover and not online_cover.sure:
+        return False
     has_cover = mine[writer.COVER] is not None if writer.COVER in mine else track.has_cover
+    has_cover = has_cover or online_cover is not None
     values = {f.field: f.value for f in fields}
     if library.matches(track, values["title"], values["artist"], import_dir, music_dir):
         return False

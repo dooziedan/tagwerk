@@ -6,7 +6,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app import navidrome, preferences
+from app import identify, navidrome, preferences
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.genres import DEFAULT_MAP, GenreMap
@@ -65,6 +65,16 @@ def _settings_page(request, prefs, settings, session, saved=False, errors=None, 
             "styles": STYLES,
             "appearances": APPEARANCES,
             "saved": saved,
+            "online": [
+                {
+                    "name": cls.name,
+                    "label": cls.label,
+                    "on": cls.name in prefs.online_sources,
+                    "ready": cls(settings).configured(),
+                    "needs": cls.needs,
+                }
+                for cls in identify.SOURCES
+            ],
             "navidrome": {
                 "configured": navidrome.configured(settings),
                 "url": settings.navidrome_url,
@@ -107,6 +117,16 @@ async def save_genre_map(request: Request, session: SessionDep, settings: Settin
         text = ""  # the built-in map: stored as empty, so it keeps up with updates
     preferences.save(session, replace(prefs, genre_map=text))
     return RedirectResponse("/settings?saved=true#genres", status_code=303)
+
+
+@router.post("/settings/online", include_in_schema=False)
+async def save_online(request: Request, session: SessionDep):
+    """Which online sources to ask about inbox tracks."""
+    form = await request.form()
+    names = {cls.name for cls in identify.SOURCES}
+    chosen = [str(n) for n in form.getlist("online_sources") if n in names]
+    preferences.save(session, replace(preferences.load(session), online_sources=chosen))
+    return RedirectResponse("/settings?saved=true#online", status_code=303)
 
 
 @router.post("/settings/setup-again", include_in_schema=False)

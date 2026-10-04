@@ -13,9 +13,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /opt/tagwerk
 
-# ffmpeg (with ffprobe) converts lossless tracks to AIFF (app/convert.py, ADR 0013).
+# ffmpeg (with ffprobe) converts lossless tracks to AIFF (app/convert.py, ADR 0013);
+# fpcalc (Chromaprint) fingerprints tracks for AcoustID (app/sources/acoustid.py, ADR 0014).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg libchromaprint-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first so this layer is cached between code changes.

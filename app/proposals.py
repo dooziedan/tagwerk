@@ -276,7 +276,7 @@ def still_missing(track, proposals: list[Proposal]) -> list[str]:
     checks = {
         "Title": track.title or "title" in proposed,
         "Artist": track.artist or "artist" in proposed,
-        "Genre": track.genre,
+        "Genre": track.genre or "genre" in proposed,
         "BPM": track.bpm or "bpm" in proposed,
         "Key": track.key_camelot or "key" in proposed,
         "Cover": track.has_cover,

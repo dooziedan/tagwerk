@@ -73,6 +73,11 @@ class Preferences:
     # The genre map (app/genres.py) as plain text; empty: the built-in one.
     genre_map: str = ""
 
+    # Online identification (Settings → Online lookups, app/identify.py): which sources to ask.
+    online_sources: list[str] = field(
+        default_factory=lambda: ["acoustid", "musicbrainz", "discogs", "deezer", "itunes"]
+    )
+
     # Final tracks (wizard step 5, Settings → Final tracks): rename when marked final.
     rename_on_final: bool = False
     filename_pattern: str = "{artist} - {title}"
@@ -114,7 +119,7 @@ def _validated(prefs: Preferences) -> Preferences:
         prefs.folder_layout = default.folder_layout
     if prefs.automation not in AUTOMATIONS:
         prefs.automation = default.automation
-    for names in ("genre_folders", "kept_unsorted"):
+    for names in ("genre_folders", "kept_unsorted", "online_sources"):
         value = getattr(prefs, names)
         value = value if isinstance(value, list) else []
         setattr(prefs, names, [str(g).strip() for g in value if str(g).strip()])
