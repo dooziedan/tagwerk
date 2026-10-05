@@ -1,6 +1,8 @@
 """Jinja2 setup shared by all page routes, including formatting filters for templates."""
 
+import hashlib
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -110,6 +112,17 @@ def inbox_count() -> int:
         return 0
 
 
+@cache
+def static_version(name: str) -> str:
+    """A short fingerprint of a file in app/static, added to its URL (``app.css?v=…``).
+
+    It changes whenever the file changes, so browsers fetch the new file instead of an old
+    cached copy (after an update, and while developing).
+    """
+    path = Path(__file__).parent / "static" / name
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+
+
 templates.env.globals.update(
     pending_count=pending_count,
     inbox_count=inbox_count,
@@ -119,6 +132,7 @@ templates.env.globals.update(
     key_label=display,
     key_code=to_camelot,  # key_code("Am") -> "8A"  # key_label("8A", "musical") -> "Am"
     page_url=page_url,
+    static_version=static_version,
 )
 templates.env.filters.update(
     filesize=filesize,

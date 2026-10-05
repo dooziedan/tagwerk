@@ -33,3 +33,4 @@ What we chose.
 ## Consequences
 What gets easier, what gets harder.
 ```
+| [0015](0015-player.md) | Play bar and page swapping (hx-boost) | Accepted |

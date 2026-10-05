@@ -30,7 +30,6 @@
       "with_check": many,
       "error": errors.cover,
   } %}{% include "partials/cover_field.html" %}{% endwith %}
-  </div>
 
   {% for name, label in fields %}
   <div class="edit-row{% if many %} with-check{% endif %}{% if errors[name] %} has-error{% endif %}">

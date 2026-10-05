@@ -5,6 +5,7 @@ first step) instead of relying on the browser history, so Back links are predict
 loop. Only paths of this app are accepted.
 """
 
+import json
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
@@ -33,3 +34,20 @@ def back_url(request: Request, *candidates, fallback: str) -> str:
 def with_saved_note(url: str, count: int) -> str:
     """The URL with a "saved" note, shown as a short confirmation by base.html."""
     return url + ("&" if "?" in url else "?") + f"saved={count}"
+
+
+def reload_page(request: Request, response) -> None:
+    """Show the current page again after a job finished (polling partials).
+
+    Swaps only #page (like a boosted link), so the play bar keeps playing; without htmx's
+    current URL, falls back to a full reload.
+    """
+    current = request.headers.get("HX-Current-URL")
+    if not current:
+        response.headers["HX-Refresh"] = "true"
+        return
+    url = urlsplit(current)
+    path = url.path + (f"?{url.query}" if url.query else "")
+    response.headers["HX-Location"] = json.dumps(
+        {"path": path, "target": "#page", "select": "#page", "swap": "outerHTML"}
+    )

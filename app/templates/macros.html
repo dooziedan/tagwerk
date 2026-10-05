@@ -23,3 +23,25 @@
 {% endif %}
 {% endmacro %}
 
+
+{# Player icons as SVG shapes, so every device shows the same symbol (no font or emoji).
+   Coloured by the text colour; buttons show "play" or "pause" by their .playing class. #}
+{% macro icon(name) -%}
+<svg class="icon icon-{{ name }}" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+{%- if name == "play" %}<path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/>
+{%- elif name == "pause" %}<path d="M6 4.5h4.5v15H6zM13.5 4.5H18v15h-4.5z" fill="currentColor"/>
+{%- elif name == "stop" %}<path d="M6 6h12v12H6z" fill="currentColor"/>
+{%- else %}<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/>
+{%- if name == "sound" %}<path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>{% else %}<path d="m22 9-6 6"/><path d="m16 9 6 6"/>{% endif %}</g>
+{%- endif %}</svg>
+{%- endmacro %}
+
+{# ▶ button for the play bar (app/static/player.js). base: "/tracks/1" or "/inbox/1". #}
+{% macro play_button(t, base, label="") -%}
+<button type="button" class="play-button outline secondary{% if label %} with-label{% endif %}" aria-pressed="false"
+        data-play="{{ base }}/audio" data-mp3="{{ base }}/audio.mp3"
+        data-type="{{ {"mp3": "audio/mpeg", "flac": "audio/flac", "wav": "audio/wav", "aiff": "audio/aiff", "m4a": "audio/mp4", "ogg": "audio/ogg", "opus": "audio/ogg; codecs=opus"}.get(t.format, "") }}"
+        data-title="{{ ((t.artist ~ " – ") if t.artist else "") ~ (t.title or t.path.rsplit("/", 1)[-1]) }}"
+        data-duration="{{ t.duration or 0 }}"
+        aria-label="Play {{ t.title or t.path.rsplit("/", 1)[-1] }}" title="Play">{{ icon("play") }}{{ icon("pause") }}{% if label %} {{ label }}{% endif %}</button>
+{%- endmacro %}

@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 
 from app.config import SettingsDep
 from app.jobs import ScanJob, scan_job
+from app.navigation import reload_page
 from app.templating import templates
 
 router = APIRouter(tags=["scan"])
@@ -35,7 +36,7 @@ def scan_partial(request: Request, was_running: bool = False):
     response = _render(request)
     if was_running and not scan_job.running:
         # The scan just finished: reload the page so the dashboard shows the new numbers.
-        response.headers["HX-Refresh"] = "true"
+        reload_page(request, response)
     return response
 
 

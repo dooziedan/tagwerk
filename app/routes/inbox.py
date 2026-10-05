@@ -26,6 +26,7 @@ from app.inbox import (
 from app.inbox import suggestions as inbox_suggestions
 from app.jobs import identify_job, image_store, inbox_job, run_now, scan_job, write_job
 from app.models import InboxTrack
+from app.navigation import reload_page
 from app.proposals import still_missing
 from app.routes.changes import FIELD_ORDER, HINTS, KEEP_COVER, cover_choice
 from app.routes.scan import scan_state
@@ -547,7 +548,7 @@ def inbox_scan_partial(request: Request, settings: SettingsDep):
 def inbox_status_partial(request: Request, was_running: bool = False):
     response = _status(request)
     if was_running and not inbox_job.running:
-        response.headers["HX-Refresh"] = "true"  # done: reload to show the list
+        reload_page(request, response)  # done: show the list
     return response
 
 

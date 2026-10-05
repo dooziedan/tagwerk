@@ -1,4 +1,5 @@
 <!doctype html>
+{% from "macros.html" import icon %}
 {% set ui = prefs or none %}
 <html lang="en" data-style="{{ ui.style if ui else 'calm' }}"{% if ui and ui.appearance != 'system' %} data-theme="{{ ui.appearance }}"{% endif %}>
 <head>
@@ -6,14 +7,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tagwerk{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='theme.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='theme.css') }}?v={{ static_version('theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v={{ static_version('app.css') }}">
   <link rel="icon" href="{{ url_for('static', path='logo.svg') }}" type="image/svg+xml">
   <link rel="icon" href="{{ url_for('static', path='favicon-32.png') }}" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="{{ url_for('static', path='apple-touch-icon.png') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
 </head>
-<body>
+{# hx-boost: links and forms load only #page, so the play bar below keeps playing between
+   pages (the script at the end aims every boosted swap at #page). #}
+<body hx-boost="true">
+  <div id="page" hx-history-elt>
   <header class="container">
     <nav>
       <ul>
@@ -51,7 +55,7 @@
         <li class="wide-only"><a href="/inbox"{% if inbox_n %} class="has-badge"{% endif %}>Inbox{% if inbox_n %} <span class="count-badge" aria-label="{{ inbox_n }} tracks">{{ inbox_n }}</span>{% endif %}</a></li>
         <li class="wide-only"><a href="/changes"{% if pending_n %} class="has-badge"{% endif %}>Changes{% if pending_n %} <span class="count-badge" aria-label="{{ pending_n }} pending">{{ pending_n }}</span>{% endif %}</a></li>
         <li class="wide-only"><a href="/settings">Settings</a></li>
-        <li class="wide-only"><a href="/docs">API</a></li>
+        <li class="wide-only"><a href="/docs" hx-boost="false">API</a></li>
       </ul>
     </nav>
   </header>
@@ -84,6 +88,40 @@
   <footer class="container">
     <small>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
   </footer>
+  </div>
+  {# The play bar (app/static/player.js): shown once a ▶ button is pressed. #}
+  <div class="player-bar" id="player" hidden>
+    <div class="container player-inner">
+      <button type="button" id="player-toggle" class="player-control playing" aria-label="Pause">{{ icon("play") }}{{ icon("pause") }}</button>
+      <span id="player-title" class="player-title"></span>
+      <input type="range" id="player-seek" min="0" max="1000" step="1" value="0" aria-label="Position">
+      <span id="player-time" class="player-time">0:00 / 0:00</span>
+      {# Volume: the button mutes; hovering it (or focusing it) pops up the slider above. #}
+      <div class="player-volume">
+        <div class="volume-pop">
+          <div class="volume-box">
+            <input type="range" id="player-volume" min="0" max="100" step="1" value="100" aria-label="Volume">
+          </div>
+        </div>
+        <button type="button" id="player-mute" class="player-control secondary" aria-label="Mute" title="Mute">
+          {{ icon("sound") }}{{ icon("muted") }}
+        </button>
+      </div>
+      <button type="button" id="player-stop" class="player-control secondary" aria-label="Stop and close the player" title="Stop">{{ icon("stop") }}</button>
+    </div>
+  </div>
+  {# Asks before a big or destructive action: forms or submit buttons with data-confirm
+     (and optionally data-confirm-ok as the button text). Our own box instead of the
+     browser's confirm(), which some browsers block. #}
+  <dialog id="confirm-dialog">
+    <article>
+      <p id="confirm-text"></p>
+      <form method="dialog" class="confirm-actions" hx-boost="false">
+        <button value="cancel" class="outline secondary">Cancel</button>
+        <button value="ok" id="confirm-ok">OK</button>
+      </form>
+    </article>
+  </dialog>
   <script>
     // Show <time data-local> timestamps (stored in UTC) in the browser's local time.
     function localTimes(root) {
@@ -93,7 +131,45 @@
       });
     }
     document.addEventListener("DOMContentLoaded", () => localTimes(document));
-    document.addEventListener("htmx:afterSwap", (e) => localTimes(e.detail.target));
+    document.addEventListener("htmx:afterSwap", (e) => localTimes(e.detail.target || document));
+    document.addEventListener("htmx:historyRestore", () => document.body.classList.remove("with-action-bar"));
+
+    // data-confirm: stop the submit, ask in the dialog, and submit again after OK. Runs before
+    // htmx (capture phase), so a cancelled form sends nothing.
+    document.addEventListener("submit", (e) => {
+      const form = e.target, button = e.submitter;
+      const question = (button && button.dataset.confirm) || form.dataset.confirm;
+      if (!question || form.dataset.confirmed) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const dialog = document.getElementById("confirm-dialog");
+      document.getElementById("confirm-text").textContent = question;
+      document.getElementById("confirm-ok").textContent =
+        (button && button.dataset.confirmOk) || form.dataset.confirmOk || "OK";
+      dialog.returnValue = "";
+      dialog.addEventListener("close", () => {
+        if (dialog.returnValue !== "ok") return;
+        form.dataset.confirmed = "yes";
+        form.requestSubmit(button || undefined);
+        delete form.dataset.confirmed;
+      }, { once: true });
+      dialog.showModal();
+    }, true);
+
+    // Page changes (boosted links and forms) replace only #page; the play bar stays.
+    // Pages with form errors come back as 422 and are shown too.
+    document.addEventListener("htmx:beforeSwap", (e) => {
+      if (!e.detail.boosted) return;
+      e.detail.target = document.getElementById("page");
+      e.detail.selectOverride = "#page";
+      e.detail.swapOverride = "outerHTML";
+      document.body.classList.remove("with-action-bar"); // the inbox's selection bar is gone
+      if (e.detail.xhr.status >= 400) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
   </script>
+  <script src="{{ url_for('static', path='player.js') }}?v={{ static_version('player.js') }}" defer></script>
 </body>
 </html>

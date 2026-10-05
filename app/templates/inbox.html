@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import play_button %}
 {% block title %}Inbox · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -56,13 +57,16 @@
     {% for r, in_views in rows %}{% set t = r.track %}
     <tr data-views="{{ in_views | join(' ') }}"{% if show not in in_views %} hidden{% endif %}>
       <td class="check-col"><input type="checkbox" name="ids" form="inbox-import" value="{{ t.id }}" aria-label="Select {{ t.title or t.path }}" onchange="inboxSelection()"></td>
-      <td>
+      <td><div class="play-row">
+        {% if not t.error %}{{ play_button(t, "/inbox/" ~ t.id) }}{% endif %}
+        <div>
         <a href="/inbox/{{ t.id }}{{ q }}" class="inbox-track">
           <span class="inbox-title">{{ r.title or t.path.rsplit("/", 1)[-1] }}</span>
           {% if not t.error %}<span class="muted">{{ r.artist or "Unknown artist" }}</span>{% endif %}
         </a>
         <small class="muted inbox-file">{{ t.path }}</small>
-      </td>
+        </div>
+      </div></td>
       <td class="inbox-status">
         {% if r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}
         {% if t.error %}<span class="status status-warn" title="{{ t.error }}">Unreadable</span>
@@ -83,7 +87,7 @@
     <strong id="inbox-count"></strong>
     <button type="submit" form="inbox-import" id="inbox-import-button" {% if busy %}disabled{% endif %}>Import</button>
     <button type="submit" form="inbox-import" formaction="/inbox/delete" class="outline secondary" id="inbox-delete-button"
-            onclick="return confirm(this.dataset.confirm)" {% if busy %}disabled{% endif %}>Move to trash</button>
+            data-confirm="Move the ticked files to the trash?" data-confirm-ok="Move to trash" {% if busy %}disabled{% endif %}>Move to trash</button>
     <small class="muted">Writes the tags shown on each track's page and moves it into the library by genre. Filenames stay the same. Tracks without title or artist stay in the inbox.</small>
   </div>
 </div>

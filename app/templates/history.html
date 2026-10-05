@@ -24,7 +24,7 @@
       <td>{% if c.undone_at %}<span class="muted">undone</span>{% elif c.written %}applied{% else %}<span class="muted">nothing written</span>{% endif %}</td>
       <td class="num">
         {% if c.written and not c.undone_at %}
-        <form method="post" action="/changes/history/{{ c.id }}/undo" onsubmit="return confirm('Undo this change on {{ c.written }} file(s)?')">
+        <form method="post" action="/changes/history/{{ c.id }}/undo" data-confirm="Undo this change on {{ c.written }} file(s)?" data-confirm-ok="Undo">
           <button class="outline secondary small" {% if busy %}disabled{% endif %}>Undo</button>
         </form>
         {% endif %}
