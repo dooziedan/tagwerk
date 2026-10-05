@@ -67,7 +67,7 @@
     <tbody>
       {% for c in item.changes %}
       <tr>
-        <th scope="row">{{ labels[c.field] }}</th>
+        <th scope="row">{{ field_label(c.field) }}</th>
         <td class="old">{% if c.old_value is none %}<span class="muted">(empty)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/tracks/{{ item.track.id }}/cover?v={{ item.track.mtime }}" alt="Current cover art">{% else %}<del>{{ c.old_value }}</del>{% endif %}</td>
         <td class="arrow" aria-hidden="true">→</td>
         <td class="new">{% if c.new_value is none %}<span class="muted">(removed)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/images/{{ c.new_value }}" alt="New cover art">{% else %}<ins>{{ c.new_value }}</ins>{% endif %}</td>

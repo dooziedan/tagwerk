@@ -11,12 +11,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Engine, and_, exists, or_
+from sqlalchemy import Engine, and_, exists, not_, or_
 from sqlmodel import Session, col, delete, func, select
 
 from app import writer
 from app.images import ImageStore
-from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, Track
+from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, RawTag, Track
+from app.rawtags import BINARY
 from app.scanner import refresh_track
 
 if TYPE_CHECKING:
@@ -77,6 +78,22 @@ def stage(
     return count, {}
 
 
+def stage_private_removal(session: Session, owner: str) -> int:
+    """Pending changes that remove one program's private ID3 data (e.g. Traktor's) from every
+    file that has it, as found at the last scan. Final tracks are skipped. Returns how many."""
+    field = writer.PRIVATE + owner
+    has_it = exists().where(
+        RawTag.track_id == Track.id, RawTag.system == "id3", RawTag.name == f"PRIV:{owner}"
+    )
+    already = exists().where(PendingChange.track_id == Track.id, PendingChange.field == field)
+    count = 0
+    for track in session.exec(select(Track).where(has_it, not_(already), _NOT_FINAL)):
+        session.add(PendingChange(track_id=track.id, field=field, old_value=BINARY, new_value=None))
+        count += 1
+    session.commit()
+    return count
+
+
 def stage_cover(session: Session, track_ids: list[int], image_id: str | None) -> int:
     """Save a cover art change: an image from the ImageStore, or None to remove the cover."""
     count = 0
@@ -120,11 +137,10 @@ def pending(session: Session) -> list[PendingTrack]:
         .order_by(Track.path, PendingChange.id)
     ).all()
     grouped: dict[int, PendingTrack] = {}
-    order = list(writer.LABELS)
     for change, track in rows:
         grouped.setdefault(track.id, PendingTrack(track, [])).changes.append(change)
     for item in grouped.values():
-        item.changes.sort(key=lambda c: order.index(c.field))
+        item.changes.sort(key=lambda c: writer.label_order(c.field))
     return list(grouped.values())
 
 
@@ -163,10 +179,8 @@ def apply_pending(
     with Session(engine) as session:
         items = pending(session)
         progress.total = len(items)
-        labels = sorted(
-            {writer.LABELS[c.field] for item in items for c in item.changes},
-            key=list(writer.LABELS.values()).index,
-        )
+        fields = sorted({c.field for item in items for c in item.changes}, key=writer.label_order)
+        labels = [writer.label(f) for f in fields]
         changeset = ChangeSet(tracks=len(items), fields=", ".join(labels))
         session.add(changeset)
         session.commit()
@@ -193,7 +207,10 @@ def apply_pending(
                 entry.snapshot = json.dumps(snapshot)
                 refreshed = refresh_track(session, music_dir, track)
                 entry.mtime_after = refreshed.mtime
-                mismatch = _verify(refreshed, values, snapshot["system"])
+                raw = {
+                    r.name for r in session.exec(select(RawTag).where(RawTag.track_id == track.id))
+                }
+                mismatch = _verify(refreshed, values, snapshot["system"], raw)
                 if mismatch:
                     entry.error = "written, but reads back differently: " + mismatch
                 for change in item.changes:
@@ -213,10 +230,14 @@ def apply_pending(
     progress.current = ""
 
 
-def _verify(track: Track, values: dict[str, str | None], system: str) -> str:
-    """Compare what the file now says with what was written."""
+def _verify(track: Track, values: dict[str, str | None], system: str, raw: set[str]) -> str:
+    """Compare what the file now says with what was written (``raw``: its raw field names)."""
     problems = []
     for name, expected in values.items():
+        if name.startswith(writer.PRIVATE):
+            if f"PRIV:{name.removeprefix(writer.PRIVATE)}" in raw:
+                problems.append(f"{writer.label(name)} is still there")
+            continue
         if name == writer.COVER:
             if track.has_cover != (expected is not None):
                 problems.append("Cover art " + ("is missing" if expected else "is still there"))
@@ -225,7 +246,7 @@ def _verify(track: Track, values: dict[str, str | None], system: str) -> str:
             expected = str(round(float(expected)))  # stored as an integer in these formats
         actual = writer.current_value(track, name)
         if actual != expected:
-            problems.append(f"{writer.LABELS[name]} is {actual!r}, expected {expected!r}")
+            problems.append(f"{writer.label(name)} is {actual!r}, expected {expected!r}")
     return "; ".join(problems)
 
 

@@ -12,6 +12,20 @@
 
 <p><a href="/tracks?{{ {'field': s.system ~ ':' ~ s.name} | urlencode }}" role="button" class="outline">Show all {{ s.files | plural('track') }} with this field</a></p>
 
+{% if private_owner %}
+{# Private ID3 data (PRIV): a program's own binary data. Removing it goes through Changes. #}
+<article class="private-data">
+  <p><strong>Private data of {{ private_owner }}.</strong>
+    {{ private_about.get(private_owner, "A program stored its own binary data here; other programs ignore it.") }}
+    Removing it doesn't touch your tags, cover art or other programs' data, and can be undone.</p>
+  <form method="post" action="/fields/private/remove" data-confirm="Remove the private data of {{ private_owner }} from {{ s.files | plural('file') }}? This creates pending changes; nothing is written until you apply them on the Changes page." data-confirm-ok="Create pending changes">
+    <input type="hidden" name="owner" value="{{ private_owner }}">
+    <button type="submit" class="secondary">Remove from {{ s.files | plural('file') }}…</button>
+  </form>
+  <small class="muted">Final tracks are skipped. Only MP3, WAV and AIFF files have this kind of data.</small>
+</article>
+{% endif %}
+
 <section class="kpis" aria-label="Field totals">
   <article class="kpi"><span class="kpi-value">{{ s.files | number }}</span><span class="kpi-label">Files</span></article>
   <article class="kpi"><span class="kpi-value">{{ s.distinct | number }}</span><span class="kpi-label">Different values</span></article>

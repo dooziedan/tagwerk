@@ -24,10 +24,12 @@ from sqlmodel import Session, col, select
 
 from app import genres, identify, naming, preferences, writer
 from app.changes import WriteProgress
+from app.config import get_settings
 from app.duplicates import LibraryIndex
 from app.images import ImageStore
 from app.inbox import owner_values, review
 from app.models import ChangeEntry, ChangeSet, InboxTrack, Track
+from app.rawtags import BINARY
 from app.scanner import store_file
 
 log = logging.getLogger(__name__)
@@ -68,6 +70,11 @@ def plan(
     elif cover := identify.cover_suggestion(session, track):  # found online, no cover yet
         changes[writer.COVER] = cover.image_id
         old[writer.COVER] = None
+    if prefs.remove_traktor_on_import and not track.error:
+        owners = writer.private_owners(get_settings().import_dir / track.path)
+        if writer.TRAKTOR.removeprefix(writer.PRIVATE) in owners:
+            changes[writer.TRAKTOR] = None  # removed while importing; undo puts it back
+            old[writer.TRAKTOR] = BINARY
     names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
     existing = naming.existing_folders(music_dir)
     folder = naming.folder(
@@ -157,7 +164,7 @@ def import_tracks(
                 if item.problems:
                     raise writer.WriteError(", ".join(item.problems))
                 _import_one(session, item, import_dir, music_dir, entry, images)
-                labels.update(writer.LABELS[k] for k in item.changes)
+                labels.update(item.changes)
                 progress.written += 1
                 changeset.written += 1
             except Exception as exc:
@@ -173,8 +180,8 @@ def import_tracks(
             session.commit()
             progress.processed += 1
 
-        order = list(writer.LABELS.values())
-        changeset.fields = ", ".join(["Import", *sorted(labels, key=order.index)])
+        names = [writer.label(f) for f in sorted(labels, key=writer.label_order)]
+        changeset.fields = ", ".join(["Import", *names])
         session.add(changeset)
         session.commit()
     progress.current = ""

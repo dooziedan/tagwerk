@@ -23,6 +23,15 @@
   <button type="submit">Filter</button>
 </form>
 
+{% if traktor %}
+{# Traktor's analysis data (ADR 0016): one field for all files; it can be removed. #}
+<div class="notice traktor-notice" role="status">
+  <strong>Traktor data in {{ traktor | plural('file') }}.</strong>
+  Traktor stored its waveform, beat grid and cue points in these files (<code>PRIV:TRAKTOR4</code>). If you don't use Traktor, you can remove it.
+  <a href="/fields/detail?system=id3&amp;name=PRIV%3ATRAKTOR4">Review and remove →</a>
+  {% if not prefs.remove_traktor_on_import %}<br><small class="muted">New tracks can lose it on import: <a href="/settings#import">Settings → Import</a>.</small>{% endif %}
+</div>
+{% endif %}
 {% if not total %}
 <article><p>No tag fields yet. Run a scan from the <a href="/">dashboard</a> first.</p></article>
 {% elif not fields %}
@@ -46,7 +55,7 @@
         <a href="/fields/detail?system={{ f.system | urlencode }}&amp;name={{ f.name | urlencode }}"><code>{{ f.name }}</code></a>
         <br><small class="muted">{{ systems[f.system] }}</small>
       </td>
-      <td>{% if f.used_as %}<span class="badge">{{ f.used_as }}</span>{% else %}<small class="muted">ignored</small>{% endif %}</td>
+      <td>{% if f.used_as %}<span class="badge">{{ f.used_as }}</span>{% elif f.system == "id3" and f.name.startswith("PRIV:") %}<small class="muted">{{ "Traktor data" if f.name == "PRIV:TRAKTOR4" else "private data" }}</small>{% else %}<small class="muted">ignored</small>{% endif %}</td>
       <td class="num">{{ f.files | number }}<br><small class="muted">{{ f.percent }}%</small></td>
       <td class="num">{% if f.empty or f.zero %}{{ f.empty | number }} / {{ f.zero | number }}{% else %}<span class="muted">–</span>{% endif %}</td>
       <td class="samples">

@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 
 from fastapi.templating import Jinja2Templates
 
-from app import __version__
+from app import __version__, writer
 from app.charts import key_wheel
 from app.keys import NOTATIONS, display, to_camelot
 
@@ -133,6 +133,7 @@ templates.env.globals.update(
     key_code=to_camelot,  # key_code("Am") -> "8A"  # key_label("8A", "musical") -> "Am"
     page_url=page_url,
     static_version=static_version,
+    field_label=writer.label,  # "Cover art", "Private data (TRAKTOR4)"
 )
 templates.env.filters.update(
     filesize=filesize,

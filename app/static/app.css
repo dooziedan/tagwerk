@@ -440,3 +440,8 @@ body.with-player.with-action-bar { padding-bottom: 10rem; }
 #confirm-dialog article { max-width: 30rem; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin: 0; }
 .confirm-actions button { width: auto; margin: 0; }
+
+/* Traktor data (ADR 0016): the notice on Tag fields and the import switch */
+.traktor-notice { margin: 1rem 0; }
+.traktor-choice { display: block; margin-top: 1rem; }
+.traktor-choice small { display: block; margin-top: 0.25rem; }

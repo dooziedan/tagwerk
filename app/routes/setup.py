@@ -62,7 +62,11 @@ def apply_choices(prefs: Preferences, step: str, form) -> tuple[Preferences, dic
             genre_folders=list(dict.fromkeys(picked + extra)),
         )
     elif step == "automation":
-        prefs = replace(prefs, automation=form.get("automation", prefs.automation))
+        prefs = replace(
+            prefs,
+            automation=form.get("automation", prefs.automation),
+            remove_traktor_on_import=form.get("remove_traktor_on_import") == "on",
+        )
     elif step == "final":
         pattern = str(form.get("filename_pattern", prefs.filename_pattern)).strip()
         try:

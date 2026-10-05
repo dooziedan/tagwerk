@@ -55,6 +55,34 @@ MULTI_VALUE = {"artist", "albumartist", "genre"}  # "A; B" is written as two val
 COVER = "cover"
 # Every field a change can have, with its label: the text fields plus cover art.
 LABELS = {**EDITABLE, COVER: "Cover art"}
+# Removing one program's private ID3 frames (PRIV), e.g. "private:TRAKTOR4" for the waveform,
+# beat grid and cue points Traktor keeps in the file. Only removal; only ID3 has them.
+PRIVATE = "private:"
+
+
+TRAKTOR = PRIVATE + "TRAKTOR4"  # Traktor's waveform, beat grid and cue points
+
+
+def private_owners(path: Path) -> set[str]:
+    """Which programs keep private ID3 data in a file (e.g. {"TRAKTOR4"}). Never raises."""
+    try:
+        tags = mutagen.File(path).tags
+        return {f.owner for f in tags.getall("PRIV")} if isinstance(tags, ID3) else set()
+    except Exception:
+        return set()
+
+
+def label(field: str) -> str:
+    """A change's field as shown on the pages."""
+    if field.startswith(PRIVATE):
+        return f"Private data ({field.removeprefix(PRIVATE)})"
+    return LABELS[field]
+
+
+def label_order(field: str) -> int:
+    """Where a field goes when changes are listed: form order, private data last."""
+    order = list(LABELS)
+    return order.index(field) if field in LABELS else len(order)
 
 
 class WriteError(Exception):
@@ -138,6 +166,8 @@ def write(path: Path, changes: dict[str, str | None], images: ImageStore | None 
     if audio is None:
         raise WriteError("not a recognized audio file")
     handler = _handler(audio)
+    if handler is not _ID3 and any(f.startswith(PRIVATE) for f in changes):
+        raise WriteError("only ID3 tags (MP3, WAV, AIFF) have private data")
     snapshot = handler.write(audio, changes, images)
     return {"system": handler.system, "fields": sorted(changes), **snapshot}
 
@@ -230,6 +260,13 @@ _ID3_GROUPS: dict[str, Callable] = {
 }
 
 
+def _id3_group(field: str) -> Callable:
+    if field.startswith(PRIVATE):
+        owner = field.removeprefix(PRIVATE)
+        return lambda f: f.FrameID == "PRIV" and f.owner == owner
+    return _ID3_GROUPS[field]
+
+
 class _ID3:
     system = "id3"
 
@@ -243,7 +280,7 @@ class _ID3:
         before = [
             _frame_to_json(f, images)
             for f in tags.values()
-            if any(_ID3_GROUPS[field](f) for field in changes)
+            if any(_id3_group(field)(f) for field in changes)
         ]
         for field, value in changes.items():
             _ID3._set(tags, field, value, images)
@@ -252,7 +289,7 @@ class _ID3:
 
     @staticmethod
     def _set(tags, field: str, value: str | None, images: ImageStore | None = None) -> None:
-        group = _ID3_GROUPS[field]
+        group = _id3_group(field)
         existing = [f for f in tags.values() if group(f)]
         lang = next((f.lang for f in existing if field == "comment"), "eng")
         txxx_desc = next((f.desc for f in existing if f.FrameID == "TXXX"), None)
@@ -289,7 +326,7 @@ class _ID3:
         if tags is None:
             audio.add_tags()
             tags = audio.tags
-        for f in [f for f in tags.values() if any(_ID3_GROUPS[x](f) for x in snapshot["fields"])]:
+        for f in [f for f in tags.values() if any(_id3_group(x)(f) for x in snapshot["fields"])]:
             del tags[f.HashKey]
         for data in snapshot["frames"]:
             tags.add(_frame_from_json(data, images))
