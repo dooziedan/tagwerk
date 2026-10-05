@@ -473,7 +473,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "keep_days": trash.KEEP_DAYS,
             "online": identify.results(session, track.id),
             "online_sources": [s.label for s in identify.enabled(get_settings(), prefs)],
-            "looking_up": identify_job.running,
+            "looking_up": identify_job.queued(track.id),
         },
         status_code=status_code,
     )
@@ -522,6 +522,15 @@ def _neighbours(
         tracks, ids = _ordered(session), [t.id for t in _ordered(session)]
     i = ids.index(track.id)
     return (tracks[i - 1] if i > 0 else None, tracks[i + 1] if i + 1 < len(tracks) else None)
+
+
+@router.get("/inbox/{track_id:int}/lookup-status", include_in_schema=False)
+def inbox_lookup_status(request: Request, track_id: int):
+    """Polled by the "Found online" box: nothing while looking up, then show the page again."""
+    response = Response(status_code=204)  # still asking: htmx changes nothing
+    if not identify_job.queued(track_id):
+        reload_page(request, response)
+    return response
 
 
 def _inbox_track(session, track_id: int) -> InboxTrack:

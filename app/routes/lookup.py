@@ -8,7 +8,7 @@ from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -19,7 +19,7 @@ from app.images import ImageError
 from app.jobs import identify_job, image_store
 from app.library import TrackFilter
 from app.models import Track
-from app.navigation import back_url, with_saved_note
+from app.navigation import back_url, reload_page, with_saved_note
 from app.sources.base import SourceError
 
 router = APIRouter()
@@ -69,6 +69,16 @@ def lookup_one(track_id: int, session: SessionDep, settings: SettingsDep):
         raise HTTPException(404)
     identify_job.start(settings, [track_id], force=True, library=True)
     return RedirectResponse(f"/tracks/{track_id}?looking=1#online", status_code=303)
+
+
+@router.get("/tracks/{track_id}/lookup-status", include_in_schema=False)
+def lookup_status(request: Request, track_id: int):
+    """Polled by the "Found online" box: nothing while looking up, then show the page again."""
+    if identify_job.queued(track_id, library=True):
+        return Response(status_code=204)  # still asking: htmx changes nothing
+    response = Response(status_code=204)
+    reload_page(request, response, drop=("looking",))
+    return response
 
 
 @router.post("/tracks/{track_id}/online", include_in_schema=False)

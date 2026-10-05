@@ -1,3 +1,4 @@
+import json
 import shutil
 
 import pytest
@@ -93,3 +94,48 @@ def test_reload_page_swaps_only_the_page_part():
     response = Response()
     reload_page(request([]), response)
     assert response.headers["hx-refresh"] == "true"
+
+
+def test_reload_page_replaces_the_address_and_drops_parameters():
+    from starlette.requests import Request
+    from starlette.responses import Response
+
+    request = Request(
+        {"type": "http", "headers": [(b"hx-current-url", b"http://x/tracks/3?looking=1&back=%2F")]}
+    )
+    response = Response()
+    reload_page(request, response, drop=("looking",))
+    location = json.loads(response.headers["hx-location"])
+    assert location["path"] == location["replace"] == "/tracks/3?back=%2F"
+    assert location["push"] is False  # Back doesn't step through the same page
+
+
+def test_lookup_status_waits_then_shows_the_page_again(client, engine, library, monkeypatch):
+    from app.jobs import identify_job
+
+    tid = track_id(engine, "tagged.mp3")
+    headers = {"HX-Request": "true", "HX-Current-URL": f"http://x/tracks/{tid}?looking=1"}
+    monkeypatch.setattr(identify_job, "queued", lambda track_id, library=False: True)
+    waiting = client.get(f"/tracks/{tid}/lookup-status", headers=headers)
+    assert waiting.status_code == 204 and "hx-location" not in waiting.headers
+    assert 'lookup-status" hx-trigger="every 2s"' in client.get(f"/tracks/{tid}").text
+
+    monkeypatch.setattr(identify_job, "queued", lambda track_id, library=False: False)
+    done = client.get(f"/tracks/{tid}/lookup-status", headers=headers)
+    assert json.loads(done.headers["hx-location"])["path"] == f"/tracks/{tid}"
+    assert "lookup-status" not in client.get(f"/tracks/{tid}").text  # no more polling
+
+
+def test_inbox_lookup_status(client, engine, settings, monkeypatch):
+    from app.jobs import identify_job
+
+    settings.import_dir.mkdir(parents=True)
+    shutil.copy(FIXTURES / "tagged.flac", settings.import_dir / "a.flac")
+    scan_inbox(engine, settings.import_dir, ScanProgress())
+    with Session(engine) as session:
+        tid = session.exec(select(InboxTrack)).one().id
+    headers = {"HX-Request": "true", "HX-Current-URL": f"http://x/inbox/{tid}"}
+    monkeypatch.setattr(identify_job, "queued", lambda track_id, library=False: True)
+    assert "hx-location" not in client.get(f"/inbox/{tid}/lookup-status", headers=headers).headers
+    monkeypatch.setattr(identify_job, "queued", lambda track_id, library=False: False)
+    assert "hx-location" in client.get(f"/inbox/{tid}/lookup-status", headers=headers).headers

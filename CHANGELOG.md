@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Music keeps playing when you change pages**: links and forms now replace only the page part of the window instead of reloading everything.
 
 ### Changed
+- **Look up online** shows the results by itself as soon as the sources have answered, on track pages and in the inbox; no need to reload the page.
 - Questions before big or destructive actions (move to trash, undo, look up all tracks) now appear in Tagwerk's own box instead of the browser's pop-up, which some browsers block. **Move to trash** in the inbox did nothing in such browsers.
 
 ### Fixed

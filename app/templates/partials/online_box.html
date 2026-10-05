@@ -2,6 +2,8 @@
    Needs: online, online_sources, looking_up, base (URL prefix for /lookup and /online),
    hidden (extra form fields), note. #}
 <article class="online-box" id="online">
+  {# While sources are asked, check every 2 s; when done, the server shows the page again. #}
+  {% if looking_up %}<div hx-get="{{ base }}/lookup-status" hx-trigger="every 2s" hx-swap="none" aria-hidden="true"></div>{% endif %}
   <div class="online-head">
     <strong>Found online</strong>
     <form method="post" action="{{ base }}/lookup">
@@ -12,9 +14,9 @@
   {% if not online_sources %}
   <p class="muted"><small>No online sources are switched on or set up. <a href="/settings#online">Settings → Online lookups</a></small></p>
   {% elif not online %}
-  <p class="muted"><small>{% if looking_up %}Looking up in {{ online_sources | join(", ") }}… reload in a moment.{% else %}Not looked up yet.{% if base.startswith("/inbox") %} It happens after the next inbox check, or press Look up again.{% else %} Press Look up online.{% endif %}{% endif %}</small></p>
+  <p class="muted"><small>{% if looking_up %}<span aria-busy="true">Looking up in {{ online_sources | join(", ") }}…</span>{% else %}Not looked up yet.{% if base.startswith("/inbox") %} It happens after the next inbox check, or press Look up again.{% else %} Press Look up online.{% endif %}{% endif %}</small></p>
   {% else %}
-  {% if looking_up %}<p class="muted"><small>Still looking up… reload in a moment.</small></p>{% endif %}
+  {% if looking_up %}<p class="muted"><small aria-busy="true">Still looking up…</small></p>{% endif %}
   {% for f in online %}
   <details class="online-source"{% if f.best %} open{% endif %}>
     <summary>{{ f.label }}: {% if f.error %}<span class="form-error-inline">⚠️ {{ f.error }}</span>{% elif f.best %}<strong>{{ "%d" % (f.best.score * 100) }}% match</strong>{% elif f.candidates %}<span class="muted">nothing that matches well</span>{% else %}<span class="muted">nothing found</span>{% endif %}</summary>
