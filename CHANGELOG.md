@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-05
+
 ### Added
 - **Remove private data from files**: on a private field's page under Tag fields (e.g. `PRIV:TRAKTOR4`, Traktor's waveform, beat grid and cue points), **Remove from all files** creates pending changes; you apply them on the Changes page like any edit, and **Undo** puts the data back exactly. Tags, cover art and other programs' data stay untouched; final tracks are skipped.
 - **Tag fields** points out Traktor data ("Traktor data in 1,234 files") with a link to remove it.
