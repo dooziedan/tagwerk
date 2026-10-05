@@ -19,7 +19,7 @@ from app.images import MAX_SIZE, ImageError, image_info
 from app.jobs import busy, image_store, write_job
 from app.library import TrackFilter
 from app.models import ChangeSet, Track
-from app.navigation import back_url, with_saved_note
+from app.navigation import back_url, reload_page, with_saved_note
 from app.templating import templates
 
 router = APIRouter()
@@ -404,7 +404,7 @@ def discard_one(change_id: int, session: SessionDep):
 def write_partial(request: Request, was_running: bool = False):
     response = templates.TemplateResponse(request, "partials/write_status.html", {"job": write_job})
     if was_running and not write_job.running:
-        response.headers["HX-Refresh"] = "true"  # done: reload to show the result
+        reload_page(request, response)  # done: show the result
     return response
 
 

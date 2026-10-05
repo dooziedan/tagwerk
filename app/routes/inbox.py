@@ -26,6 +26,7 @@ from app.inbox import (
 from app.inbox import suggestions as inbox_suggestions
 from app.jobs import identify_job, image_store, inbox_job, run_now, scan_job, write_job
 from app.models import InboxTrack
+from app.navigation import reload_page
 from app.proposals import still_missing
 from app.routes.changes import FIELD_ORDER, HINTS, KEEP_COVER, cover_choice
 from app.routes.scan import scan_state
@@ -472,7 +473,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "keep_days": trash.KEEP_DAYS,
             "online": identify.results(session, track.id),
             "online_sources": [s.label for s in identify.enabled(get_settings(), prefs)],
-            "looking_up": identify_job.running,
+            "looking_up": identify_job.queued(track.id),
         },
         status_code=status_code,
     )
@@ -523,6 +524,15 @@ def _neighbours(
     return (tracks[i - 1] if i > 0 else None, tracks[i + 1] if i + 1 < len(tracks) else None)
 
 
+@router.get("/inbox/{track_id:int}/lookup-status", include_in_schema=False)
+def inbox_lookup_status(request: Request, track_id: int):
+    """Polled by the "Found online" box: nothing while looking up, then show the page again."""
+    response = Response(status_code=204)  # still asking: htmx changes nothing
+    if not identify_job.queued(track_id):
+        reload_page(request, response)
+    return response
+
+
 def _inbox_track(session, track_id: int) -> InboxTrack:
     track = session.get(InboxTrack, track_id)
     if track is None:
@@ -547,7 +557,7 @@ def inbox_scan_partial(request: Request, settings: SettingsDep):
 def inbox_status_partial(request: Request, was_running: bool = False):
     response = _status(request)
     if was_running and not inbox_job.running:
-        response.headers["HX-Refresh"] = "true"  # done: reload to show the list
+        reload_page(request, response)  # done: show the list
     return response
 
 

@@ -390,3 +390,53 @@ body.with-action-bar { padding-bottom: 6rem; }
 .online-setting { display: block; margin-bottom: 0.75rem; }
 .online-setting small { display: block; margin-left: 2.75rem; }
 .online-setting small.status, .online-setting small.ok { display: inline-block; margin-left: 0.5rem; }
+
+/* The play bar (app/static/player.js) */
+.player-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--pico-card-background-color); border-top: 1px solid var(--pico-muted-border-color); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.12); }
+.player-bar[hidden] { display: none; }
+.player-inner { display: flex; align-items: center; gap: 0.75rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.player-control { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; padding: 0; margin: 0; flex: none; border-radius: 50%; line-height: 1; }
+.icon { display: block; flex: none; }
+/* Play buttons show the play or the pause icon (player.js sets .playing). */
+.play-button .icon-pause, #player-toggle .icon-pause, .play-button.playing .icon-play, #player-toggle.playing .icon-play { display: none; }
+.play-button.playing .icon-pause, #player-toggle.playing .icon-pause { display: block; }
+.player-title { flex: 0 1 18rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+#player-seek { flex: 1; margin: 0; min-width: 4rem; }
+.player-time { flex: none; font-size: 0.8rem; color: var(--pico-muted-color); font-variant-numeric: tabular-nums; }
+.player-volume { position: relative; flex: none; }
+#player-mute .icon-muted, #player-mute.muted .icon-sound { display: none; }
+#player-mute.muted .icon-muted { display: block; }
+/* The slider pops up above the button on hover or keyboard focus. The pop's transparent padding
+   bridges the gap, so moving the mouse up to the slider keeps it open. */
+.volume-pop { display: none; position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); padding-bottom: 0.5rem; }
+.player-volume:hover .volume-pop, .player-volume:focus-within .volume-pop { display: block; }
+.volume-box { position: relative; width: 2.75rem; height: 8.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
+#player-volume { position: absolute; left: 50%; top: 50%; width: 7rem; margin: 0; transform: translate(-50%, -50%) rotate(-90deg); }  /* a normal slider turned upright: works in every browser */
+@media (hover: none) { .player-volume { display: none; } }  /* touch screens: the hardware buttons set the volume */
+body.with-player { padding-bottom: 4rem; }
+body.with-player .action-bar { bottom: 3.5rem; }  /* the selection bar sits above the player */
+body.with-player.with-action-bar { padding-bottom: 10rem; }
+.play-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; width: 2rem; height: 2rem; padding: 0; margin: 0; border-radius: 50%; font-size: 0.75rem; line-height: 1; flex: none; }
+.play-button .icon { width: 0.9rem; height: 0.9rem; }
+.play-button.with-label { width: auto; padding: 0.35rem 0.9rem; border-radius: var(--pico-border-radius); font-size: 0.9rem; height: auto; }
+.play-button.playing { border-color: var(--pico-primary); color: var(--pico-primary); }
+@media (max-width: 600px) {
+  .player-inner { flex-wrap: wrap; gap: 0.5rem; }
+  /* Two rows: play, title, volume, stop / progress and time. ::after is the line break. */
+  .player-title { flex: 1 1 0; order: 1; }
+  #player-toggle { order: 0; }
+  .player-volume { order: 2; }
+  #player-stop { order: 3; }
+  .player-inner::after { content: ""; order: 4; flex-basis: 100%; height: 0; }
+  #player-seek { order: 5; flex: 1 1 0; width: auto; min-width: 0; }
+  .player-time { order: 6; }
+  body.with-player { padding-bottom: 6rem; }
+  body.with-player .action-bar { bottom: 5.5rem; }
+}
+.play-row { display: flex; align-items: center; gap: 0.6rem; }
+.play-row > div { min-width: 0; }
+
+/* The confirm dialog (base.html) */
+#confirm-dialog article { max-width: 30rem; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin: 0; }
+.confirm-actions button { width: auto; margin: 0; }

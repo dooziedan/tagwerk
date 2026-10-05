@@ -5,6 +5,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-05
+
+### Added
+- **Play bar**: a ▶ button on tracks (list, track page, inbox) starts the track in a bar at the bottom of the window with play/pause, a progress bar you can click to jump, and stop (which also hides the bar). The **space bar** pauses and resumes. Its symbols are drawn shapes, so they look the same on every device. One track at a time, no queue. Formats browsers can't play (AIFF, ALAC) are converted to MP3 on the fly with ffmpeg; files are never changed.
+- The play bar has a **volume button**: hover it and a slider pops up above it; click it to mute and unmute. Volume changes glide smoothly, and the level is remembered in your browser. On phones and tablets the button is hidden: the volume buttons of the device set the volume.
+- **Music keeps playing when you change pages**: links and forms now replace only the page part of the window instead of reloading everything.
+
+### Changed
+- **Look up online** shows the results by itself as soon as the sources have answered, on track pages and in the inbox; no need to reload the page.
+- Questions before big or destructive actions (move to trash, undo, look up all tracks) now appear in Tagwerk's own box instead of the browser's pop-up, which some browsers block. **Move to trash** in the inbox did nothing in such browsers.
+
+### Fixed
+- Browsers load changed styles and scripts right away instead of an old cached copy (each file's URL carries a fingerprint of its content).
+
 ## [0.8.1] - 2026-10-04
 
 ### Added

@@ -86,6 +86,9 @@ Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bi
 - Cover art (Cover Art Archive, Discogs, store artwork).
 - Every proposed value has a confidence; the owner's autonomy setting decides what is applied automatically.
 
+## v0.8.2: Play bar
+**Status:** ✅ Listen to library and inbox tracks in a play bar that keeps playing across pages ([ADR 0015](decisions/0015-player.md)).
+
 ## v0.9: BPM and key from the audio
 - Detect tempo and key inside the container. First step: verify an analysis library that runs in the image and on the current Python version.
 - Flag likely half-/double-time values (e.g. 87 instead of 174).
