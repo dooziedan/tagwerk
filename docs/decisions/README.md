@@ -34,3 +34,4 @@ What we chose.
 What gets easier, what gets harder.
 ```
 | [0015](0015-player.md) | Play bar and page swapping (hx-boost) | Accepted |
+| [0016](0016-private-data-cleanup.md) | Removing private ID3 data (PRIV) through Changes | Accepted |

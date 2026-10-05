@@ -13,4 +13,9 @@
       <small class="muted">Tracks that have everything (title, artist, genre, BPM, key, cover), where every suggestion is sure and the file hasn't changed for 2 minutes, are imported on their own. The rest waits for you. Every import can be undone.</small>
     </label>
   </div>
+  <label class="traktor-choice">
+    <input type="checkbox" name="remove_traktor_on_import" role="switch" {% if prefs.remove_traktor_on_import %}checked{% endif %}>
+    Remove Traktor data on import
+    <small class="muted">Traktor keeps its waveform, beat grid and cue points in MP3, WAV and AIFF files (<code>PRIV:TRAKTOR4</code>). If you don't use Traktor, Tagwerk removes it while importing; undoing the import puts it back.</small>
+  </label>
 </fieldset>

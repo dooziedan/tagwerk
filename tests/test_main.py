@@ -54,6 +54,7 @@ def test_settings_api(client):
         "genre_folders": [],
         "kept_unsorted": [],
         "automation": "ask",
+        "remove_traktor_on_import": False,
         "genre_map": "",
         "online_sources": ["acoustid", "musicbrainz", "discogs", "deezer", "itunes"],
         "rename_on_final": False,

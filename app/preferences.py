@@ -70,6 +70,8 @@ class Preferences:
     # Main genres the owner keeps in _Unsorted: no new folder is proposed for them.
     kept_unsorted: list[str] = field(default_factory=list)
     automation: str = "ask"
+    # Remove Traktor's private data (PRIV:TRAKTOR4) from files while importing (ADR 0016).
+    remove_traktor_on_import: bool = False
     # The genre map (app/genres.py) as plain text; empty: the built-in one.
     genre_map: str = ""
 
