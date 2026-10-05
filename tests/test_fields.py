@@ -57,6 +57,25 @@ def test_raw_fields_include_unknown_and_binary_fields(tmp_path):
     assert raw[("id3", "APIC:Cover")] == BINARY
 
 
+def test_private_frames_are_named_by_their_owner_without_their_data(tmp_path):
+    """Traktor keeps its analysis in PRIV:TRAKTOR4; mutagen's name for it contains all that
+    binary data, which made the Tag fields page huge (one "field" per file)."""
+    from mutagen.id3 import LINK, PRIV
+
+    path = tmp_path / "t.mp3"
+    shutil.copy(FIXTURES / "tagged.mp3", path)
+    tags = ID3(path)
+    tags.add(PRIV(owner="TRAKTOR4", data=b"\x00\x01DMRT" * 5000))
+    tags.add(PRIV(owner="www.amazon.com", data=b"\x02" * 40))
+    tags.add(LINK(frameid="AENC", url="http://example.com", data=b"\x00secret"))
+    tags.save(path)
+    raw = {(f.system, f.name): f.value for f in read_file(path).raw}
+    assert raw[("id3", "PRIV:TRAKTOR4")] == BINARY
+    assert raw[("id3", "PRIV:www.amazon.com")] == BINARY
+    assert ("id3", "LINK:AENC:http://example.com") in raw
+    assert max(len(name) for _, name in raw) <= 100
+
+
 def test_mp4_single_value_fields(tmp_path):
     """M4A flags like cpil (compilation) are single values, not lists; this once broke reading."""
     from mutagen.mp4 import MP4

@@ -15,6 +15,7 @@ from mutagen.mp4 import MP4FreeForm, MP4Tags
 BINARY = "<binary data>"
 UNREADABLE = "<unreadable>"
 MAX_VALUE = 120  # characters stored per value; lyrics and long comments are shortened
+MAX_NAME = 100  # characters per field name (a name is never data, but see _id3_name)
 
 SYSTEMS = {"id3": "ID3", "vorbis": "Vorbis", "mp4": "MP4", "riff-info": "RIFF INFO"}
 
@@ -43,7 +44,7 @@ def _collect(audio, riff_info: dict[bytes, str] | None) -> list[RawField]:
     tags = audio.tags
     if isinstance(tags, ID3):
         fields += [
-            RawField("id3", frame.HashKey, _safe(_id3_value, frame)) for frame in tags.values()
+            RawField("id3", _id3_name(frame), _safe(_id3_value, frame)) for frame in tags.values()
         ]
     elif isinstance(tags, VCommentDict):
         for key in tags.keys():  # noqa: SIM118 (VCommentDict iterates differently)
@@ -65,6 +66,24 @@ def _safe(func, *args) -> str:
         return func(*args)
     except Exception:
         return UNREADABLE
+
+
+def _id3_name(frame) -> str:
+    """The field's name, e.g. "TXXX:fBPM". mutagen's names for private frames (PRIV) and
+    links (LINK) contain all their binary data: Traktor stores its whole analysis in
+    PRIV:TRAKTOR4, so every file got its own field with a name of many kilobytes. Those are
+    named by their owner only; any other name is cleaned and capped as a safety net."""
+    if frame.FrameID == "PRIV":
+        return f"PRIV:{_name_part(frame.owner)}"
+    if frame.FrameID == "LINK":
+        return f"LINK:{_name_part(frame.frameid)}:{_name_part(frame.url)}"
+    return _name_part(frame.HashKey)
+
+
+def _name_part(text: str) -> str:
+    text = "".join(c if c.isprintable() else " " for c in str(text))
+    text = " ".join(text.split())
+    return text if len(text) <= MAX_NAME else text[: MAX_NAME - 1] + "…"
 
 
 def _id3_value(frame) -> str:
