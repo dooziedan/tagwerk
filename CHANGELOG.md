@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 - **Tag fields** page no longer gets huge and slow from Traktor data: private ID3 fields (e.g. `PRIV:TRAKTOR4`, where Traktor stores its waveform, beat grid and cue points) are listed once by their program instead of once per file with all their data in the name. The next scan re-reads every file once to apply this.
+- Times (e.g. on History) show in your local time again after a page updates in place; since 0.8.2 they sometimes showed as raw UTC like `2026-10-05T21:18:06`.
 
 ## [0.8.2] - 2026-10-05
 

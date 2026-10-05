@@ -131,7 +131,8 @@
       });
     }
     document.addEventListener("DOMContentLoaded", () => localTimes(document));
-    document.addEventListener("htmx:afterSwap", (e) => localTimes(e.detail.target || document));
+    // After a page swap the old part is gone, so format the whole page again (cheap).
+    document.addEventListener("htmx:afterSettle", () => localTimes(document));
     document.addEventListener("htmx:historyRestore", () => document.body.classList.remove("with-action-bar"));
 
     // data-confirm: stop the submit, ask in the dialog, and submit again after OK. Runs before
