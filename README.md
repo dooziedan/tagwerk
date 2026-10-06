@@ -17,14 +17,16 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
 - ✅ **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover. Every dashboard number links to its tracks.
 - ✅ **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, empty and `0` values, and the most common values.
+- ✅ **Setup wizard:** mode, key notation, folder layout and how independently Tagwerk may work, chosen on first start.
+- ✅ **Online identification:** MusicBrainz, AcoustID, Discogs, Deezer and iTunes fill empty fields and covers; values are sure when two sources agree.
+- ✅ **BPM and key from the audio**, made for bass-heavy music like drum & bass: exact tempo, half/double time settled by genre and online sources, flags for tags that differ.
+- ✅ **Final tracks:** mark checked tracks as final (locked), optionally renamed by a pattern you choose.
+- ✅ **Play bar** that keeps playing while you browse; **convert to AIFF**; **fix MusicBrainz ID fields** that hold Discogs numbers.
 
 Planned (see the [roadmap](docs/roadmap.md)):
 
-- **Setup wizard:** mode, key notation, folder layout and how independently Tagwerk may work, chosen on first start.
-- **More automation for the inbox:** online sources and BPM/key from the audio; you're asked only where Tagwerk is unsure.
-- **Final tracks:** mark checked tracks as final (locked), optionally renamed by a pattern you choose.
-- **MusicBrainz lookup:** tags and cover art filled in automatically, and every value stays editable.
 - **Navidrome stats** next to your library's.
+- **A new look for 1.0.**
 - **Safe by design:** changes are staged, shown as *old → new*, and written only when you click Apply. The previous tags are kept so every change can be undone.
 
 ## Install on Unraid

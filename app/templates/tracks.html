@@ -12,6 +12,7 @@
     button.textContent = n ? `Edit ${n} selected` : "Edit selected";
     document.getElementById("convert-selected").disabled = n === 0;
     document.getElementById("lookup-selected").disabled = n === 0;
+    document.getElementById("analyse-selected").disabled = n === 0;
   }
 </script>
 {% set dj = prefs.mode == "dj" %}
@@ -56,6 +57,14 @@
 {% if result.tracks %}
 {% set looking = request.query_params.get("looking") %}
 {% if looking %}<p class="notice" role="status">🔎 Looking up {{ looking | int | plural('track') }} online in the background (about 3 seconds per track). Values that two sources agree on become <a href="/changes">pending changes</a> for you to review; each track's page shows everything that was found.</p>{% endif %}
+{% if f.flag == "invalid_mbid" %}
+<form method="post" action="/tracks/fix-ids?{{ f.params() | urlencode }}" class="notice">
+  <input type="hidden" name="all" value="true">
+  <p>These tracks have something other than a MusicBrainz ID in a MusicBrainz field, often a Discogs number.
+  <strong>Fix IDs</strong> keeps real MusicBrainz IDs, moves Discogs numbers into their own fields (<code>DISCOGS_RELEASE_ID</code>, <code>DISCOGS_ARTIST_ID</code>) and removes anything else, as pending changes for you to review. Final tracks are skipped.</p>
+  <button type="submit" class="outline" data-confirm="Fix the IDs of all {{ result.total }} matching tracks? This creates pending changes; nothing is written before you apply them." data-confirm-ok="Fix IDs">Fix IDs of {{ result.total | plural('track') }}</button>
+</form>
+{% endif %}
 <form id="selection" method="get" action="/tracks/edit"></form>
 <div class="select-bar">
   <button type="submit" form="selection" class="outline" id="edit-selected" disabled>Edit selected</button>
@@ -66,7 +75,13 @@
     <input type="hidden" name="all" value="true">
     <button type="submit" class="secondary link-button" data-confirm="Look up all {{ result.total }} matching tracks online? Values two sources agree on become pending changes for you to review." data-confirm-ok="Look up">Look up all {{ result.total | plural('matching track') }}</button>
   </form>
+  <button type="submit" form="selection" formaction="/tracks/analyse" formmethod="post" class="outline secondary" id="analyse-selected" disabled>Analyse BPM &amp; key</button>
+  <form method="post" action="/tracks/analyse?{{ f.params() | urlencode }}" class="inline-form">
+    <input type="hidden" name="all" value="true">
+    <button type="submit" class="secondary link-button" data-confirm="Measure BPM and key of all {{ result.total }} matching tracks from the audio? It takes 5-10 seconds per track in the background; tracks analysed before are skipped. Sure values for empty fields become pending changes for you to review." data-confirm-ok="Analyse">Analyse all {{ result.total | plural('matching track') }}</button>
+  </form>
 </div>
+{% include "partials/analysis_status.html" %}
 {% endif %}
 {% if not result.tracks %}
 <article><p>No tracks match. {% if chips %}Try removing a filter.{% else %}Run a scan from the <a href="/">dashboard</a>.{% endif %}</p></article>

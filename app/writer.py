@@ -33,7 +33,7 @@ from mutagen.mp4 import MP4Cover, MP4FreeForm, MP4Tags
 
 from app.images import ImageStore, image_info
 from app.keys import display, to_camelot
-from app.tags import is_comment_frame
+from app.tags import MBID_RE, is_comment_frame
 
 # Editable fields: name -> label. Order is the default form order.
 EDITABLE = {
@@ -51,10 +51,20 @@ EDITABLE = {
     "label": "Label",
     "catalognumber": "Catalog number",
 }
-MULTI_VALUE = {"artist", "albumartist", "genre"}  # "A; B" is written as two values
+# ID fields: not in the edit form; "Fix IDs" changes them (app/ids.py, ADR 0018).
+IDS = {
+    "mb_trackid": "MusicBrainz track ID",
+    "mb_albumid": "MusicBrainz album ID",
+    "mb_artistid": "MusicBrainz artist ID",
+    "mb_albumartistid": "MusicBrainz album artist ID",
+    "discogs_releaseid": "Discogs release ID",
+    "discogs_artistid": "Discogs artist ID",
+}
+# "A; B" is written as two values. The MusicBrainz track ID can only hold one (ID3 UFID).
+MULTI_VALUE = {"artist", "albumartist", "genre", *IDS} - {"mb_trackid"}
 COVER = "cover"
-# Every field a change can have, with its label: the text fields plus cover art.
-LABELS = {**EDITABLE, COVER: "Cover art"}
+# Every field a change can have, with its label: the text fields, IDs and cover art.
+LABELS = {**EDITABLE, **IDS, COVER: "Cover art"}
 # Removing one program's private ID3 frames (PRIV), e.g. "private:TRAKTOR4" for the waveform,
 # beat grid and cue points Traktor keeps in the file. Only removal; only ID3 has them.
 PRIVATE = "private:"
@@ -97,11 +107,13 @@ def normalize(field: str, value: str | None) -> str | None:
 
     Raises ValueError with a readable message for values that can't be written.
     """
-    if field not in EDITABLE:
+    if field not in EDITABLE and field not in IDS:
         raise ValueError(f"{field} can't be edited")
     value = (value or "").strip()
     if not value:
         return None
+    if field in IDS:
+        return _normalize_ids(field, value)
     if field in MULTI_VALUE:
         parts = [p.strip() for p in value.split(";") if p.strip()]
         return "; ".join(dict.fromkeys(parts)) or None
@@ -125,6 +137,18 @@ def normalize(field: str, value: str | None) -> str | None:
     if field == "date" and not re.fullmatch(r"\d{4}(-\d{2}(-\d{2})?)?", value):
         raise ValueError("Date must look like 2021 or 2021-05-14")
     return value
+
+
+def _normalize_ids(field: str, value: str) -> str:
+    parts = list(dict.fromkeys(p.strip().lower() for p in value.split(";") if p.strip()))
+    if field.startswith("mb_"):
+        if not all(MBID_RE.match(p) for p in parts):
+            raise ValueError("A MusicBrainz ID looks like 0b6a4e7c-3a4f-4b8e-9d0e-1f2a3b4c5d6e")
+        if field == "mb_trackid" and len(parts) > 1:
+            raise ValueError("A track has only one MusicBrainz track ID")
+    elif not all(p.isdigit() for p in parts):
+        raise ValueError("A Discogs ID is a number, e.g. 25124086")
+    return "; ".join(parts)
 
 
 def current_value(track, field: str) -> str | None:
@@ -235,6 +259,9 @@ def _handler(audio):
 # --- ID3 (MP3, WAV, AIFF) -------------------------------------------------------------------
 
 
+MUSICBRAINZ_UFID = "http://musicbrainz.org"
+
+
 def _id3_txxx(name: str) -> Callable:
     return lambda f: f.FrameID == "TXXX" and f.desc.lower() == name
 
@@ -256,7 +283,22 @@ _ID3_GROUPS: dict[str, Callable] = {
     "comment": is_comment_frame,
     "label": lambda f: f.FrameID == "TPUB" or _id3_txxx("label")(f),
     "catalognumber": _id3_txxx("catalognumber"),
+    "mb_trackid": lambda f: f.FrameID == "UFID" and f.owner == MUSICBRAINZ_UFID,
+    "mb_albumid": _id3_txxx("musicbrainz album id"),
+    "mb_artistid": _id3_txxx("musicbrainz artist id"),
+    "mb_albumartistid": _id3_txxx("musicbrainz album artist id"),
+    "discogs_releaseid": _id3_txxx("discogs_release_id"),
+    "discogs_artistid": _id3_txxx("discogs_artist_id"),
     COVER: lambda f: f.FrameID == "APIC",
+}
+# TXXX frames by field, with the name used when the file has none yet (Picard's and Mp3tag's).
+_ID3_TXXX = {
+    "catalognumber": "CATALOGNUMBER",
+    "mb_albumid": "MusicBrainz Album Id",
+    "mb_artistid": "MusicBrainz Artist Id",
+    "mb_albumartistid": "MusicBrainz Album Artist Id",
+    "discogs_releaseid": "DISCOGS_RELEASE_ID",
+    "discogs_artistid": "DISCOGS_ARTIST_ID",
 }
 
 
@@ -305,8 +347,11 @@ class _ID3:
             tags.add(frames["APIC"](encoding=3, mime=mime, type=3, desc="", data=data))
         elif field == "comment":
             tags.add(frames["COMM"](encoding=3, lang=lang, desc="", text=[value]))
-        elif field == "catalognumber":
-            tags.add(frames["TXXX"](encoding=3, desc=txxx_desc or "CATALOGNUMBER", text=[value]))
+        elif field == "mb_trackid":
+            tags.add(frames["UFID"](owner=MUSICBRAINZ_UFID, data=value.encode("ascii")))
+        elif field in _ID3_TXXX:
+            text = _split(value) if field in MULTI_VALUE else [value]
+            tags.add(frames["TXXX"](encoding=3, desc=txxx_desc or _ID3_TXXX[field], text=text))
         elif field == "label" and txxx_desc and not has_tpub:
             tags.add(frames["TXXX"](encoding=3, desc=txxx_desc, text=[value]))  # keep its spot
         else:
@@ -389,6 +434,12 @@ _VORBIS_KEYS = {
     "comment": ["comment", "description"],
     "label": ["label", "organization", "publisher"],
     "catalognumber": ["catalognumber"],
+    "mb_trackid": ["musicbrainz_trackid"],
+    "mb_albumid": ["musicbrainz_albumid"],
+    "mb_artistid": ["musicbrainz_artistid"],
+    "mb_albumartistid": ["musicbrainz_albumartistid"],
+    "discogs_releaseid": ["discogs_release_id"],
+    "discogs_artistid": ["discogs_artist_id"],
 }
 _VORBIS_NUMBERS = {
     "track": (["tracknumber", "track"], ["tracktotal", "totaltracks"]),
@@ -521,6 +572,12 @@ _MP4_KEYS = {
     "key": [_FF + "initialkey", _FF + "KEY"],
     "label": [_FF + "LABEL", _FF + "publisher"],
     "catalognumber": [_FF + "CATALOGNUMBER"],
+    "mb_trackid": [_FF + "MusicBrainz Track Id"],
+    "mb_albumid": [_FF + "MusicBrainz Album Id"],
+    "mb_artistid": [_FF + "MusicBrainz Artist Id"],
+    "mb_albumartistid": [_FF + "MusicBrainz Album Artist Id"],
+    "discogs_releaseid": [_FF + "DISCOGS_RELEASE_ID"],
+    "discogs_artistid": [_FF + "DISCOGS_ARTIST_ID"],
     COVER: ["covr"],
 }
 
@@ -561,7 +618,8 @@ class _MP4:
             elif field == "bpm":
                 tags[target] = [round(float(value))]  # the tmpo atom holds an integer
             elif target.startswith(_FF):
-                tags[target] = [MP4FreeForm(value.encode())]
+                parts = _split(value) if field in MULTI_VALUE else [value]
+                tags[target] = [MP4FreeForm(p.encode()) for p in parts]
             else:
                 tags[target] = _split(value) if field in MULTI_VALUE else [value]
         audio.save()

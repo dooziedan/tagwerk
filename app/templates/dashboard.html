@@ -55,7 +55,7 @@
       <ul class="notes">
         <li><a href="/tracks?flag=untagged">{{ stats.untagged | plural('file') }}</a> without any tags.</li>
         {% if dj and stats.bpm_zero %}<li><a href="/tracks?flag=bpm_zero">{{ stats.bpm_zero | plural('file') }}</a> store BPM as 0 ("unknown"), counted as missing.</li>{% endif %}
-        {% if prefs.show_musicbrainz %}<li><a href="/tracks?flag=invalid_mbid">{{ stats.invalid_mbids | plural('file') }}</a> with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs).</li>{% endif %}
+        {% if prefs.show_musicbrainz %}<li><a href="/tracks?flag=invalid_mbid">{{ stats.invalid_mbids | plural('file') }}</a> with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs){% if stats.invalid_mbids %}: <a href="/tracks?flag=invalid_mbid">fix them</a>{% endif %}.</li>{% endif %}
         {% if not dj %}<li><a href="/tracks?flag=has_lyrics">{{ stats.with_lyrics | plural('track') }}</a> with lyrics (embedded or .lrc file).</li>{% endif %}
         {% if stats.unreadable %}<li>⚠️ <a href="/tracks?flag=unreadable">{{ stats.unreadable | plural('file') }}</a> could not be read.</li>{% endif %}
         <li><a href="/fields">See every tag field in your files →</a></li>
@@ -117,6 +117,15 @@
     <p class="muted"><small>No key tags yet.</small></p>
     {% endif %}
     {% if stats.unrecognized_keys %}<p><small>⚠️ <a href="/tracks?flag=key_unrecognized">{{ stats.unrecognized_keys | plural('file') }}</a> with a key tag Tagwerk doesn't recognize.</small></p>{% endif %}
+    <footer>
+      <strong><small>From the audio</small></strong>
+      <ul class="notes">
+        {% if stats.audio_bpm_octave %}<li>⚠️ <a href="/tracks?flag=audio_bpm_octave">{{ stats.audio_bpm_octave | plural('track') }}</a> with a BPM at probably half or double the real tempo.</li>{% endif %}
+        {% if stats.audio_bpm_differs %}<li><a href="/tracks?flag=audio_bpm_differs">{{ stats.audio_bpm_differs | plural('track') }}</a> with a BPM that differs from the audio.</li>{% endif %}
+        {% if stats.audio_key_differs %}<li><a href="/tracks?flag=audio_key_differs">{{ stats.audio_key_differs | plural('track') }}</a> with a key that differs from the audio.</li>{% endif %}
+        <li>{% if stats.not_analysed %}<a href="/tracks?flag=not_analysed">{{ stats.not_analysed | plural('track') }}</a> not analysed yet: open the list and choose <strong>Analyse all</strong> (5-10 seconds per track, in the background).{% else %}Every track's BPM and key were measured from the audio.{% endif %}</li>
+      </ul>
+    </footer>
   </article>
 {% endset %}
 <div class="grid-2">

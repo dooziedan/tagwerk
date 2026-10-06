@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, func, select
 
-from app import genres, identify, writer
+from app import analysis, genres, identify, writer
 from app.models import InboxTrack, InboxValue
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
@@ -118,10 +118,18 @@ def owner_values(session: Session, track_id: int) -> dict[str, str | None]:
 
 def suggestions(session: Session, track: InboxTrack) -> dict[str, Proposal]:
     """Tagwerk's suggestions per field: from the file and filename first, then from online
-    sources for fields still empty (app/identify.py)."""
+    sources for fields still empty (app/identify.py). BPM and key from the audio replace
+    both: they were decided together with them (app/analysis.py)."""
     local = {p.field: p for p in propose(track, genres.active(session))}
     online = identify.suggestions(session, track, taken=set(local))
-    return local | {p.field: p for p in online}
+    found = local | {p.field: p for p in online}
+    mine = owner_values(session, track.id)
+    genre = (
+        mine["genre"]
+        if "genre" in mine
+        else (found["genre"].value if "genre" in found else track.genre)
+    )
+    return found | {p.field: p for p in analysis.proposals(session, track, genre)}
 
 
 def review(session: Session, track: InboxTrack, order: list[str]) -> list[ReviewField]:

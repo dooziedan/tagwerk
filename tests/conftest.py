@@ -76,3 +76,31 @@ def offline(monkeypatch):
         raise SourceError("offline during tests")
 
     monkeypatch.setattr(Source, "get_json", no_network)
+
+
+# What the stand-in analysis "hears" (tests can change it); the real one is tested on its own.
+FAKE_ANALYSIS = {
+    "bpm": 87.0,
+    "bpm_sure": False,
+    "bpm_alternatives": [174.0],
+    "key": "7A",
+    "key_sure": True,
+    "key_alternatives": [],
+    "notes": ["All 3 tempo methods measured 87 BPM"],
+    "votes": {},
+    "seconds": 20.0,
+    "error": None,
+    "version": 1,
+}
+
+
+@pytest.fixture(autouse=True)
+def quick_analysis(monkeypatch):
+    """Inbox checks start audio analyses in the background; in tests they answer at once
+    instead of running Essentia in a separate process for every file."""
+    from app import analysis
+    from app.audio_analysis import ANALYSIS_VERSION
+
+    monkeypatch.setattr(
+        analysis, "run_analysis", lambda path: FAKE_ANALYSIS | {"version": ANALYSIS_VERSION}
+    )

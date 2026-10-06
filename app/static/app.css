@@ -379,6 +379,9 @@ body.with-action-bar { padding-bottom: 6rem; }
 /* Inbox review: what online sources found (app/identify.py) */
 .online-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
 .online-head form, .online-candidate form { margin: 0; }
+/* Buttons in notices ("… probably half time [Use 172]", "[Fix IDs]") stay beside the text. */
+.audio-diff { margin: 0.5rem 0; }
+.notice button { width: auto; margin: 0.3rem 0.4rem 0.3rem 0; }
 .online-source { margin: 0.25rem 0; }
 .online-source summary { font-size: 0.95rem; }
 .online-candidate { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--pico-muted-border-color); }

@@ -25,7 +25,8 @@ COMMIT_EVERY = 200  # files per database transaction
 # re-read once on the next scan, even if the file itself didn't change.
 #   1 = v0.2 (basic tags)   2 = v0.3 (DJ fields, lyrics, OGG/Opus)   3 = v0.4 (raw tag fields)
 #   4 = v0.8.3 (private ID3 frames named by their owner, without their data)
-SCAN_VERSION = 4
+#   5 = v0.9 (Discogs release and artist IDs)
+SCAN_VERSION = 5
 
 
 @dataclass

@@ -5,6 +5,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-06
+
+### Added
+- **BPM and key from the audio**: Tagwerk measures them itself, made for bass-heavy music like drum & bass (fine frequency steps for sub-bass notes, an exact tempo to 0.05 BPM instead of steps of about 1 BPM). Inbox tracks are analysed after every inbox check; library tracks from their page (**Analyse**), for ticked tracks, or for all tracks matching the list's filters (**Analyse all**), 5-10 seconds per track in the background with low priority, so pages stay fast. **Stop** ends a long run.
+- Whether a track is 87 or 174 BPM is settled with its **genre** (drum & bass is 160-185), the **filename** and **online sources** (Deezer); a value is *sure* only when the methods agree or something confirms it, otherwise *check*. Every result says why.
+- **Empty BPM and key** get filled: sure values become pending changes for library tracks and suggestions for inbox tracks. **Tags that differ** are only pointed out: the track page's new **From the audio** box (with **Use 174**), and the track list and dashboard: *BPM probably half or double time*, *BPM differs from the audio*, *Key differs from the audio*, *Not analysed yet*.
+- **Fix IDs** for MusicBrainz ID fields that hold something else (often Discogs numbers): on the track page, which now lists each wrong value, or for all such tracks from the dashboard's link. Real MusicBrainz IDs stay, Discogs numbers and links move to their own fields (**Discogs release ID** `DISCOGS_RELEASE_ID`, **Discogs artist ID** `DISCOGS_ARTIST_ID`), anything else is removed, as pending changes you can undo.
+- Discogs IDs are read and shown in the track page's ID panel. The next scan re-reads every file once for them.
+
+### Changed
+- Automatic imports wait until a track's BPM and key were measured (right after the inbox check).
+- The Docker image includes Essentia for the analysis (about 150 MB bigger).
+
 ## [0.8.4] - 2026-10-05
 
 ### Added

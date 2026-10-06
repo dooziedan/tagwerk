@@ -59,6 +59,7 @@
 
 {% if not t.error %}
 {% with base = "/inbox/" ~ t.id, hidden = {"show": show}, note = "Suggestions from these sources fill empty fields above." %}{% include "partials/online_box.html" %}{% endwith %}
+{% with base = "/inbox/" ~ t.id %}{% include "partials/audio_box.html" %}{% endwith %}
 {% endif %}
 
 {% if t.error %}

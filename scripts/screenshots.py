@@ -45,8 +45,8 @@ def put_settings(base: str, **changes) -> None:
     urllib.request.urlopen(request).close()
 
 
-def first_track_id(base: str) -> int | None:
-    with urllib.request.urlopen(f"{base}/api/tracks") as r:
+def first_track_id(base: str, query: str = "") -> int | None:
+    with urllib.request.urlopen(f"{base}/api/tracks?{query}") as r:
         tracks = json.load(r)["tracks"]
     return tracks[0]["id"] if tracks else None
 
@@ -72,6 +72,11 @@ def main(base: str, out: Path) -> int:
     if track:
         pages["track"] = f"/tracks/{track}"
         pages["convert"] = f"/convert?ids={track}"
+    # Pages that only have something to show in some libraries (BPM/key from the audio, IDs).
+    for name, flag in (("track-audio", "audio_bpm_octave"), ("track-ids", "invalid_mbid")):
+        if flagged := first_track_id(base, f"flag={flag}"):
+            pages[name] = f"/tracks/{flagged}"
+            pages[f"tracks-{flag}"] = f"/tracks?flag={flag}"
     pages["inbox"] = "/inbox"
     inbox = first_inbox_id(base)
     if inbox:

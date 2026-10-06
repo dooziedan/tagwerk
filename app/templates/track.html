@@ -11,17 +11,21 @@
 <p><a href="{{ back }}">← Back</a></p>
 <div class="track-head">
   <details class="info-pop">
-    <summary aria-label="More information: MusicBrainz IDs" title="MusicBrainz IDs">
+    <summary aria-label="More information: MusicBrainz and Discogs IDs" title="MusicBrainz and Discogs IDs">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg>
       {% if t.mbid_invalid %}<span class="info-alert" aria-hidden="true">!</span>{% endif %}
     </summary>
     <div class="info-panel">
       <strong>MusicBrainz IDs</strong>
-      {% if t.mbid_invalid %}<p class="form-error"><small>⚠️ Some fields contain IDs that aren't MusicBrainz IDs.</small></p>{% endif %}
+      {% if t.mbid_invalid %}<p class="form-error"><small>⚠️ Some fields contain IDs that aren't MusicBrainz IDs: see below the title.</small></p>{% endif %}
       <table class="kv">
         {{ row("Recording", t.mb_trackid) }}{{ row("Release", t.mb_albumid) }}
         {{ row("Artist", t.mb_artistid) }}{{ row("Album artist", t.mb_albumartistid) }}
       </table>
+      {% if t.discogs_releaseid or t.discogs_artistid %}
+      <strong>Discogs IDs</strong>
+      <table class="kv">{{ row("Release", t.discogs_releaseid) }}{{ row("Artist", t.discogs_artistid) }}</table>
+      {% endif %}
     </div>
   </details>
   {% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" aria-label="No cover art">♪</div>{% endif %}
@@ -66,9 +70,24 @@
   </div>
 </div>
 
+{% if wrong_ids %}
+<div class="notice" role="note">
+  <p><strong>⚠️ Other values in MusicBrainz ID fields</strong></p>
+  <ul>
+    {% for w in wrong_ids %}<li>{{ w.label }}: <code>{{ w.value }}</code> – {{ w.explanation }}</li>{% endfor %}
+  </ul>
+  {% if final %}<p><small>Final tracks are locked: remove the final mark to fix them.</small></p>
+  {% else %}<form method="post" action="/tracks/{{ t.id }}/fix-ids" class="inline-form">
+    <button type="submit" class="outline">Fix IDs</button>
+    <small class="muted">Real MusicBrainz IDs stay. Creates pending changes; nothing is written before you apply them.</small>
+  </form>{% endif %}
+</div>
+{% endif %}
+
 {% if not t.error %}
 {% if looking_up %}<p class="notice" role="status">🔎 Looking up online… Values that two sources agree on become <a href="/changes">pending changes</a>. This page updates by itself when the answers are in.</p>{% endif %}
 {% with base = "/tracks/" ~ t.id, hidden = {"back": back}, note = ("Final tracks are locked: nothing is staged for them." if final else "Values for empty fields that two sources agree on become pending changes by themselves; Use these values stages one result.") %}{% include "partials/online_box.html" %}{% endwith %}
+{% with base = "/tracks/" ~ t.id %}{% include "partials/audio_box.html" %}{% endwith %}
 {% endif %}
 
 <div class="grid-2">

@@ -44,6 +44,8 @@ class Track(SQLModel, table=True):
     mb_artistid: str | None = None
     mb_albumartistid: str | None = None
     mbid_invalid: bool = False  # a MusicBrainz field holds something that isn't an MBID
+    discogs_releaseid: str | None = None  # Discogs numbers (app/ids.py)
+    discogs_artistid: str | None = None
     has_cover: bool = False
     has_lyrics: bool = False  # embedded lyrics
     has_lrc: bool = False  # a .lrc lyrics file with the same name sits next to the track
@@ -226,3 +228,45 @@ class LibraryLookup(_Lookup, table=True):
     """Online results for a library track ("Look up online"; results become pending changes)."""
 
     track_id: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+
+
+class _Analysis(SQLModel):
+    """What the audio says about one track: BPM and key (app/analysis.py, ADR 0017).
+
+    Analysing takes seconds per track, so results are kept. Tags don't change the sound, so a
+    result stays valid when tags are written; it is redone when the method improves
+    (``version``) or the file's length changes (another file under the same name).
+    """
+
+    bpm: float | None = None
+    bpm_sure: bool = False
+    key: str | None = None  # Camelot code, e.g. "7A"
+    key_sure: bool = False
+    # JSON: alternatives, plain-language notes and every method's answer
+    detail: str = "{}"
+    error: str | None = None  # the file couldn't be analysed (unreadable, silent, too short)
+    version: int = 0  # app.audio_analysis.ANALYSIS_VERSION that produced this result
+    duration: float | None = None  # the track's length when it was analysed
+    analysed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class InboxAnalysis(_Analysis, table=True):
+    """BPM and key from the audio of an inbox track (copied to the library on import)."""
+
+    track_id: int = Field(foreign_key="inboxtrack.id", primary_key=True, ondelete="CASCADE")
+
+
+class LibraryAnalysis(_Analysis, table=True):
+    """BPM and key from the audio of a library track.
+
+    ``decided_*``: the audio combined with the genre, filename and online BPMs (e.g. 174
+    instead of the 87 the audio alone can't rule out). Worked out again when tags or online
+    results change; the track list's "differs from the audio" filters use them.
+    """
+
+    track_id: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+    decided_bpm: float | None = None
+    decided_bpm_sure: bool = False
+    decided_key: str | None = None  # Camelot code
+    decided_key_sure: bool = False
+    decided_notes: str = "[]"  # JSON: why, in plain language

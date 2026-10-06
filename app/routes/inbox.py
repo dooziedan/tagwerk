@@ -28,6 +28,7 @@ from app.jobs import identify_job, image_store, inbox_job, run_now, scan_job, wr
 from app.models import InboxTrack
 from app.navigation import reload_page
 from app.proposals import still_missing
+from app.routes.analysis import audio_context
 from app.routes.changes import FIELD_ORDER, HINTS, KEEP_COVER, cover_choice
 from app.routes.scan import scan_state
 from app.scanner import ScanProgress
@@ -474,6 +475,12 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "online": identify.results(session, track.id),
             "online_sources": [s.label for s in identify.enabled(get_settings(), prefs)],
             "looking_up": identify_job.queued(track.id),
+            **audio_context(
+                session,
+                track,
+                library=False,
+                genre=next((f.value for f in fields if f.field == "genre"), None),
+            ),
         },
         status_code=status_code,
     )
