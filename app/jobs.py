@@ -17,7 +17,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app import convert, final, folders, identify, navidrome, preferences, trash
+from app import analysis, convert, final, folders, identify, navidrome, preferences, trash
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
@@ -25,7 +25,7 @@ from app.duplicates import LibraryIndex
 from app.images import ImageStore
 from app.importer import import_tracks, ready_for_auto_import
 from app.inbox import scan_inbox
-from app.models import InboxTrack
+from app.models import InboxTrack, Track
 from app.scanner import ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
@@ -88,7 +88,9 @@ class ScanJob(Job):
         def work() -> None:
             if not settings.music_dir.is_dir():
                 raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
-            scan_library(get_engine(settings.database_url), settings.music_dir, progress)
+            engine = get_engine(settings.database_url)
+            scan_library(engine, settings.music_dir, progress)
+            analysis.refresh_all(engine)  # tags may have changed: compare with the audio again
 
         return self._start(work, progress)
 
@@ -111,6 +113,7 @@ class InboxJob(Job):
             trash.purge(settings.import_dir)  # deleted more than 30 days ago
             self._auto_import(settings, engine)
             identify_job.start(settings)  # new tracks are looked up online, beside other jobs
+            analysis_job.start(settings)  # and their BPM and key measured from the audio
 
         return self._start(work, progress)
 
@@ -151,6 +154,7 @@ class WriteJob(Job):
 
         def work() -> None:
             apply_pending(engine, settings.music_dir, progress, images)
+            analysis.refresh_all(engine)
             navidrome.rescan_after_write(settings, progress.written)
 
         return self._start(work, progress)
@@ -170,6 +174,7 @@ class WriteJob(Job):
                 settings.import_dir,
                 settings,
             )
+            analysis.refresh_all(engine)
             navidrome.rescan_after_write(settings, progress.written)
 
         return self._start(work, progress)
@@ -184,6 +189,7 @@ class WriteJob(Job):
             import_tracks(
                 engine, settings.import_dir, settings.music_dir, track_ids, progress, images
             )
+            analysis.refresh_all(engine)
             navidrome.rescan_after_write(settings, progress.written)
 
         return self._start(work, progress)
@@ -288,6 +294,9 @@ class IdentifyJob:
                 )
                 if library:
                     self.progress.library += 1
+                    with Session(engine) as session:  # online BPMs may settle the audio's BPM
+                        if track := session.get(Track, track_id):
+                            analysis.stage_sure(session, track)
             except Exception:
                 log.exception("Online lookup failed for track %s", track_id)
             self.progress.processed += 1
@@ -296,6 +305,112 @@ class IdentifyJob:
         """True while this track waits for (or is in) a lookup."""
         key = (library, track_id)
         return self.running and (key in self._queue or key == self._current)
+
+    def wait(self, timeout: float | None = None) -> None:
+        if self._thread:
+            self._thread.join(timeout)
+
+
+@dataclass
+class AnalysisProgress:
+    total: int = 0
+    processed: int = 0
+    current: str = ""
+    failed: int = 0  # files that couldn't be analysed (error stored with the result)
+
+
+class AnalysisJob:
+    """Measures BPM and key from the audio, one track at a time (app/analysis.py).
+
+    Only reads files, so like the online lookups it doesn't take the library lock and runs
+    beside scans and imports. Each track is analysed in its own low-priority process.
+    Inbox tracks go before library tracks: they are waiting for review. Tracks asked for
+    while it runs are queued; ``stop`` empties the queue (the current track finishes).
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # (library?, track id) -> force (analyse again even if the result is fresh), in order
+        self._queue: dict[tuple[bool, int], bool] = {}
+        self._current: tuple[bool, int] | None = None
+        self._thread: threading.Thread | None = None
+        self.progress = AnalysisProgress()
+
+    @property
+    def running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(
+        self,
+        settings: Settings,
+        track_ids: list[int] | None = None,
+        force: bool = False,
+        library: bool = False,
+    ) -> None:
+        """Analyse these tracks (default: every inbox track without a fresh result)."""
+        engine = get_engine(settings.database_url)
+        if track_ids is None:
+            with Session(engine) as session:
+                track_ids = [
+                    t.id
+                    for t in session.exec(select(InboxTrack).where(InboxTrack.error.is_(None)))
+                    if not analysis.fresh(analysis.result(session, t.id), t)
+                ]
+        with self._lock:
+            for track_id in track_ids:
+                key = (library, track_id)
+                self._queue[key] = self._queue.get(key, False) or force
+            if self.running or not self._queue:
+                return
+            self.progress = AnalysisProgress()
+            self._thread = threading.Thread(
+                target=self._run, args=(settings, engine), name="analysis", daemon=True
+            )
+            self._thread.start()
+
+    def _next(self) -> tuple[tuple[bool, int], bool] | None:
+        """The next track: inbox first, otherwise in the order they were asked for."""
+        if not self._queue:
+            return None
+        key = next((k for k in self._queue if not k[0]), next(iter(self._queue)))
+        return key, self._queue.pop(key)
+
+    def _run(self, settings: Settings, engine) -> None:
+        while True:
+            with self._lock:
+                self._current = None
+                picked = self._next()
+                if picked is None:
+                    self.progress.current = ""
+                    return
+                (library, track_id), force = picked
+                self._current = (library, track_id)
+                self.progress.total = self.progress.processed + 1 + len(self._queue)
+            try:
+                with Session(engine) as session:
+                    track = session.get(Track if library else InboxTrack, track_id)
+                    self.progress.current = track.path if track else ""
+                analysis.analyse_track(engine, settings, track_id, library, force)
+                with Session(engine) as session:
+                    found = analysis.result(session, track_id, library)
+                    if found and found.error:
+                        self.progress.failed += 1
+            except Exception:
+                log.exception("Audio analysis failed for track %s", track_id)
+                self.progress.failed += 1
+            self.progress.processed += 1
+
+    def queued(self, track_id: int, library: bool = False) -> bool:
+        """True while this track waits for (or is in) an analysis."""
+        key = (library, track_id)
+        return self.running and (key in self._queue or key == self._current)
+
+    def stop(self) -> int:
+        """Forget the waiting tracks; the one being analysed finishes. Returns how many."""
+        with self._lock:
+            count = len(self._queue)
+            self._queue.clear()
+            return count
 
     def wait(self, timeout: float | None = None) -> None:
         if self._thread:
@@ -311,6 +426,7 @@ scan_job = ScanJob()
 inbox_job = InboxJob()
 write_job = WriteJob()
 identify_job = IdentifyJob()
+analysis_job = AnalysisJob()
 
 
 def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.Thread:

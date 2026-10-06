@@ -92,6 +92,11 @@ class LibraryStats:
     lossless: int = 0
     low_bitrate: int = 0
     low_bitrate_kbps: int = LOW_BITRATE_KBPS
+    # BPM and key from the audio (app/analysis.py)
+    audio_bpm_octave: int = 0  # tagged at half or double the tempo the audio has
+    audio_bpm_differs: int = 0
+    audio_key_differs: int = 0
+    not_analysed: int = 0
     # Collector mode
     decades: list[Bar] = field(default_factory=list)
     unknown_year: int = 0
@@ -152,6 +157,10 @@ def _add_dj(session: Session, stats: LibraryStats, prefs: Preferences) -> None:
     stats.bpm_zero = _flag(session, "bpm_zero")
     stats.lossless = _flag(session, "lossless")
     stats.low_bitrate = _flag(session, "low_bitrate")
+    stats.audio_bpm_octave = _flag(session, "audio_bpm_octave")
+    stats.audio_bpm_differs = _flag(session, "audio_bpm_differs")
+    stats.audio_key_differs = _flag(session, "audio_key_differs")
+    stats.not_analysed = _flag(session, "not_analysed")
 
 
 def _add_collector(session: Session, stats: LibraryStats) -> None:

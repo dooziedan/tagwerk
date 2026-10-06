@@ -67,6 +67,10 @@ def test_flags_match_dashboard_counts(engine, music_dir):
             "low_bitrate": stats.low_bitrate,
             "untagged": stats.untagged,
             "bpm_and_key": stats.with_bpm_and_key,
+            "audio_bpm_octave": stats.audio_bpm_octave,
+            "audio_bpm_differs": stats.audio_bpm_differs,
+            "audio_key_differs": stats.audio_key_differs,
+            "not_analysed": stats.not_analysed,
         }.items():
             assert find_tracks(session, TrackFilter(flag=flag)).total == expected, flag
     assert stats.bpm_zero == 1

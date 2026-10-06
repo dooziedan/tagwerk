@@ -221,11 +221,54 @@ def make_special_cases() -> None:
     audio.save()
 
 
+def make_dnb_loop() -> None:
+    """20 s of drum & bass at 174 BPM in D minor (Camelot 7A), for the audio analysis.
+
+    Sub bass on D, a D minor pad, kick and snare. Drawn with numpy (an Essentia dependency),
+    encoded with ffmpeg.
+    """
+    import numpy as np
+
+    rate, bpm, seconds = 22050, 174, 20
+    t = np.arange(rate * seconds) / rate
+    beat = 60 / bpm
+
+    def hz(midi: int) -> float:
+        return 440 * 2 ** ((midi - 69) / 12)
+
+    # Sub bass: D1 for three bars, A1 for one (the fifth), pure sine like in D&B.
+    bar = 4 * beat
+    root = np.where((t // bar) % 4 == 3, hz(33), hz(26))
+    sub = 0.5 * np.sin(2 * np.pi * np.cumsum(root) / rate)
+    # Pad: D minor chord (D4 F4 A4) with an octave of harmonics each, quieter.
+    pad = sum(
+        0.08 / h * np.sin(2 * np.pi * hz(note) * h * t) for note in (62, 65, 69) for h in (1, 2)
+    )
+    drums = np.zeros_like(t)
+    rng = np.random.default_rng(174)
+    hit = np.arange(int(0.2 * rate)) / rate
+    kick = np.sin(2 * np.pi * (45 * hit + 40 * (1 - np.exp(-hit * 30)))) * np.exp(-hit * 18)
+    snare = rng.uniform(-1, 1, len(hit)) * np.exp(-hit * 25)
+    # Two-step pattern: kick on 1 and the "and" of 3, snare on 2 and 4.
+    for start, sound in ((0, kick), (2.5, kick), (1, snare), (3, snare)):
+        for at in np.arange(start * beat, seconds - 0.2, bar):
+            i = int(at * rate)
+            drums[i : i + len(sound)] += 0.6 * sound
+    audio = (sub + pad + drums) / 1.6
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "f32le", "-ar", str(rate), "-ac", "1", "-i",
+         "pipe:0", "-c:a", "libvorbis", "-q:a", "2", str(HERE / "dnb-174-7A.ogg")],
+        input=audio.astype(np.float32).tobytes(),
+        check=True,
+    )  # fmt: skip
+
+
 if __name__ == "__main__":
     make_id3_files()
     make_vorbis_files()
     make_m4a()
     make_special_cases()
+    make_dnb_loop()
     for p in sorted(HERE.glob("*.*")):
         if p.suffix != ".py":
             print(f"{p.name:20} {p.stat().st_size:>6} bytes")

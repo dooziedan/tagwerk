@@ -10,8 +10,9 @@ from urllib.parse import urlencode
 from sqlalchemy import ColumnElement, Integer, and_, cast, distinct, exists, func, not_, or_
 from sqlmodel import Session, col, select
 
+from app.audio_analysis import ANALYSIS_VERSION
 from app.keys import display
-from app.models import FinalTrack, RawTag, Track
+from app.models import FinalTrack, LibraryAnalysis, RawTag, Track
 from app.tags import LOSSLESS_FORMATS
 
 PER_PAGE = 50
@@ -63,6 +64,26 @@ _BPM_FIELD = or_(
 IS_FINAL = exists().where(FinalTrack.track_id == Track.id)
 CHANGED_OUTSIDE = exists().where(FinalTrack.track_id == Track.id, FinalTrack.mtime != Track.mtime)
 
+# BPM and key from the audio (app/analysis.py): only sure decisions are compared with tags.
+_AUDIO = LibraryAnalysis
+_SAME_TEMPO = 0.015  # tags hold rounded BPMs (87.5 -> 88)
+
+
+def _tempo_near(a, b) -> ColumnElement[bool]:
+    return func.abs(a - b) <= _SAME_TEMPO * b
+
+
+_BPM_COMPARED = and_(
+    _AUDIO.track_id == Track.id,
+    col(_AUDIO.decided_bpm_sure).is_(True),
+    _AUDIO.decided_bpm.is_not(None),
+    Track.bpm > 0,
+)
+_BPM_OCTAVE = or_(
+    _tempo_near(Track.bpm * 2, _AUDIO.decided_bpm), _tempo_near(Track.bpm, _AUDIO.decided_bpm * 2)
+)
+AUDIO_FLAGS = ("audio_bpm_octave", "audio_bpm_differs", "audio_key_differs", "not_analysed")
+
 # Named filters for things that aren't a single tag, with the label shown on the page.
 FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     "untagged": ("No tags at all", and_(_READABLE, Track.tag_format.is_(None))),
@@ -85,6 +106,33 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     "bpm_and_key": (
         "BPM and key set",
         and_(Track.bpm.is_not(None), Track.key_camelot.is_not(None)),
+    ),
+    "audio_bpm_octave": (
+        "BPM probably half or double time",
+        exists().where(_BPM_COMPARED, _BPM_OCTAVE),
+    ),
+    "audio_bpm_differs": (
+        "BPM differs from the audio",
+        exists().where(
+            _BPM_COMPARED, not_(_tempo_near(Track.bpm, _AUDIO.decided_bpm)), not_(_BPM_OCTAVE)
+        ),
+    ),
+    "audio_key_differs": (
+        "Key differs from the audio",
+        exists().where(
+            _AUDIO.track_id == Track.id,
+            col(_AUDIO.decided_key_sure).is_(True),
+            _AUDIO.decided_key.is_not(None),
+            Track.key_camelot.is_not(None),
+            Track.key_camelot != _AUDIO.decided_key,
+        ),
+    ),
+    "not_analysed": (
+        "BPM and key not analysed yet",
+        and_(
+            _READABLE,
+            not_(exists().where(_AUDIO.track_id == Track.id, _AUDIO.version == ANALYSIS_VERSION)),
+        ),
     ),
     "final": ("Final", IS_FINAL),
     "final_changed": ("Final, changed outside Tagwerk", CHANGED_OUTSIDE),

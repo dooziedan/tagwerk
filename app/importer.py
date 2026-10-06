@@ -22,7 +22,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import genres, identify, naming, preferences, writer
+from app import analysis, genres, identify, naming, preferences, writer
 from app.changes import WriteProgress
 from app.config import get_settings
 from app.duplicates import LibraryIndex
@@ -109,10 +109,12 @@ def ready_for_auto_import(
 
     Only complete tracks: title, artist, genre, BPM, key and cover; every suggestion sure;
     nothing that blocks an import; no likely copy in the library (the owner decides those);
-    and the file unchanged for a while (no half downloads).
+    the file unchanged for a while (no half downloads); and its audio analysed.
     """
     if track.error or now - track.mtime < STABLE_AFTER:
         return False
+    if analysis.result(session, track.id) is None:
+        return False  # wait for BPM and key from the audio (right after the inbox check)
     if plan(session, track, music_dir).problems:
         return False
     fields = review(session, track, list(writer.EDITABLE))
@@ -220,6 +222,7 @@ def _import_one(
     library_track = store_file(session, target, item.destination, stat, False, None)
     entry.track_id = library_track.id
     entry.mtime_after = stat.st_mtime
+    analysis.copy_to_library(session, track.id, library_track.id)  # same sound, no new analysis
     session.delete(track)
 
 

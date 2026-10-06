@@ -64,6 +64,9 @@ Files are never modified directly from a form or a lookup:
 | `app/identify.py` | Asks the sources about inbox tracks, scores the matches, stores them (`onlinelookup`) and turns agreement into suggestions and a cover ([ADR 0014](decisions/0014-online-identification.md)) | 0.8 |
 | `app/routes/lookup.py` | Look up online for library tracks: sure values become pending changes, "Use these values" stages one result | 0.8.1 |
 | `app/routes/player.py`, `app/static/player.js` | The play bar: serves audio (range requests; ffmpeg → MP3 for AIFF/ALAC). Pages swap in place with hx-boost so playback continues ([ADR 0015](decisions/0015-player.md)) | 0.8.2 |
+| `app/audio_analysis.py` | BPM and key from the audio with Essentia (read-only; also runnable by hand: `python -m app.audio_analysis FILE`) ([ADR 0017](decisions/0017-audio-analysis.md)) | 0.9 |
+| `app/analysis.py` | Runs the analysis per track in a low-priority process, stores results (`inboxanalysis`, `libraryanalysis`), combines them with genre, filename and online BPMs, stages sure values | 0.9 |
+| `app/ids.py` | MusicBrainz ID fields holding other values: what's wrong, and the fix (Discogs numbers to their own fields) ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md)) | 0.9 |
 | `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |

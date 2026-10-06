@@ -76,6 +76,9 @@ class FileInfo:
     mb_albumid: str | None = None
     mb_artistid: str | None = None
     mb_albumartistid: str | None = None
+    # Discogs numbers, in their own fields (Mp3tag's names); see app/ids.py
+    discogs_releaseid: str | None = None
+    discogs_artistid: str | None = None
     mbid_invalid: bool = False
     has_cover: bool = False
     has_lyrics: bool = (
@@ -173,6 +176,8 @@ def _read_id3(tags: ID3, info: FileInfo) -> None:
     ufid = tags.get("UFID:http://musicbrainz.org")
     if ufid is not None:
         info.mb_trackid = ufid.data.decode("ascii", "replace") or None
+    info.discogs_releaseid = _id3_txxx(tags, "DISCOGS_RELEASE_ID")
+    info.discogs_artistid = _id3_txxx(tags, "DISCOGS_ARTIST_ID")
     info.has_cover = bool(tags.getall("APIC"))
     info.has_lyrics = any(str(f).strip() for f in tags.getall("USLT")) or bool(tags.getall("SYLT"))
 
@@ -223,6 +228,8 @@ def _read_vorbis(tags: VCommentDict, info: FileInfo) -> None:
     info.mb_albumid = get("musicbrainz_albumid")
     info.mb_artistid = get("musicbrainz_artistid")
     info.mb_albumartistid = get("musicbrainz_albumartistid")
+    info.discogs_releaseid = get("discogs_release_id")
+    info.discogs_artistid = get("discogs_artist_id")
     info.has_cover = "metadata_block_picture" in tags
     info.has_lyrics = bool(get("lyrics", "unsyncedlyrics"))
 
@@ -265,6 +272,8 @@ def _read_mp4(tags: MP4Tags, info: FileInfo) -> None:
     info.mb_albumid = freeform("MusicBrainz Album Id")
     info.mb_artistid = freeform("MusicBrainz Artist Id")
     info.mb_albumartistid = freeform("MusicBrainz Album Artist Id")
+    info.discogs_releaseid = freeform("DISCOGS_RELEASE_ID")
+    info.discogs_artistid = freeform("DISCOGS_ARTIST_ID")
     info.has_cover = bool(tags.get("covr"))
     info.has_lyrics = bool(text("\xa9lyr"))
 

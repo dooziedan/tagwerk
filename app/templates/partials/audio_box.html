@@ -1,0 +1,41 @@
+{# BPM and key from the audio (app/analysis.py): track page and inbox review page.
+   Needs: audio (routes/analysis.py audio_context), base (/tracks/ID or /inbox/ID), n (key
+   notation). #}
+{% set d = audio.decision %}
+{% macro sure(value) %}{% if value %}<span class="status status-you">sure</span>{% else %}<span class="status status-help">check</span>{% endif %}{% endmacro %}
+<article class="online-box" id="audio">
+  {# While it runs, check every 2 s; when done, the server shows the page again. #}
+  {% if audio.analysing %}<div hx-get="{{ base }}/analysis-status" hx-trigger="every 2s" hx-swap="none" aria-hidden="true"></div>{% endif %}
+  <div class="online-head">
+    <strong>From the audio</strong>
+    <form method="post" action="{{ base }}/analyse">
+      <button type="submit" class="outline secondary small" {% if audio.analysing %}disabled{% endif %}>{% if audio.row %}Analyse again{% else %}Analyse{% endif %}</button>
+    </form>
+  </div>
+  {% if audio.analysing %}
+  <p class="muted"><small aria-busy="true">Measuring BPM and key… about 5-10 seconds. This page updates by itself.</small></p>
+  {% elif not audio.row %}
+  <p class="muted"><small>Not analysed yet.{% if base.startswith("/inbox") %} It happens after the next inbox check, or press Analyse.{% endif %}</small></p>
+  {% elif audio.row.error %}
+  <p><small>⚠️ Couldn't analyse this file: {{ audio.row.error }}</small></p>
+  {% else %}
+  <table class="kv">
+    <tr><th scope="row">BPM</th><td>{% if d.bpm %}<strong>{{ d.bpm | bpm }}</strong> {{ sure(d.bpm_sure) }}{% if audio.bpm_alternatives %} <small class="muted">· could also be {{ audio.bpm_alternatives | map("bpm") | join(" or ") }}</small>{% endif %}{% else %}<span class="muted">no steady beat</span>{% endif %}</td></tr>
+    <tr><th scope="row">Key</th><td>{% if d.key %}<strong>{{ key_label(d.key, n) }}</strong> {{ sure(d.key_sure) }}{% if audio.key_alternatives %} <small class="muted">· could also be {% for k in audio.key_alternatives %}{{ key_label(k, n) }}{% if not loop.last %} or {% endif %}{% endfor %}</small>{% endif %}{% else %}<span class="muted">not found</span>{% endif %}</td></tr>
+  </table>
+  {% for diff in audio.differences %}
+  <form method="post" action="{{ base }}/audio" class="notice audio-diff">
+    <input type="hidden" name="field" value="{{ diff.field }}">
+    {% if diff.field == "bpm" %}
+    ⚠️ BPM {{ diff.in_file | bpm }} in the file {% if diff.how == "differs" %}differs from the audio{% else %}is probably {{ diff.how }} time{% endif %}: the audio says {{ diff.audio | bpm }}.
+    <button type="submit" class="outline small">Use {{ diff.audio | bpm }}</button>
+    {% else %}
+    ⚠️ Key {{ key_label(diff.in_file, n) }} in the file differs from the audio: it hears {{ key_label(diff.audio, n) }}.
+    <button type="submit" class="outline small">Use {{ key_label(diff.audio, n) }}</button>
+    {% endif %}
+  </form>
+  {% endfor %}
+  {% if audio.notes %}<ul class="notes">{% for note in audio.notes %}<li><small>{{ note }}</small></li>{% endfor %}</ul>{% endif %}
+  <small class="muted">Measured <time data-local datetime="{{ audio.row.analysed_at | isoutc }}">{{ audio.row.analysed_at | isoutc }}</time>. {% if base.startswith("/inbox") %}Suggestions above use these values.{% else %}Sure values for empty fields become pending changes by themselves; values that differ from your tags are only pointed out.{% endif %} Sure when the methods agree, or the genre, filename or an online source confirms it.</small>
+  {% endif %}
+</article>

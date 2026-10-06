@@ -11,11 +11,13 @@ from app import __version__
 from app.config import get_settings
 from app.db import migrate
 from app.routes import (
+    analysis,
     changes,
     convert,
     dashboard,
     fields,
     final,
+    ids,
     inbox,
     library,
     lookup,
@@ -65,5 +67,7 @@ app.include_router(changes.router)
 app.include_router(final.router)
 app.include_router(convert.router)
 app.include_router(lookup.router)
+app.include_router(ids.router)
+app.include_router(analysis.router)
 app.include_router(player.router)
 app.include_router(library.router)

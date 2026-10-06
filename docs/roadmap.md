@@ -90,8 +90,13 @@ Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bi
 **Status:** ✅ Listen to library and inbox tracks in a play bar that keeps playing across pages ([ADR 0015](decisions/0015-player.md)).
 
 ## v0.9: BPM and key from the audio
+**Status:** ✅ Essentia in the image; BPM (exact to 0.05) and key tuned for bass-heavy music, half/double time settled by genre, filename and online sources; inbox suggestions, pending changes for empty fields, flags for differing tags ([ADR 0017](decisions/0017-audio-analysis.md)). Also: **Fix IDs** for MusicBrainz fields holding Discogs numbers, which move to their own fields ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md)).
+
 - Detect tempo and key inside the container. First step: verify an analysis library that runs in the image and on the current Python version.
 - Flag likely half-/double-time values (e.g. 87 instead of 174).
+
+## v1.0: Visual rebrand
+A new look before 1.0: space-like visuals and colours inspired by Orbit Stage, calmer card and page design inspired by SoulSync, a touch of glassmorphism (with solid fallbacks and reduced motion). Direction proposed and agreed before coding; an ADR.
 
 ## Navidrome integration (alongside v0.6–v0.8)
 - Connection settings and test button; rescan after apply and after moving inbox tracks.

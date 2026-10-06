@@ -137,6 +137,7 @@ _ID3 = {
     "TXXX:musicbrainz album id": "MusicBrainz album ID",
     "TXXX:musicbrainz artist id": "MusicBrainz artist ID",
     "TXXX:musicbrainz album artist id": "MusicBrainz album artist ID",
+    "TXXX:discogs_release_id": "Discogs release ID", "TXXX:discogs_artist_id": "Discogs artist ID",
     "TXXX:catalognumber": "Catalog number", "TXXX:label": "Label",
     "TXXX:replaygain_track_gain": "ReplayGain",
 }  # fmt: skip
@@ -155,6 +156,7 @@ _VORBIS = {
     "musicbrainz_trackid": "MusicBrainz track ID", "musicbrainz_albumid": "MusicBrainz album ID",
     "musicbrainz_artistid": "MusicBrainz artist ID",
     "musicbrainz_albumartistid": "MusicBrainz album artist ID",
+    "discogs_release_id": "Discogs release ID", "discogs_artist_id": "Discogs artist ID",
 }  # fmt: skip
 _MP4 = {
     "\xa9nam": "Title", "\xa9art": "Artist", "\xa9alb": "Album", "aart": "Album artist",
@@ -168,6 +170,8 @@ _MP4 = {
     "----:com.apple.itunes:musicbrainz album id": "MusicBrainz album ID",
     "----:com.apple.itunes:musicbrainz artist id": "MusicBrainz artist ID",
     "----:com.apple.itunes:musicbrainz album artist id": "MusicBrainz album artist ID",
+    "----:com.apple.itunes:discogs_release_id": "Discogs release ID",
+    "----:com.apple.itunes:discogs_artist_id": "Discogs artist ID",
 }  # fmt: skip
 _RIFF = {
     "INAM": "Title", "IART": "Artist", "IPRD": "Album", "ICRD": "Date", "IGNR": "Genre",
