@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 - **Library growth** on Statistics shows tracks added per month and per year side by side, both as column charts.
+- When the genre tag makes Tagwerk pick a BPM that isn't half or double what the audio hears best (e.g. 116.7 for a 174 drum & bass remix still tagged "Trance"), **From the audio** now says so with a warning and suggests correcting the genre, instead of a short note.
 
 ## [0.10.1] - 2026-10-07
 
