@@ -317,6 +317,8 @@ class AnalysisProgress:
     processed: int = 0
     current: str = ""
     failed: int = 0  # files that couldn't be analysed (error stored with the result)
+    skipped: int = 0  # already analysed, file unchanged ("Analyse all" doesn't redo them)
+    finished_at: datetime | None = None
 
 
 class AnalysisJob:
@@ -397,15 +399,17 @@ class AnalysisJob:
                 self.progress.total = (
                     self.progress.processed + len(self._current) + len(self._queue)
                 )
-            failed = False
+            failed = skipped = False
             try:
                 with Session(engine) as session:
                     track = session.get(Track if library else InboxTrack, track_id)
                     self.progress.current = track.path if track else ""
-                analysis.analyse_track(engine, settings, track_id, library, force)
-                with Session(engine) as session:
-                    found = analysis.result(session, track_id, library)
-                    failed = bool(found and found.error)
+                if analysis.analyse_track(engine, settings, track_id, library, force):
+                    with Session(engine) as session:
+                        found = analysis.result(session, track_id, library)
+                        failed = bool(found and found.error)
+                else:
+                    skipped = True
             except Exception:
                 log.exception("Audio analysis failed for track %s", track_id)
                 failed = True
@@ -413,6 +417,9 @@ class AnalysisJob:
                 self._current.discard((library, track_id))
                 self.progress.processed += 1
                 self.progress.failed += failed
+                self.progress.skipped += skipped
+                if not self._queue and not self._current:
+                    self.progress.finished_at = datetime.now(UTC)
 
     def queued(self, track_id: int, library: bool = False) -> bool:
         """True while this track waits for (or is in) an analysis."""

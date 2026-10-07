@@ -59,6 +59,7 @@ def analysis_status() -> dict:
     return {
         "running": analysis_job.running,
         "workers": analysis_job.workers,  # tracks analysed at the same time
+        "skipped": progress.skipped,  # already analysed, file unchanged
         "total": progress.total,
         "processed": progress.processed,
         "failed": progress.failed,
@@ -141,14 +142,16 @@ def audio_context(session, track, library: bool = True, genre: str | None = None
 async def analyse_many(request: Request, session: SessionDep, settings: SettingsDep, f: FilterDep):
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
     form = await request.form()
-    if form.get("all") == "true":
+    if form.get("all") == "true":  # skips tracks that already have a result
         track_ids = list(session.exec(select(Track.id).where(*f.conditions())))
-    else:
+        force = False
+    else:  # ticked on purpose: analysed again even if they have a result
         track_ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+        force = True
     if track_ids:
-        analysis_job.start(settings, track_ids, library=True)
+        analysis_job.start(settings, track_ids, force=force, library=True)
     back = back_url(request, form.get("back"), request.headers.get("referer"), fallback="/tracks")
-    return RedirectResponse(back, status_code=303)
+    return RedirectResponse(back, status_code=303)  # the list shows the progress line
 
 
 @router.post("/analysis/stop", include_in_schema=False)

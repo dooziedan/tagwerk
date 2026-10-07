@@ -409,3 +409,26 @@ def test_final_tracks_are_not_flagged(client, engine, settings, monkeypatch):
     page = client.get(f"/tracks/{track_id}").text
     assert "Final: your tags stand" in page
     assert "in the file is probably double time" not in page and "Use 63" not in page
+
+
+def test_ticked_tracks_are_analysed_again_and_the_list_says_what_happened(
+    client, engine, settings, monkeypatch
+):
+    track_ids = library_with(engine, settings, monkeypatch)  # all analysed once
+    asked = []
+    monkeypatch.setattr(
+        analysis,
+        "run_analysis",
+        lambda path: asked.append(path) or FAKE_ANALYSIS | {"version": ANALYSIS_VERSION},
+    )
+    # "Analyse all" skips tracks with a result ...
+    client.post("/tracks/analyse", data={"all": "true"})
+    analysis_job.wait(30)
+    assert asked == []
+    page = client.get("/tracks").text
+    assert f"{len(track_ids)} skipped (already analysed" in page
+    # ... ticked tracks are analysed again.
+    client.post("/tracks/analyse", data={"ids": [str(i) for i in track_ids[:3]]})
+    analysis_job.wait(30)
+    assert len(asked) == 3
+    assert "✓ Last analysis: 3 tracks analysed." in client.get("/tracks").text

@@ -114,13 +114,14 @@ def test_migrations_match_models(engine):
 def test_the_menu_shows_where_you_are(client):
     """The page's menu entry is marked: Home on the start page, Library for its pages."""
     page = client.get("/").text
-    assert '<a href="/" aria-current="page">Home</a>' in page
+    assert 'aria-label="Tagwerk, home" aria-current="page">' in page  # the logo leads home
+    assert ">Home</a>" not in page  # no separate Home link
     assert "<title>Home · Tagwerk</title>" in page
     assert '<a href="/stats" aria-current="page">Statistics</a>' in client.get("/stats").text
     tracks = client.get("/tracks").text
     assert '<summary class="current">' in tracks
     assert '<a href="/tracks" aria-current="page">Tracks</a>' in tracks
-    assert '<a href="/" aria-current="page">' not in tracks
+    assert 'home" aria-current="page"' not in tracks
     assert '<a href="/settings" aria-current="page">Settings</a>' in client.get("/settings").text
 
 
