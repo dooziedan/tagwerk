@@ -22,6 +22,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **BPM and key analysis uses all CPU cores** the container may use: several tracks at once (7 tracks took 12 s instead of 52 s on 12 cores), each still with low priority. Limit it with `cpus:` in docker-compose, `--cpus` / CPU pinning on Unraid, or set **Analysis Workers** (`ANALYSIS_WORKERS`) to a fixed number. With little memory, fewer run at once.
 - **Clearer navigation**: the menu has **Home**, and the entry of the page you're on is highlighted (Library for its pages, also inside the open Library menu).
 
+### Fixed
+- **Final tracks** no longer show up under *BPM probably half or double time*, *BPM differs from the audio* and *Key differs from the audio*: you checked their tags, so they stand. Their page shows the audio's values without a **Use** button.
+
 ## [0.9.0] - 2026-10-06
 
 ### Added

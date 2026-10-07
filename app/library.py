@@ -74,7 +74,8 @@ SET_READY = and_(
 )
 CHANGED_OUTSIDE = exists().where(FinalTrack.track_id == Track.id, FinalTrack.mtime != Track.mtime)
 
-# BPM and key from the audio (app/analysis.py): only sure decisions are compared with tags.
+# BPM and key from the audio (app/analysis.py): only sure decisions are compared with tags,
+# and never for final tracks: the owner checked those, their tags stand.
 _AUDIO = LibraryAnalysis
 _SAME_TEMPO = 0.015  # tags hold rounded BPMs (87.5 -> 88)
 
@@ -119,22 +120,28 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     ),
     "audio_bpm_octave": (
         "BPM probably half or double time",
-        exists().where(_BPM_COMPARED, _BPM_OCTAVE),
+        and_(not_(IS_FINAL), exists().where(_BPM_COMPARED, _BPM_OCTAVE)),
     ),
     "audio_bpm_differs": (
         "BPM differs from the audio",
-        exists().where(
-            _BPM_COMPARED, not_(_tempo_near(Track.bpm, _AUDIO.decided_bpm)), not_(_BPM_OCTAVE)
+        and_(
+            not_(IS_FINAL),
+            exists().where(
+                _BPM_COMPARED, not_(_tempo_near(Track.bpm, _AUDIO.decided_bpm)), not_(_BPM_OCTAVE)
+            ),
         ),
     ),
     "audio_key_differs": (
         "Key differs from the audio",
-        exists().where(
-            _AUDIO.track_id == Track.id,
-            col(_AUDIO.decided_key_sure).is_(True),
-            _AUDIO.decided_key.is_not(None),
-            Track.key_camelot.is_not(None),
-            Track.key_camelot != _AUDIO.decided_key,
+        and_(
+            not_(IS_FINAL),
+            exists().where(
+                _AUDIO.track_id == Track.id,
+                col(_AUDIO.decided_key_sure).is_(True),
+                _AUDIO.decided_key.is_not(None),
+                Track.key_camelot.is_not(None),
+                Track.key_camelot != _AUDIO.decided_key,
+            ),
         ),
     ),
     "not_analysed": (

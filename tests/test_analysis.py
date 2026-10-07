@@ -389,3 +389,23 @@ def test_several_tracks_are_analysed_at_once(engine, settings, monkeypatch):
     assert (job.progress.processed, job.progress.total) == (len(track_ids), len(track_ids))
     with Session(engine) as session:
         assert all(analysis.result(session, i, library=True) for i in track_ids)
+
+
+def test_final_tracks_are_not_flagged(client, engine, settings, monkeypatch):
+    """A final track's tags were checked by the owner: they stand, whatever the audio says."""
+    from app.library import TrackFilter, find_tracks
+    from app.models import FinalTrack
+
+    library_with(engine, settings, monkeypatch, bpm=63.0, bpm_sure=True, bpm_alternatives=[])
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("tagged.flac"))).one()
+        flags = ("audio_bpm_octave", "audio_key_differs")
+        before = {f: find_tracks(session, TrackFilter(flag=f)).total for f in flags}
+        session.add(FinalTrack(track_id=track.id, mtime=track.mtime))
+        session.commit()
+        for flag in flags:
+            assert find_tracks(session, TrackFilter(flag=flag)).total == before[flag] - 1
+        track_id = track.id
+    page = client.get(f"/tracks/{track_id}").text
+    assert "Final: your tags stand" in page
+    assert "in the file is probably double time" not in page and "Use 63" not in page

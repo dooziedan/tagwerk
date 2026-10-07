@@ -23,6 +23,7 @@
     <tr><th scope="row">BPM</th><td>{% if d.bpm %}<strong>{{ d.bpm | bpm }}</strong> {{ sure(d.bpm_sure) }}{% if audio.bpm_alternatives %} <small class="muted">· could also be {{ audio.bpm_alternatives | map("bpm") | join(" or ") }}</small>{% endif %}{% else %}<span class="muted">no steady beat</span>{% endif %}</td></tr>
     <tr><th scope="row">Key</th><td>{% if d.key %}<strong>{{ key_label(d.key, n) }}</strong> {{ sure(d.key_sure) }}{% if audio.key_alternatives %} <small class="muted">· could also be {% for k in audio.key_alternatives %}{{ key_label(k, n) }}{% if not loop.last %} or {% endif %}{% endfor %}</small>{% endif %}{% else %}<span class="muted">not found</span>{% endif %}</td></tr>
   </table>
+  {% if audio.final %}<p class="muted"><small>✓ Final: your tags stand. The audio's values are only shown here, not compared or suggested.</small></p>{% endif %}
   {% for diff in audio.differences %}
   <form method="post" action="{{ base }}/audio" class="notice audio-diff">
     <input type="hidden" name="field" value="{{ diff.field }}">

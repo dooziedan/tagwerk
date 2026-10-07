@@ -17,7 +17,7 @@ from app.db import SessionDep
 from app.jobs import analysis_job
 from app.keys import display
 from app.library import TrackFilter
-from app.models import InboxTrack, Track
+from app.models import FinalTrack, InboxTrack, Track
 from app.navigation import back_url, reload_page, with_saved_note
 from app.templating import templates
 
@@ -128,7 +128,11 @@ def audio_context(session, track, library: bool = True, genre: str | None = None
                 v for v in more.get("key_alternatives", []) if found and v != found.key
             ],
             "notes": (more.get("notes", []) + found.notes) if found else [],
-            "differences": analysis.differences(track, found) if library and found else [],
+            # Final tracks: the owner checked them, their tags stand; nothing to point out.
+            "final": library and session.get(FinalTrack, track.id) is not None,
+            "differences": analysis.differences(track, found)
+            if library and found and not session.get(FinalTrack, track.id)
+            else [],
         }
     }
 
