@@ -171,34 +171,38 @@
   {% endif %}
 </article>
 
-{# --- Library growth --- #}
-<div class="grid-2">
-  <article id="growth">
+{# --- Library growth: per month and per year side by side --- #}
+{% macro growth_columns(items) %}
+{% set most = items | map(attribute="count") | max %}
+<div class="columns" role="list">
+  {% for b in items %}
+  <a role="listitem" class="column" href="{{ b.url }}" title="{{ b.label }}: {{ b.count | plural('track') }} added">
+    <span class="column-value">{% if b.count %}{{ b.count | number }}{% endif %}</span>
+    <span class="column-bar" style="height: {{ (100 * b.count / most) | round(1) if most else 0 }}%"></span>
+    <span class="column-label">{% if b.label | length == 4 or loop.first or b.label.endswith("-01") %}{{ b.label }}{% else %}{{ b.label[5:] }}{% endif %}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endmacro %}
+<div class="grid-2" id="growth">
+  <article>
     <header><strong>Library growth</strong> <small class="muted">tracks added per month</small></header>
-    {% if stats.growth %}
-    {% set most = stats.growth | map(attribute="count") | max %}
-    <div class="columns" role="list">
-      {% for b in stats.growth %}
-      <a role="listitem" class="column" href="{{ b.url }}" title="{{ b.label }}: {{ b.count | plural('track') }} added">
-        <span class="column-value">{% if b.count %}{{ b.count | number }}{% endif %}</span>
-        <span class="column-bar" style="height: {{ (100 * b.count / most) | round(1) if most else 0 }}%"></span>
-        <span class="column-label">{% if loop.first or b.label.endswith("-01") %}{{ b.label }}{% else %}{{ b.label[5:] }}{% endif %}</span>
-      </a>
-      {% endfor %}
-    </div>
-    <details class="key-list">
-      <summary>Per year</summary>
-      {{ bars(stats.growth_years, tone="decades") }}
-    </details>
+    {% if stats.growth %}{{ growth_columns(stats.growth) }}
     <footer><small class="muted">Imported tracks count from their import; tracks that were in the library before Tagwerk from their file date.</small></footer>
     {% else %}<p class="muted"><small>Nothing to show yet.</small></p>{% endif %}
   </article>
   <article>
-    <header><strong>Track length</strong> <small class="muted">radio edits are usually under 4 minutes, extended mixes 5–8</small></header>
-    {{ bars(stats.lengths, tone="tempo") }}
+    <header><strong>Library growth</strong> <small class="muted">tracks added per year</small></header>
+    {% if stats.growth_years %}{{ growth_columns(stats.growth_years | reverse | list) }}
+    {% else %}<p class="muted"><small>Nothing to show yet.</small></p>{% endif %}
   </article>
 </div>
 
+{% if stats.mode == "dj" %}<div class="grid-2">{% endif %}
+  <article>
+    <header><strong>Track length</strong> <small class="muted">radio edits are usually under 4 minutes, extended mixes 5–8</small></header>
+    {{ bars(stats.lengths, tone="tempo") }}
+  </article>
 {% if stats.mode == "dj" %}
 <article>
   <header><strong>Set-ready by genre</strong> <small class="muted">title, artist, genre, BPM, key and cover tagged · {{ stats.set_ready | number }} of {{ stats.tracks | number }} tracks overall</small></header>
@@ -214,6 +218,7 @@
   </ul>
   {% else %}<p class="muted"><small>No genres in the tags yet.</small></p>{% endif %}
 </article>
+</div>
 {% endif %}
 
 <div class="grid-2">
@@ -226,6 +231,79 @@
     {{ bars(stats.top_artists, tone="missing") }}
   </article>
 </div>
+
+{# --- Tagwerk's work: what Tagwerk did for the library, from the History (app/work.py) --- #}
+<section id="work" aria-labelledby="work-title">
+  <h2 id="work-title">Tagwerk's work</h2>
+  {% if work.since %}
+  <p class="muted page-sub">What Tagwerk has done for your library since <time data-local data-date-only datetime="{{ work.since | isoutc }}">{{ work.since | isoutc }}</time>. Undone changes don't count.</p>
+  <section class="kpis" aria-label="Tagwerk's work in numbers">
+    <a class="kpi-link" href="{{ work.history_url }}"><article class="kpi" title="Every tag value Tagwerk wrote: filled in, corrected or removed"><span class="kpi-value">{{ work.values | number }}</span><span class="kpi-label">Tag values written</span></article></a>
+    <a class="kpi-link" href="{{ work.tags_url }}"><article class="kpi" title="Tracks in the library whose tags Tagwerk wrote"><span class="kpi-value">{{ work.tags_tracks | number }}</span><span class="kpi-label">Tracks improved</span></article></a>
+    <a class="kpi-link" href="{{ work.imported_url }}"><article class="kpi"><span class="kpi-value">{{ work.imported | number }}</span><span class="kpi-label">Imported</span></article></a>
+    {% if work.converted %}<a class="kpi-link" href="{{ work.converted_url }}"><article class="kpi"><span class="kpi-value">{{ work.converted | number }}</span><span class="kpi-label">Converted to AIFF</span></article></a>{% endif %}
+    {% if work.final %}<a class="kpi-link" href="{{ work.final_url }}"><article class="kpi"><span class="kpi-value">{{ work.final | number }}</span><span class="kpi-label">Marked final</span></article></a>{% endif %}
+    {% if work.folders %}<a class="kpi-link" href="{{ work.history_url }}"><article class="kpi"><span class="kpi-value">{{ work.folders | number }}</span><span class="kpi-label">Genre folders created</span></article></a>{% endif %}
+  </section>
+
+  <div class="grid-2">
+    <article>
+      <header><strong>Per field</strong> <small class="muted">tag values Tagwerk wrote</small></header>
+      {% if work.fields %}
+      <div class="overflow-auto">
+      <table class="striped work-fields">
+        <thead><tr><th scope="col">Field</th><th scope="col" class="num">Filled in</th><th scope="col" class="num">Corrected</th><th scope="col" class="num">Removed</th></tr></thead>
+        <tbody>
+          {% for f in work.fields %}
+          <tr><th scope="row">{{ f.label }}</th><td class="num">{{ f.filled | number if f.filled else "" }}</td><td class="num">{{ f.corrected | number if f.corrected else "" }}</td><td class="num">{{ f.removed | number if f.removed else "" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <footer><small class="muted">Filled in: the field was empty. Corrected: it had another value. Every change is listed in the <a href="{{ work.history_url }}">History</a>.</small></footer>
+      {% else %}<p class="muted"><small>No tags written yet.</small></p>{% endif %}
+    </article>
+    <article>
+      <header><strong>Where the values came from</strong></header>
+      {% if work.sources %}{{ bars(work.sources, unit="values", tone="genres") }}{% endif %}
+      {% if work.unknown_source %}<p class="muted"><small>{{ work.unknown_source | plural('value') }} were written before Tagwerk recorded where values came from{% if not work.sources %}; new changes show up here{% endif %}.</small></p>{% endif %}
+      {% if dj and (work.ready_library or work.ready_imported) %}
+      <footer>
+        <strong><small>Set-ready before → now</small></strong>
+        <ul class="bars" style="--bar-color: var(--tw-chart-genres)">
+          {% for label, r in [("In the library", work.ready_library), ("Imported", work.ready_imported)] if r %}
+          {% for when, n in [("before", r.before), ("now", r.now)] %}
+          <li title="{{ label }}, {{ when }}: {{ n | number }} of {{ r.tracks | number }} set-ready">
+            <span class="bar-label">{% if loop.first %}<a href="{{ r.url }}">{{ label }}</a> {% endif %}<small class="muted">{{ "before" if loop.first else "now" }}</small></span>
+            <span class="bar-track"><span class="bar-fill" style="width: {{ (100 * n / r.tracks) | round(1) }}%"></span></span>
+            <span class="bar-value">{{ (100 * n / r.tracks) | round | int }}% <small>· {{ n | number }} of {{ r.tracks | number }}</small></span>
+          </li>
+          {% endfor %}
+          {% endfor %}
+        </ul>
+        <small class="muted">Before: as the tracks were before Tagwerk's first change (imported tracks: as they arrived in the inbox).</small>
+      </footer>
+      {% endif %}
+    </article>
+  </div>
+
+  <article>
+    <header><strong>Activity</strong> <small class="muted">files changed per month: tags written, imported, moved, converted or marked final</small></header>
+    {% set most = work.activity | map(attribute="count") | max %}
+    <div class="columns" role="list">
+      {% for m in work.activity %}
+      <a role="listitem" class="column" href="{{ work.history_url }}" title="{{ m.label }}: {{ m.count | plural('file') }}{% if m.count %} ({{ m.edited | number }} edited, {{ m.imported | number }} imported{% if m.other %}, {{ m.other | number }} other{% endif %}){% endif %}">
+        <span class="column-value">{% if m.count %}{{ m.count | number }}{% endif %}</span>
+        <span class="column-bar" style="height: {{ (100 * m.count / most) | round(1) if most else 0 }}%"></span>
+        <span class="column-label">{% if loop.first or m.label.endswith("-01") %}{{ m.label }}{% else %}{{ m.label[5:] }}{% endif %}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </article>
+  {% else %}
+  <article><p class="muted">Nothing yet: once Tagwerk writes tags, imports or moves files, you'll see here what it did for your library.</p></article>
+  {% endif %}
+</section>
 
 <p class="muted"><small>Last scan: <time data-local datetime="{{ stats.last_scan | isoutc }}">{{ stats.last_scan | isoutc }}</time></small></p>
 {% endif %}

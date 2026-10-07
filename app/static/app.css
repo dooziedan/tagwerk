@@ -44,6 +44,7 @@
 .kpis > :nth-child(3) { --kpi-stripe: var(--tw-kpi-3); }
 .kpis > :nth-child(4) { --kpi-stripe: var(--tw-kpi-4); }
 .kpis > :nth-child(5) { --kpi-stripe: var(--tw-kpi-5); }
+.kpis > :nth-child(6) { --kpi-stripe: var(--tw-kpi-1); } /* Tagwerk's work has up to six */
 /* Shrinks a little on narrow windows so long values like "834.1 KB" stay inside the tile */
 .kpi-value { font-size: clamp(1.35rem, 0.9rem + 1vw, 1.75rem); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kpi-unit { font-size: 0.6em; font-weight: 600; margin-left: 0.2em; color: var(--pico-muted-color); }
@@ -487,3 +488,9 @@ table.heat td a:hover, table.heat td a:focus-visible { outline: 2px solid var(--
 .column:hover .column-bar, .column:focus-visible .column-bar { opacity: 0.8; }
 .column-value { font-size: 0.65rem; font-variant-numeric: tabular-nums; color: var(--pico-color); }
 .column-label { font-size: 0.6rem; margin-top: 0.2rem; white-space: nowrap; }
+
+/* Tagwerk's work (Statistics), its line on Home, and where a changed value came from */
+#work { margin-top: calc(2 * var(--pico-spacing)); }
+.work-fields td.num, .work-fields th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.work-line { margin-bottom: var(--pico-spacing); }
+.change-source { font-weight: normal; }

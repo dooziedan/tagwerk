@@ -411,7 +411,7 @@ def stage_sure(session: Session, track: Track) -> int:
         values["bpm"] = f"{found.bpm:g}"
     if found.key_sure and found.key and not track.key and "key" not in pending:
         values["key"] = display(found.key, "musical")
-    return changes.stage(session, [track.id], values)[0] if values else 0
+    return changes.stage(session, [track.id], values, "audio")[0] if values else 0
 
 
 def proposals(session: Session, track: InboxTrack, genre: str | None) -> list:

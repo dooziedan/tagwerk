@@ -84,8 +84,8 @@ def test_staging_finds_every_file_with_the_data_and_skips_final_tracks(engine, l
         assert changes.stage_private_removal(session, "TRAKTOR4") == 1
         assert changes.stage_private_removal(session, "TRAKTOR4") == 0  # already pending
         rows = session.exec(select(PendingChange)).all()
-        assert [(r.track_id, r.field, r.new_value) for r in rows] == [
-            (track["tagged.mp3"], "private:TRAKTOR4", None)
+        assert [(r.track_id, r.field, r.new_value, r.source) for r in rows] == [
+            (track["tagged.mp3"], "private:TRAKTOR4", None, "private-data")
         ]
 
 

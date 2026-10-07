@@ -44,6 +44,8 @@
   <a class="kpi-link" href="{{ home.added_this_month_url }}"><article class="kpi"><span class="kpi-value">{{ home.added_this_month | number }}</span><span class="kpi-label">Added this month</span></article></a>
 </section>
 
+{% if work %}<p class="work-line">✨ Tagwerk has written <a href="/stats#work">{{ work[0] | plural('tag value') }} to {{ work[1] | plural('track') }}</a> so far.</p>{% endif %}
+
 <div class="grid-2">
   <article>
     <header><strong>Waiting for you</strong></header>

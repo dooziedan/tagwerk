@@ -123,6 +123,13 @@ def static_version(name: str) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
 
 
+def source_label(source: str | None) -> str:
+    """Where a changed value came from, e.g. "From the audio" ("" when not recorded)."""
+    from app.changes import SOURCES  # app.changes needs the database; import when used
+
+    return SOURCES.get(source, source) if source else ""
+
+
 def recent(when: datetime | None, seconds: float) -> bool:
     """True if ``when`` was less than ``seconds`` ago (e.g. "show the last result a while")."""
     if when is None:
@@ -144,6 +151,7 @@ templates.env.globals.update(
     page_url=page_url,
     static_version=static_version,
     field_label=writer.label,  # "Cover art", "Private data (TRAKTOR4)"
+    source_label=source_label,
 )
 templates.env.filters.update(
     filesize=filesize,

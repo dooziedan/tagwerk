@@ -12,7 +12,7 @@ from sqlmodel import Session, col, select
 
 from app.audio_analysis import ANALYSIS_VERSION
 from app.keys import display
-from app.models import FinalTrack, LibraryAnalysis, RawTag, Track
+from app.models import ChangeEntry, ChangeSet, FinalTrack, LibraryAnalysis, RawTag, Track
 from app.tags import LOSSLESS_FORMATS
 
 PER_PAGE = 50
@@ -93,6 +93,25 @@ _BPM_COMPARED = and_(
 _BPM_OCTAVE = or_(
     _tempo_near(Track.bpm * 2, _AUDIO.decided_bpm), _tempo_near(Track.bpm, _AUDIO.decided_bpm * 2)
 )
+
+
+def by_tagwerk(*kinds: str, tags_only: bool = False) -> ColumnElement[bool]:
+    """Tracks with a change of these kinds (app.models.ChangeSet.kind) that is still in place:
+    written without error and not undone (Statistics: "Tagwerk's work"). ``tags_only``: only
+    changes that wrote tags (an import without tag changes only moved the file)."""
+    conditions = [
+        ChangeEntry.track_id == Track.id,
+        ChangeEntry.error.is_(None),
+        col(ChangeEntry.undone).is_(False),
+        ChangeSet.id == ChangeEntry.changeset_id,
+        ChangeSet.undone_at.is_(None),
+        col(ChangeSet.kind).in_(kinds),
+    ]
+    if tags_only:
+        conditions.append(ChangeEntry.changes != "{}")
+    return exists().where(*conditions)
+
+
 AUDIO_FLAGS = ("audio_bpm_octave", "audio_bpm_differs", "audio_key_differs", "not_analysed")
 
 # Named filters for things that aren't a single tag, with the label shown on the page.
@@ -154,6 +173,13 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     "set_ready": ("Set-ready (title, artist, genre, BPM, key, cover)", SET_READY),
     "not_set_ready": ("Not set-ready yet", and_(_READABLE, not_(SET_READY))),
     "final": ("Final", IS_FINAL),
+    "tagwerk_tags": ("Tags written by Tagwerk", by_tagwerk("edit", "import", tags_only=True)),
+    "tagwerk_edited": (
+        "Tags corrected in the library by Tagwerk",
+        and_(by_tagwerk("edit"), not_(by_tagwerk("import"))),
+    ),
+    "tagwerk_imported": ("Imported through the inbox", by_tagwerk("import")),
+    "tagwerk_converted": ("Converted to AIFF by Tagwerk", by_tagwerk("convert")),
     "final_changed": ("Final, changed outside Tagwerk", CHANGED_OUTSIDE),
 }
 

@@ -36,6 +36,7 @@ Files are never modified directly from a form or a lookup:
 | `app/library.py` | Track filters, sorting, paging; artists and albums. The dashboard counts with the same conditions, so every number matches its list | 0.5 |
 | `app/stats.py` | Statistics page: totals, charts and the heat map (any two of key, tempo, year, added, genre, format), every number with the URL of its track list (`app/library.py` conditions) | 0.2 |
 | `app/home.py` | Home page: problems worth a look, recently added, headline numbers ([ADR 0019](decisions/0019-home-and-statistics.md)) | 0.10 |
+| `app/work.py` | Tagwerk's work (Statistics): what Tagwerk did, from the History; values per field, sources, activity, set-ready before → now ([ADR 0020](decisions/0020-tagwerks-work.md)) | 0.11 |
 | `app/covers.py` | Cover art for display: embedded or `cover.jpg`/`folder.jpg` next to the file | 0.5 |
 | `app/routes/` | Pages and API, one module per feature (`system`, `home` (Home and Statistics), `scan`, `settings`, `fields`, `library`, `changes`, `inbox`) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |

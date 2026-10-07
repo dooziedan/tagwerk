@@ -159,10 +159,10 @@ def stage_sure(session: Session, track: Track) -> int:
     values = {
         p.field: p.value for p in suggestions(session, track, taken=pending, library=True) if p.sure
     }
-    count = changes.stage(session, [track.id], values)[0] if values else 0
+    count = changes.stage(session, [track.id], values, "online")[0] if values else 0
     cover = cover_suggestion(session, track, library=True)
     if cover and cover.sure and writer.COVER not in pending:
-        count += changes.stage_cover(session, [track.id], cover.image_id)
+        count += changes.stage_cover(session, [track.id], cover.image_id, "online")
     return count
 
 

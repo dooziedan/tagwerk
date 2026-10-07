@@ -100,5 +100,5 @@ def stage_fixes(session: Session, track_ids: list[int]) -> int:
     saved = 0
     tracks = session.exec(select(Track).where(col(Track.id).in_(track_ids), Track.mbid_invalid))
     for track in tracks.all():
-        saved += changes.stage(session, [track.id], fixes(track))[0]
+        saved += changes.stage(session, [track.id], fixes(track), "fix-ids")[0]
     return saved

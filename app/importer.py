@@ -23,7 +23,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
 from app import analysis, genres, identify, naming, preferences, writer
-from app.changes import WriteProgress
+from app.changes import WriteProgress, sources_json
 from app.config import get_settings
 from app.duplicates import LibraryIndex
 from app.images import ImageStore
@@ -42,6 +42,7 @@ class ImportPlan:
     track: InboxTrack
     changes: dict[str, str | None]  # fields that change, with their new values
     old: dict[str, str | None]  # the same fields as they are in the file now
+    sources: dict[str, str]  # where each new value came from (app.changes.SOURCES)
     folder: str  # library folder, relative to MUSIC_DIR
     problems: list[str] = field(default_factory=list)  # why it can't be imported
     # The main genre when it has no folder yet: the track goes to _Unsorted, and the Changes
@@ -63,24 +64,32 @@ def plan(
     values = {f.field: f.value for f in fields}
     changes = {f.field: f.value for f in fields if f.value != f.in_file}
     old = {f.field: f.in_file for f in fields if f.field in changes}
+    sources = {
+        f.field: "you" if f.origin == "you" else f.suggestion.source
+        for f in fields
+        if f.field in changes and (f.origin == "you" or f.suggestion)
+    }
     mine = owner_values(session, track.id)
     if writer.COVER in mine:  # a new cover, or None to remove it
         changes[writer.COVER] = mine[writer.COVER]
         old[writer.COVER] = writer.current_value(track, writer.COVER)
+        sources[writer.COVER] = "you"
     elif cover := identify.cover_suggestion(session, track):  # found online, no cover yet
         changes[writer.COVER] = cover.image_id
         old[writer.COVER] = None
+        sources[writer.COVER] = "online"
     if prefs.remove_traktor_on_import and not track.error:
         owners = writer.private_owners(get_settings().import_dir / track.path)
         if writer.TRAKTOR.removeprefix(writer.PRIVATE) in owners:
             changes[writer.TRAKTOR] = None  # removed while importing; undo puts it back
             old[writer.TRAKTOR] = BINARY
+            sources[writer.TRAKTOR] = "private-data"
     names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
     existing = naming.existing_folders(music_dir)
     folder = naming.folder(
         prefs.folder_layout, prefs.folder_pattern, names, prefs.genre_folders, existing
     )
-    result = ImportPlan(track, changes, old, folder)
+    result = ImportPlan(track, changes, old, sources, folder)
     if prefs.folder_layout == "genre" and folder == naming.UNSORTED and names["genre"]:
         result.new_genre = names["genre"]
     if track.error:
@@ -160,6 +169,7 @@ def import_tracks(
                 changeset_id=changeset.id,
                 path=item.destination,
                 changes=json.dumps({k: [item.old[k], v] for k, v in item.changes.items()}),
+                sources=sources_json(item.sources),
                 moved_from=track.path,
             )
             try:
