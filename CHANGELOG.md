@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Clearer navigation**: the menu has **Home**, and the entry of the page you're on is highlighted (Library for its pages, also inside the open Library menu).
 
 ### Fixed
+- The README describes the current version (it still said v0.6).
 - **Final tracks** no longer show up under *BPM probably half or double time*, *BPM differs from the audio* and *Key differs from the audio*: you checked their tags, so they stand. Their page shows the audio's values without a **Use** button.
 
 ## [0.9.0] - 2026-10-06
