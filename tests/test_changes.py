@@ -150,7 +150,7 @@ def test_discard(engine, music_dir):
     with Session(engine) as session:
         changes.stage(session, track_ids(engine, "tagged.mp3", "tagged.flac"), {"title": "X"})
         first = session.exec(select(PendingChange)).first()
-        changes.discard(session, first.id)
+        changes.discard(session, [first.id])
         assert changes.pending_count(session) == 1
         changes.discard(session)
         assert changes.pending_count(session) == 0

@@ -2,16 +2,17 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.10, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio and final tracks all work. What's next is on the [roadmap](docs/roadmap.md).
+> **Status: v0.11, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio and final tracks all work. What's next is on the [roadmap](docs/roadmap.md).
 
 ## Features
 
-**Safe by design:** Tagwerk only writes files when you say so (or, if you switch on automatic mode, when it imports inbox tracks it is sure about). Every change is staged, shown as *old → new*, and written only when you click **Apply**. The previous tags are kept, so every change can be undone. Filenames stay as they are unless you choose otherwise.
+**Safe by design:** Tagwerk only writes files when you say so (or, if you switch on automatic mode, when it imports inbox tracks it is sure about). Every change is staged, shown as *old → new* with where the value came from, and written only when you click **Apply**: all of them, or only the ones you tick. The previous tags are kept, so every change can be undone. Filenames stay as they are unless you choose otherwise.
 
 **Your library**
 - **Library scan:** reads MP3, FLAC, WAV, AIFF, M4A, OGG and Opus (ID3, Vorbis comments, MP4 tags, RIFF INFO), including BPM, key, comment, label, catalog number, ReplayGain and lyrics (embedded or `.lrc`). Read-only; unchanged files are skipped on rescans.
 - **Home:** what needs you right now (inbox, pending changes, things worth fixing) and what was added recently.
 - **Statistics:** a heat map of any two of key, tempo, release year, year added, genre and format (e.g. key × tempo for harmonic mixing), library growth, set-ready share per genre, track lengths, top labels and artists, formats and quality. Every number links to its tracks.
+- **Tagwerk's work:** what Tagwerk has done for your library: tag values filled in, corrected or removed per field, where they came from (you, the audio, online, the filename …), imports, conversions, and how many tracks were set-ready before and are now.
 - **Two modes**, chosen in the setup wizard or Settings: **DJ** (BPM, keys in Camelot, Open Key or musical notation, set-readiness, audio quality) and **Collector** (albums, decades, lyrics, ReplayGain). Modes only change what is shown, never what is stored.
 - **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover, and a **play bar** that keeps playing while you browse.
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
@@ -31,7 +32,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 
 **Look:** two themes, Calm and Pop, each in light and dark.
 
-Planned (see the [roadmap](docs/roadmap.md)): applying changes one by one, a new look for 1.0, Navidrome stats.
+Planned (see the [roadmap](docs/roadmap.md)): finding duplicates inside the library, a new look for 1.0, Navidrome stats.
 
 ## Install on Unraid
 

@@ -8,6 +8,7 @@
 
 {% if staged is not none %}<p role="status" class="notice">✅ Saved {{ staged | plural('pending change') }}. Review below, then apply.</p>{% endif %}
 {% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if error == "none" %}<p class="form-error" role="alert">Tick at least one change.</p>{% endif %}
 {% if error == "backup" %}<p class="form-error" role="alert">Please confirm you have a backup before the first write.</p>{% endif %}
 
 {% if job.running or (job.status in ("done", "failed") and job.progress.action) %}
@@ -55,11 +56,39 @@
 {% else %}
 {% if folders %}<h2>Tag changes</h2>{% endif %}
 {% set total = items | sum(attribute="changes", start=[]) | length %}
-<p>{{ total | plural('change') }} on {{ items | length | plural('file') }}, not written yet.</p>
+<script>
+  // Tick boxes: count what is ticked, keep each track's box in step with its changes.
+  function updateTicked() {
+    const ticked = [...document.querySelectorAll("input[name=change]:checked")];
+    const n = ticked.length, files = new Set(ticked.map((b) => b.dataset.track)).size;
+    const plural = (k, word) => `${k} ${word}${k === 1 ? "" : "s"}`;
+    const apply = document.getElementById("apply-ticked");
+    const discard = document.getElementById("discard-ticked");
+    if (!apply) return;
+    apply.textContent = `Apply ${plural(n, "change")} to ${plural(files, "file")}`;
+    discard.textContent = `Discard ${plural(n, "change")}`;
+    discard.dataset.confirm = `Discard ${plural(n, "change")}? Nothing is written; you'd have to make them again.`;
+    apply.disabled = discard.disabled = n === 0 || apply.dataset.busy === "1";
+    document.querySelectorAll("input[data-track-toggle]").forEach((box) => {
+      const own = document.querySelectorAll(`input[name=change][data-track="${box.dataset.trackToggle}"]`);
+      const on = [...own].filter((b) => b.checked).length;
+      box.checked = on === own.length;
+      box.indeterminate = on > 0 && on < own.length;
+    });
+  }
+  function tickAll(on, track) {
+    const which = track ? `[data-track="${track}"]` : "";
+    document.querySelectorAll(`input[name=change]${which}`).forEach((b) => (b.checked = on));
+    updateTicked();
+  }
+</script>
+<p>{{ total | plural('change') }} on {{ items | length | plural('file') }}, not written yet. Untick what you don't want to write now: it stays pending.</p>
+<p class="tick-tools"><button type="button" class="outline secondary small" onclick="tickAll(true)">Tick all</button> <button type="button" class="outline secondary small" onclick="tickAll(false)">Untick all</button></p>
 
 {% for item in items %}
 <article class="change-card">
   <header>
+    {% if item.changes | length > 1 %}<input type="checkbox" checked data-track-toggle="{{ item.track.id }}" aria-label="Tick all changes of this track" onclick="tickAll(this.checked, '{{ item.track.id }}')">{% endif %}
     <a href="/tracks/{{ item.track.id }}">{{ item.track.title or item.track.path.rsplit("/", 1)[-1] }}</a>
     <small class="muted"> · <code>{{ item.track.path }}</code></small>
   </header>
@@ -67,6 +96,7 @@
     <tbody>
       {% for c in item.changes %}
       <tr>
+        <td class="check-col"><input type="checkbox" name="change" value="{{ c.id }}" form="apply-form" data-track="{{ item.track.id }}" checked aria-label="Apply {{ field_label(c.field) }}" onchange="updateTicked()"></td>
         <th scope="row">{{ field_label(c.field) }}{% if c.source and c.source != "you" %}<br><small class="muted change-source">{{ source_label(c.source) }}</small>{% endif %}</th>
         <td class="old">{% if c.old_value is none %}<span class="muted">(empty)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/tracks/{{ item.track.id }}/cover?v={{ item.track.mtime }}" alt="Current cover art">{% else %}<del>{{ c.old_value }}</del>{% endif %}</td>
         <td class="arrow" aria-hidden="true">→</td>
@@ -82,16 +112,17 @@
 {% endfor %}
 
 <article class="apply-box">
-  <form method="post" action="/changes/apply">
+  <form method="post" action="/changes/apply" id="apply-form">
+    <input type="hidden" name="ticked" value="1">
     {% if not prefs.backup_confirmed %}
     <p><strong>First write to your files.</strong> Tagwerk saves the old tags so every change can be undone, but a backup of your music is the real safety net.</p>
     <label><input type="checkbox" name="backup" required> I have a backup of my music</label>
     {% endif %}
     <div class="apply-actions">
-      <button type="submit" {% if busy %}disabled{% endif %}>Apply {{ total | plural('change') }} to {{ items | length | plural('file') }}</button>
-      <button type="submit" formaction="/changes/discard" class="outline secondary" {% if busy %}disabled{% endif %}>Discard all</button>
+      <button type="submit" id="apply-ticked" data-busy="{{ 1 if busy else 0 }}" {% if busy %}disabled{% endif %}>Apply {{ total | plural('change') }} to {{ items | length | plural('file') }}</button>
+      <button type="submit" id="discard-ticked" formaction="/changes/discard" class="outline secondary" data-confirm="Discard {{ total | plural('change') }}? Nothing is written; you'd have to make them again." data-confirm-ok="Discard" {% if busy %}disabled{% endif %}>Discard {{ total | plural('change') }}</button>
     </div>
-    <small class="muted">The old tags are saved first; you can undo from the History page.</small>
+    <small class="muted">Only ticked changes are written or discarded; the others stay pending. The old tags are saved first; you can undo from the History page.</small>
   </form>
 </article>
 {% endif %}

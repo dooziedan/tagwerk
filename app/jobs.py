@@ -147,13 +147,14 @@ class WriteJob(Job):
     def __init__(self) -> None:
         super().__init__("write", progress=WriteProgress())
 
-    def apply(self, settings: Settings) -> bool:
+    def apply(self, settings: Settings, change_ids: list[int] | None = None) -> bool:
+        """Write the pending changes: all, or only ``change_ids``."""
         progress = WriteProgress(action="apply")
         engine = get_engine(settings.database_url)
         images = image_store(settings)
 
         def work() -> None:
-            apply_pending(engine, settings.music_dir, progress, images)
+            apply_pending(engine, settings.music_dir, progress, images, change_ids)
             analysis.refresh_all(engine)
             navidrome.rescan_after_write(settings, progress.written)
 
