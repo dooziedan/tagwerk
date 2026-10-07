@@ -239,6 +239,9 @@ class Decision:
     key: str | None = None  # Camelot code
     key_sure: bool = False
     bpm_notes: list[str] = field(default_factory=list)  # why, in plain language
+    # The genre tag picked a tempo that isn't half or double what the audio hears best (e.g.
+    # 116.7 for a 174 track tagged "Trance"): shown as a warning, a wrong genre tag is likely.
+    bpm_warning: str = ""
     key_notes: list[str] = field(default_factory=list)
 
     @property
@@ -257,6 +260,11 @@ def genre_tempo(genre: str | None) -> tuple[str, tuple[float, float]] | None:
 
 def _near(a: float, b: float) -> bool:
     return abs(a - b) <= HINT_TOLERANCE * max(a, b)
+
+
+def _octave(a: float, b: float) -> bool:
+    """True if one tempo is half or double the other (87 and 174)."""
+    return _near(a * 2, b) or _near(a, b * 2)
 
 
 def decide(
@@ -293,7 +301,13 @@ def _decide_bpm(result: Decision, row, alternatives, genre, hints) -> None:
             chosen = fitting[0]
             # Only one reading of the beat fits the genre: that settles half or double time.
             sure = sure or not any(low <= v <= high for v in (chosen / 2, chosen * 2))
-            if chosen != row.bpm:
+            if chosen != row.bpm and not _octave(chosen, row.bpm):
+                result.bpm_warning = (
+                    f"The audio hears {row.bpm:g} BPM best. Tagwerk chose {chosen:g} only "
+                    f"because the genre tag says {name} (usually {low:g}-{high:g} BPM). If "
+                    f"this track isn't {name}, correct the genre and analyse again."
+                )
+            elif chosen != row.bpm:
                 result.bpm_notes.append(
                     f"{name} is {low:g}-{high:g} BPM: {chosen:g}, not {row.bpm:g}"
                 )
@@ -411,7 +425,7 @@ def stage_sure(session: Session, track: Track) -> int:
         values["bpm"] = f"{found.bpm:g}"
     if found.key_sure and found.key and not track.key and "key" not in pending:
         values["key"] = display(found.key, "musical")
-    return changes.stage(session, [track.id], values)[0] if values else 0
+    return changes.stage(session, [track.id], values, "audio")[0] if values else 0
 
 
 def proposals(session: Session, track: InboxTrack, genre: str | None) -> list:

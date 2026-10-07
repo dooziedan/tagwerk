@@ -15,6 +15,7 @@ from app.preferences import PreferencesDep
 from app.routes.system import setup_status
 from app.stats import HEAT_AXES, heatmap, library_stats
 from app.templating import templates
+from app.work import home_line, work_stats
 
 router = APIRouter()
 
@@ -36,6 +37,7 @@ def home_page(request: Request, settings: SettingsDep, session: SessionDep):
     status = setup_status(request, settings)
     prefs = data = inbox = None
     pending = folders = 0
+    work = None
     if status["database_ok"]:
         prefs = preferences.load(session)
         if not prefs.setup_done and status["ok"]:
@@ -44,6 +46,7 @@ def home_page(request: Request, settings: SettingsDep, session: SessionDep):
         inbox = _inbox(session) if settings.import_dir.is_dir() else None
         pending = changes.pending_count(session)
         folders = proposal_count(session, settings.music_dir)
+        work = home_line(session)
     return templates.TemplateResponse(
         request,
         "home.html",
@@ -54,6 +57,7 @@ def home_page(request: Request, settings: SettingsDep, session: SessionDep):
             "inbox": inbox,
             "pending": pending,
             "folders": folders,  # new genre folders proposed on the Changes page
+            "work": work,  # (tag values written, tracks) for "Tagwerk's work"
             "job": scan_job,
             "analysis_job": analysis_job,
             "identify_job": identify_job,
@@ -72,6 +76,7 @@ def stats_page(request: Request, session: SessionDep, rows: str = "key", cols: s
             "prefs": prefs,
             "stats": library_stats(session, prefs),
             "heat": heatmap(session, rows, cols, prefs.key_notation),
+            "work": work_stats(session),
             "axes": HEAT_AXES,
             "job": scan_job,
         },
@@ -96,6 +101,13 @@ def stats(request: Request, session: SessionDep, prefs: PreferencesDep) -> dict:
     if getattr(request.app.state, "db_error", None):
         raise HTTPException(503, "Database not available, see /api/status")
     return asdict(library_stats(session, prefs))
+
+
+@router.get("/api/stats/work", tags=["library"])
+def work_api(session: SessionDep) -> dict:
+    """What Tagwerk has done for the library, from the History: tag values filled in,
+    corrected and removed per field, where they came from, imports, set-ready before/after."""
+    return asdict(work_stats(session))
 
 
 @router.get("/api/stats/heatmap", tags=["library"])

@@ -432,7 +432,10 @@ def changeset_page(request: Request, changeset_id: int, session: SessionDep):
     changeset = session.get(ChangeSet, changeset_id)
     if changeset is None:
         raise HTTPException(404)
-    rows = [(e, json.loads(e.changes)) for e in changes.entries(session, changeset_id)]
+    rows = [
+        (e, json.loads(e.changes), json.loads(e.sources or "{}"))
+        for e in changes.entries(session, changeset_id)
+    ]
     return templates.TemplateResponse(
         request,
         "changeset.html",

@@ -9,7 +9,7 @@
   <button class="outline secondary" {% if busy %}disabled{% endif %}>Undo all</button>
 </form>
 {% endif %}
-{% for e, diff in rows %}
+{% for e, diff, sources in rows %}
 <article class="change-card">
   <header>
     {% if e.track_id %}<a href="/tracks/{{ e.track_id }}">{{ e.path }}</a>{% else %}<code>{{ e.path }}</code>{% endif %}
@@ -24,7 +24,7 @@
   <table class="diff"><tbody>
     {% for name, (old, new) in diff.items() %}
     <tr>
-      <th scope="row">{{ field_label(name) }}</th>
+      <th scope="row">{{ field_label(name) }}{% if sources.get(name) %}<br><small class="muted change-source">{{ source_label(sources[name]) }}</small>{% endif %}</th>
       <td class="old">{% if old is none %}<span class="muted">(empty)</span>{% elif name == "cover" %}<span class="muted">(previous cover)</span>{% else %}<del>{{ old }}</del>{% endif %}</td>
       <td class="arrow" aria-hidden="true">→</td>
       <td class="new">{% if new is none %}<span class="muted">(removed)</span>{% elif name == "cover" %}<img class="diff-cover" src="/images/{{ new }}" alt="New cover art">{% else %}<ins>{{ new }}</ins>{% endif %}</td>

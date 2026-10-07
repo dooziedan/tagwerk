@@ -134,11 +134,14 @@
     </article>
   </dialog>
   <script>
-    // Show <time data-local> timestamps (stored in UTC) in the browser's local time.
+    // Show <time data-local> timestamps (stored in UTC) in the browser's local time
+    // (data-date-only: without the time).
     function localTimes(root) {
       root.querySelectorAll("time[data-local]").forEach((el) => {
         const date = new Date(el.getAttribute("datetime"));
-        if (!isNaN(date)) el.textContent = date.toLocaleString();
+        if (!isNaN(date)) {
+          el.textContent = "dateOnly" in el.dataset ? date.toLocaleDateString() : date.toLocaleString();
+        }
       });
     }
     document.addEventListener("DOMContentLoaded", () => localTimes(document));

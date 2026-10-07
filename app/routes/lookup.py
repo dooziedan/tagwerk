@@ -96,16 +96,16 @@ async def use_online(request: Request, track_id: int, session: SessionDep, setti
     values = {k: v for k, v in candidate.values.items() if k in writer.EDITABLE and v}
     if "genre" in values:
         values["genre"] = "; ".join(genres.active(session).tidy([values["genre"]]))
-    count, errors = changes.stage(session, [track_id], values)
+    count, errors = changes.stage(session, [track_id], values, "online")
     if errors:  # an odd value (e.g. a date format): stage the others
         rest = {k: v for k, v in values.items() if k not in errors}
-        count, _ = changes.stage(session, [track_id], rest)
+        count, _ = changes.stage(session, [track_id], rest, "online")
     if candidate.cover_image or candidate.cover_url:
         try:
             image = candidate.cover_image or image_store(settings).put(
                 identify.download_image(candidate.cover_url)
             )
-            count += changes.stage_cover(session, [track_id], image)
+            count += changes.stage_cover(session, [track_id], image, "online")
         except (SourceError, ImageError):
             pass  # the values are staged; the cover stays as it is
     back = f"/tracks/{track_id}?back={quote(str(form.get('back') or '/tracks'), safe='')}"

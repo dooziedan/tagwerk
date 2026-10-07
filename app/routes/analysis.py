@@ -199,7 +199,7 @@ async def use_audio(request: Request, track_id: int, session: SessionDep):
         values["bpm"] = f"{found.bpm:g}"
     elif field == "key" and found.key:
         values["key"] = display(found.key, "musical")
-    count = changes.stage(session, [track_id], values)[0] if values else 0
+    count = changes.stage(session, [track_id], values, "audio")[0] if values else 0
     return RedirectResponse(
         with_saved_note(f"/tracks/{track_id}", count) + "#audio", status_code=303
     )

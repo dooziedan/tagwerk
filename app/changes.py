@@ -32,16 +32,28 @@ _NOT_FINAL = ~exists().where(FinalTrack.track_id == Track.id)
 
 # --- Staging --------------------------------------------------------------------------------
 
+# Where a changed value came from (recorded since v0.11; Statistics: "Tagwerk's work").
+SOURCES = {
+    "you": "You",
+    "audio": "From the audio",
+    "online": "Found online",
+    "filename": "From the filename",
+    "clean-up": "Clean-up (spelling, spacing)",
+    "fix-ids": "Fix IDs",
+    "private-data": "Private data removed",
+}
+
 
 def stage(
-    session: Session, track_ids: list[int], values: dict[str, str | None]
+    session: Session, track_ids: list[int], values: dict[str, str | None], source: str = "you"
 ) -> tuple[int, dict[str, str]]:
     """Save edits as pending changes for the given tracks.
 
     ``values`` maps editable fields to the typed value ("" or None removes the field).
     Returns (number of pending changes, errors per field). With any error nothing is saved.
     A value equal to the current one removes that field's pending change instead.
-    Final tracks are locked: they are skipped (app/final.py).
+    Final tracks are locked: they are skipped (app/final.py). ``source``: where the values
+    came from (a key of SOURCES); a pending change saved again unchanged keeps its source.
     """
     normalized: dict[str, str | None] = {}
     errors: dict[str, str] = {}
@@ -67,11 +79,15 @@ def stage(
                     session.delete(existing)
                 continue
             if existing:
+                if existing.new_value != new:
+                    existing.source = source
                 existing.new_value = new
                 existing.created_at = datetime.now(UTC)
             else:
                 session.add(
-                    PendingChange(track_id=track.id, field=name, old_value=old, new_value=new)
+                    PendingChange(
+                        track_id=track.id, field=name, old_value=old, new_value=new, source=source
+                    )
                 )
             count += 1
     session.commit()
@@ -88,13 +104,23 @@ def stage_private_removal(session: Session, owner: str) -> int:
     already = exists().where(PendingChange.track_id == Track.id, PendingChange.field == field)
     count = 0
     for track in session.exec(select(Track).where(has_it, not_(already), _NOT_FINAL)):
-        session.add(PendingChange(track_id=track.id, field=field, old_value=BINARY, new_value=None))
+        session.add(
+            PendingChange(
+                track_id=track.id,
+                field=field,
+                old_value=BINARY,
+                new_value=None,
+                source="private-data",
+            )
+        )
         count += 1
     session.commit()
     return count
 
 
-def stage_cover(session: Session, track_ids: list[int], image_id: str | None) -> int:
+def stage_cover(
+    session: Session, track_ids: list[int], image_id: str | None, source: str = "you"
+) -> int:
     """Save a cover art change: an image from the ImageStore, or None to remove the cover."""
     count = 0
     for track in session.exec(select(Track).where(col(Track.id).in_(track_ids), _NOT_FINAL)):
@@ -108,6 +134,8 @@ def stage_cover(session: Session, track_ids: list[int], image_id: str | None) ->
                 session.delete(existing)
             continue
         if existing:
+            if existing.new_value != image_id:
+                existing.source = source
             existing.new_value = image_id
             existing.created_at = datetime.now(UTC)
         else:
@@ -117,6 +145,7 @@ def stage_cover(session: Session, track_ids: list[int], image_id: str | None) ->
                     field=writer.COVER,
                     old_value=writer.current_value(track, writer.COVER),
                     new_value=image_id,
+                    source=source,
                 )
             )
         count += 1
@@ -195,6 +224,7 @@ def apply_pending(
                 track_id=track.id,
                 path=track.path,
                 changes=json.dumps({c.field: [c.old_value, c.new_value] for c in item.changes}),
+                sources=sources_json({c.field: c.source for c in item.changes}),
             )
             try:
                 path = music_dir / track.path
@@ -228,6 +258,12 @@ def apply_pending(
             session.commit()
             progress.processed += 1
     progress.current = ""
+
+
+def sources_json(sources: dict[str, str | None]) -> str | None:
+    """A ChangeEntry's ``sources``: only the known ones; None when none is known."""
+    known = {k: v for k, v in sources.items() if v}
+    return json.dumps(known) if known else None
 
 
 def _verify(track: Track, values: dict[str, str | None], system: str, raw: set[str]) -> str:

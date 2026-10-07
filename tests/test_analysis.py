@@ -204,6 +204,18 @@ def test_the_genre_settles_half_or_double_time():
     assert found.bpm_notes == ["Drum and bass is 160-185 BPM: 174, not 87"]
 
 
+def test_a_genre_that_picks_another_reading_of_the_beat_says_so():
+    # A drum & bass remix still tagged "Trance" (the original's genre): the audio hears 173.7
+    # best, but only its 3:2 reading 116.7 fits trance. The owner should check the genre tag.
+    row = stored_row(173.7, [116.7, 86.9], sure=True)
+    found = analysis.decide(row, "Trance, Electronic, Breaks", [], [])
+    assert found.bpm == 116.7
+    assert "hears 173.7 BPM best" in found.bpm_warning
+    assert "genre tag says Trance" in found.bpm_warning
+    # Half or double time is what the genre is for: no warning then.
+    assert not analysis.decide(stored_row(87.0, [174.0]), "Drum & Bass", [], []).bpm_warning
+
+
 def test_a_hint_means_the_tempo_it_matches_directly():
     # On My Mind: 87.5 or 175; a store's 176 (88 x 2, rounded) means 175, not 87.5.
     found = analysis.decide(stored_row(87.5, [175.0]), None, [(176, "Beatport")], [])

@@ -89,6 +89,9 @@ class PendingChange(SQLModel, table=True):
     field: str  # a key of app.writer.EDITABLE
     old_value: str | None = None  # as shown when the change was made
     new_value: str | None = None  # None removes the field
+    # Where the new value came from (app.changes.SOURCES), e.g. "you" or "audio".
+    # None: saved before Tagwerk recorded sources.
+    source: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -116,6 +119,9 @@ class ChangeEntry(SQLModel, table=True):
     track_id: int | None = Field(default=None, foreign_key="track.id", ondelete="SET NULL")
     path: str
     changes: str  # JSON: {field: [old, new]}
+    # JSON: {field: source}, where each new value came from (app.changes.SOURCES).
+    # None: applied before Tagwerk recorded sources ("source unknown").
+    sources: str | None = None
     snapshot: str | None = None  # JSON from app.writer.write(); None if writing failed
     mtime_after: float | None = None  # file time right after writing, to detect later edits
     error: str | None = None
