@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Tagwerk's work** on Statistics shows what Tagwerk has done for your library, counted from the History (undone changes don't count): tag values written, tracks improved, imported, converted to AIFF, marked final and genre folders created; per field how many values were filled in, corrected or removed; files changed per month; and (DJ mode) how many tracks were set-ready before Tagwerk's first change and now. Home has a one-line summary linking to it.
 - Tagwerk now records **where each changed value came from**: you, the audio, online, the filename, a clean-up, Fix IDs or the private-data removal. The Changes page and the History show it under the field name, and Tagwerk's work shows the share of each. Changes applied before this version count as "source unknown".
 
+- **Tick the changes to apply** on the Changes page: every pending change has a tick box (all ticked to start with, one box per track for all its changes, plus Tick all / Untick all). **Apply** and **Discard** only act on the ticked changes; the others stay pending. The API takes `change_ids` too.
+
 ### Changed
 - **Library growth** on Statistics shows tracks added per month and per year side by side, both as column charts.
 - When the genre tag makes Tagwerk pick a BPM that isn't half or double what the audio hears best (e.g. 116.7 for a 174 drum & bass remix still tagged "Trance"), **From the audio** now says so with a warning and suggests correcting the genre, instead of a short note.

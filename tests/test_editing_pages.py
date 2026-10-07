@@ -212,3 +212,59 @@ def test_back_leads_to_where_the_track_was_opened(client):
         f"/tracks/{track}/edit", data={"label": "X", "back": origin}, follow_redirects=False
     )
     assert re.fullmatch(re.escape(origin) + r"&saved=\d+", saved.headers["location"])
+
+
+def test_only_ticked_changes_are_applied_or_discarded(client, music_dir):
+    ids = scanned(client)
+    mp3, flac = ids[f"{ALBUM}/tagged.mp3"], ids[f"{ALBUM}/tagged.flac"]
+    client.post("/api/changes", json={"track_ids": [mp3, flac], "values": {"comment": "Ticked"}})
+    client.post("/api/changes", json={"track_ids": [mp3], "values": {"label": "Kept"}})
+    pending = {
+        (p["path"].rsplit("/", 1)[-1], c["field"]): c["id"]
+        for p in client.get("/api/changes").json()
+        for c in p["changes"]
+    }
+    page = client.get("/changes").text
+    assert page.count('name="change"') == 3 and "Apply 3 changes to 2 files" in page
+
+    # Nothing ticked: nothing happens.
+    form = {"backup": "on", "ticked": "1"}
+    none = client.post("/changes/apply", data=form, follow_redirects=False)
+    assert none.headers["location"] == "/changes?error=none"
+
+    ticked = [pending["tagged.mp3", "comment"], pending["tagged.flac", "comment"]]
+    client.post("/changes/apply", data={"backup": "on", "ticked": "1", "change": ticked})
+    write_job.wait(30)
+    assert read_file(music_dir / ALBUM / "tagged.mp3").comment == "Ticked"
+    assert read_file(music_dir / ALBUM / "tagged.mp3").label != "Kept"  # unticked: not written
+    assert [c["field"] for p in client.get("/api/changes").json() for c in p["changes"]] == [
+        "label"
+    ]
+
+    # Discard only the ticked ones too.
+    client.post("/api/changes", json={"track_ids": [flac], "values": {"label": "Other"}})
+    flac_label = next(
+        c["id"]
+        for p in client.get("/api/changes").json()
+        for c in p["changes"]
+        if p["path"].endswith(".flac")
+    )
+    client.post("/changes/discard", data={"ticked": "1", "change": [flac_label]})
+    left = [(p["path"].rsplit("/", 1)[-1], c["field"]) for p in client.get("/api/changes").json()
+            for c in p["changes"]]  # fmt: skip
+    assert left == [("tagged.mp3", "label")]
+
+
+def test_the_api_applies_chosen_changes(client, music_dir):
+    ids = scanned(client)
+    mp3 = ids[f"{ALBUM}/tagged.mp3"]
+    client.post("/api/changes", json={"track_ids": [mp3], "values": {"comment": "A", "label": "B"}})
+    changes = client.get("/api/changes").json()[0]["changes"]
+    comment = next(c["id"] for c in changes if c["field"] == "comment")
+    assert client.post("/api/changes/apply", json={"change_ids": [comment]}).status_code == 202
+    write_job.wait(30)
+    info = read_file(music_dir / ALBUM / "tagged.mp3")
+    assert info.comment == "A" and info.label != "B"
+    assert client.post("/api/changes/apply").status_code == 202  # no body: all the rest
+    write_job.wait(30)
+    assert read_file(music_dir / ALBUM / "tagged.mp3").label == "B"

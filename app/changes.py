@@ -159,12 +159,16 @@ class PendingTrack:
     changes: list[PendingChange]
 
 
-def pending(session: Session) -> list[PendingTrack]:
-    rows = session.exec(
+def pending(session: Session, change_ids: list[int] | None = None) -> list[PendingTrack]:
+    """Pending changes grouped by track; ``change_ids``: only these (the ticked ones)."""
+    query = (
         select(PendingChange, Track)
         .join(Track, col(Track.id) == PendingChange.track_id)
         .order_by(Track.path, PendingChange.id)
-    ).all()
+    )
+    if change_ids is not None:
+        query = query.where(col(PendingChange.id).in_(change_ids))
+    rows = session.exec(query).all()
     grouped: dict[int, PendingTrack] = {}
     for change, track in rows:
         grouped.setdefault(track.id, PendingTrack(track, [])).changes.append(change)
@@ -177,11 +181,11 @@ def pending_count(session: Session) -> int:
     return session.exec(select(func.count(PendingChange.id))).one()
 
 
-def discard(session: Session, change_id: int | None = None) -> None:
-    """Remove one pending change, or all of them."""
+def discard(session: Session, change_ids: list[int] | None = None) -> None:
+    """Remove these pending changes, or all of them."""
     query = delete(PendingChange)
-    if change_id is not None:
-        query = query.where(PendingChange.id == change_id)
+    if change_ids is not None:
+        query = query.where(col(PendingChange.id).in_(change_ids))
     session.exec(query)
     session.commit()
 
@@ -202,11 +206,16 @@ class WriteProgress:
 
 
 def apply_pending(
-    engine: Engine, music_dir: Path, progress: WriteProgress, images: ImageStore | None = None
+    engine: Engine,
+    music_dir: Path,
+    progress: WriteProgress,
+    images: ImageStore | None = None,
+    change_ids: list[int] | None = None,
 ) -> None:
-    """Write all pending changes. Failed files keep their pending changes for another try."""
+    """Write pending changes: all of them, or only ``change_ids`` (the ticked ones; the others
+    stay pending). Failed files keep their pending changes for another try."""
     with Session(engine) as session:
-        items = pending(session)
+        items = pending(session, change_ids)
         progress.total = len(items)
         fields = sorted({c.field for item in items for c in item.changes}, key=writer.label_order)
         labels = [writer.label(f) for f in fields]

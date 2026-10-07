@@ -52,6 +52,10 @@ class StageRequest(BaseModel):
     values: dict[str, str | None]
 
 
+class ApplyRequest(BaseModel):
+    change_ids: list[int] | None = None  # only these pending changes; None: all of them
+
+
 @router.get("/api/changes", tags=["changes"])
 def pending_api(session: SessionDep) -> list[dict]:
     """Pending changes, grouped by track."""
@@ -81,9 +85,10 @@ def discard_api(session: SessionDep) -> dict:
 
 
 @router.post("/api/changes/apply", status_code=202, tags=["changes"])
-def apply_api(settings: SettingsDep) -> dict:
-    """Write all pending changes to the files (background job; see GET /api/changes/job)."""
-    if not write_job.apply(settings):
+def apply_api(settings: SettingsDep, body: ApplyRequest | None = None) -> dict:
+    """Write pending changes to the files: all, or only ``change_ids`` (the others stay
+    pending). Runs as a background job; see GET /api/changes/job."""
+    if not write_job.apply(settings, body.change_ids if body else None):
         raise HTTPException(409, "Another scan or write is running")
     return {"status": "running"}
 
@@ -361,9 +366,20 @@ async def apply_changes(request: Request, session: SessionDep, settings: Setting
         preferences.save(session, replace(prefs, backup_confirmed=True))
     if not changes.pending_count(session):
         return RedirectResponse("/changes", status_code=303)
-    if not write_job.apply(settings):
+    ticked = _ticked(form)
+    if ticked == []:
+        return RedirectResponse("/changes?error=none", status_code=303)
+    if not write_job.apply(settings, ticked):
         return RedirectResponse("/changes?error=busy", status_code=303)
     return RedirectResponse("/changes", status_code=303)
+
+
+def _ticked(form) -> list[int] | None:
+    """The pending changes ticked on the Changes page; None for a form without tick boxes
+    (everything)."""
+    if form.get("ticked") != "1":
+        return None
+    return [int(i) for i in form.getlist("change") if str(i).isdigit()]
 
 
 @router.post("/changes/folders/create", include_in_schema=False)
@@ -389,14 +405,18 @@ def propose_again(session: SessionDep):
 
 
 @router.post("/changes/discard", include_in_schema=False)
-def discard_all(session: SessionDep):
-    changes.discard(session)
+async def discard_ticked(request: Request, session: SessionDep):
+    """Discard the ticked pending changes (all of them without tick boxes)."""
+    ticked = _ticked(await request.form())
+    if ticked == []:
+        return RedirectResponse("/changes?error=none", status_code=303)
+    changes.discard(session, ticked)
     return RedirectResponse("/changes", status_code=303)
 
 
 @router.post("/changes/{change_id}/discard", include_in_schema=False)
 def discard_one(change_id: int, session: SessionDep):
-    changes.discard(session, change_id)
+    changes.discard(session, [change_id])
     return RedirectResponse("/changes", status_code=303)
 
 

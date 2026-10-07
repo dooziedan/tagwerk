@@ -95,15 +95,29 @@ Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bi
 - Detect tempo and key inside the container. First step: verify an analysis library that runs in the image and on the current Python version.
 - Flag likely half-/double-time values (e.g. 87 instead of 174).
 
+## Road to 1.0
+1.0 means: Tagwerk can be trusted with the real master library, and it is a joy to look at. In this order:
+
+1. **Tagwerk's work** ✅: what Tagwerk did for the library, and where each value came from ([ADR 0020](decisions/0020-tagwerks-work.md)).
+2. **Apply ticked changes** ✅: tick the pending changes to apply or discard; unticked ones stay pending.
+3. **Duplicates in the library**: find tracks that are in the library more than once, with the same rules as the inbox ([ADR 0011](decisions/0011-inbox-duplicates-and-trash.md): identical file, a trusted MusicBrainz recording ID, or the same artist and title with the mix name and about the same length). A list of groups with the copies side by side (path, format, bitrate, length, size, tags, final mark), each linking to its tracks, plus a number on Home/Statistics. Tagwerk only points them out: it never deletes library files, and "not a duplicate" can be remembered so a pair isn't shown again. An ADR.
+4. **Hardening on the real library**: scans, Statistics, Home, Tagwerk's work and analysis at full size (speed, memory, caching where needed); WAV/AIFF tags compared with Navidrome; a test that upgrades an old database through every migration; a complete Unraid template (Analysis Workers, Original Files …).
+5. **Visual rebrand**, the face of 1.0 (see below).
+6. **README** with screenshots of the new look, a short "first steps" guide; release `v1.0.0`.
+
+
 ## v1.0: Visual rebrand
-A new look before 1.0: space-like visuals and colours inspired by Orbit Stage, calmer card and page design inspired by SoulSync, a touch of glassmorphism (with solid fallbacks and reduced motion). Direction proposed and agreed before coding; an ADR.
+A new look that replaces the Calm and Pop styles. The owner wants to enjoy the tool visually; rich visuals are welcome even if they ask more of the client's hardware.
+- **Main inspiration: orbit-stage.de**: its colour themes and space-like visuals (depth, night sky, glow).
+- **SoulSync** as light inspiration for page and object design (cards, layout), without its constant movement.
+- A touch of **glassmorphism**: see-through, blurred panels over the space background, always with a solid fallback.
+- Steps: research both → mood board → mock-ups of Home, Statistics and a track page → the owner's OK → ADR and `docs/design.md` → foundation (tokens in `theme.css`, background, glass, cards, type) → every page incl. play bar, key wheel, heat map, charts (colours validated on the new background), wizard, dialogs and phone layout → logo and Unraid icon → screenshot checks in all three engines and on the owner's devices. "Reduce motion" gets a still version; a "lighter effects" switch if some device struggles.
 
 ## Navidrome integration (alongside v0.6–v0.8)
 - Connection settings and test button; rescan after apply and after moving inbox tracks.
 - Navidrome stats and most played on the dashboard.
 
 ## Later / ideas
-- **Apply changes one by one**: tick the pending changes to apply instead of always applying all.
 - **Most played tracks**: play counts come from the DJ hardware and software, so this depends on reading Rekordbox data (out of scope so far).
 - **Online keys**: an extra source with tempo and key (e.g. GetSongBPM, if its terms allow) to confirm the audio analysis; Deezer only has BPM.
 - **Remove all private data** in one action, and a finder for PRIV data Tagwerk can't see (a second ID3 tag, a tag at the end of an MP3, ID3 in front of a FLAC).
@@ -112,4 +126,4 @@ A new look before 1.0: space-like visuals and colours inspired by Orbit Stage, c
 - Harmonic mixing helpers (compatible keys), BPM/key filters for set prep.
 - Batch jobs for the existing library (e.g. look up everything without IDs).
 - Last.fm genres.
-- Login protection.
+- Login protection (low priority: Tagwerk is a local tool for one user).
