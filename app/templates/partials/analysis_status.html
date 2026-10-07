@@ -2,7 +2,7 @@
 <div id="analysis-status"{% if job.running %} hx-get="/partials/analysis" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
   {% if job.running %}
   <form method="post" action="/analysis/stop" class="notice" role="status">
-    <span aria-busy="true">Measuring BPM and key from the audio: {{ job.progress.processed }} of {{ job.progress.total | plural('track') }}{% if job.progress.failed %} ({{ job.progress.failed }} couldn't be analysed){% endif %}.</span>
+    <span aria-busy="true">Measuring BPM and key from the audio: {{ job.progress.processed }} of {{ job.progress.total | plural('track') }}{% if job.workers > 1 %}, {{ job.workers }} at a time{% endif %}{% if job.progress.failed %} ({{ job.progress.failed }} couldn't be analysed){% endif %}.</span>
     Sure values for empty fields become <a href="/changes">pending changes</a>. Pages stay fast meanwhile.
     <button type="submit" class="outline secondary small">Stop</button>
   </form>

@@ -5,7 +5,7 @@
   <h1>History</h1>
   <a href="/changes" class="secondary">← Pending changes</a>
 </div>
-<p class="muted">Every “Apply”, newest first. Undo writes the saved old tags back. Files changed again afterwards (by Tagwerk or another tool) are skipped, so newer edits aren't lost.</p>
+<p class="muted">Every “Apply”, newest first, 50 per page. Undo writes the saved old tags back. Files changed again afterwards (by Tagwerk or another tool) are skipped, so newer edits aren't lost.</p>
 {% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
 {% if job.running or job.status in ("done", "failed") %}{% include "partials/write_status.html" %}{% endif %}
 
@@ -34,5 +34,12 @@
   </tbody>
 </table>
 </div>
+{% if pages > 1 %}
+<nav class="pagination" aria-label="Pages">
+  {% if page > 1 %}<a href="/changes/history?page={{ page - 1 }}" role="button" class="outline secondary">← Newer</a>{% endif %}
+  <span class="muted">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a href="/changes/history?page={{ page + 1 }}" role="button" class="outline secondary">Older →</a>{% endif %}
+</nav>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -61,8 +61,11 @@ def main(base: str, out: Path) -> int:
     out.mkdir(parents=True, exist_ok=True)
     track = first_track_id(base)
     pages = {
-        "dashboard": "/",
+        "home": "/",
         "tracks": "/tracks",
+        "stats": "/stats",
+        "stats-heat-year-genre": "/stats?rows=year&cols=genre",
+        "history": "/changes/history",
         "fields": "/fields",
         "settings": "/settings",
         "changes": "/changes",

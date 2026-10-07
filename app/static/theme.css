@@ -76,6 +76,16 @@ body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little c
   --tw-link: #1f7a6f;                         /* 4.8 on background */
   --tw-check: #a14d00;                        /* "check this" hints: 5.5 on background */
   --tw-brand-tag: #264653;
+  /* Heat map (Statistics): one teal, few -> many tracks. Ink: text on levels 1-3 / 4-6. */
+  --tw-heat-0: #eef3f4;
+  --tw-heat-1: #d7efeb;
+  --tw-heat-2: #aedfd7;
+  --tw-heat-3: #7ec7bb;
+  --tw-heat-4: #2b8276;
+  --tw-heat-5: #1d6359;
+  --tw-heat-6: #0f433c;
+  --tw-heat-ink-low: #16323b;
+  --tw-heat-ink-high: #ffffff;
 }
 
 /* Calm light: one accent, Verdigris */
@@ -172,6 +182,15 @@ body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little c
     --tw-chip-hover: #1f3f4b;
     --tw-link: #4cc0b0;
     --tw-check: #f4a261;                      /* Sandy Brown, 8.4 */
+    --tw-heat-0: #183441;
+    --tw-heat-1: #1d4448;
+    --tw-heat-2: #215a59;
+    --tw-heat-3: #28766f;
+    --tw-heat-4: #3b9b8e;
+    --tw-heat-5: #74c4b7;
+    --tw-heat-6: #b4e5dc;
+    --tw-heat-ink-low: #e8eef0;
+    --tw-heat-ink-high: #0f1f26;
   }
 }
 :root[data-style][data-theme="dark"] {
@@ -205,6 +224,15 @@ body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little c
   --tw-chip-hover: #1f3f4b;
   --tw-link: #4cc0b0;
   --tw-check: #f4a261;                      /* Sandy Brown, 8.4 */
+  --tw-heat-0: #183441;
+  --tw-heat-1: #1d4448;
+  --tw-heat-2: #215a59;
+  --tw-heat-3: #28766f;
+  --tw-heat-4: #3b9b8e;
+  --tw-heat-5: #74c4b7;
+  --tw-heat-6: #b4e5dc;
+  --tw-heat-ink-low: #e8eef0;
+  --tw-heat-ink-high: #0f1f26;
 }
 
 /* Calm dark */

@@ -58,6 +58,7 @@ def analysis_status() -> dict:
     progress = analysis_job.progress
     return {
         "running": analysis_job.running,
+        "workers": analysis_job.workers,  # tracks analysed at the same time
         "total": progress.total,
         "processed": progress.processed,
         "failed": progress.failed,

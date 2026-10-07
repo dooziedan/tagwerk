@@ -15,7 +15,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - ✅ **Navidrome rescan** after every change, so new tags and tracks show up there right away (optional).
 - ✅ **Two themes**, Calm and Pop, each in light and dark.
 - ✅ **MusicBrainz checks are optional**, since edits, bootlegs and promos usually aren't on MusicBrainz.
-- ✅ **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover. Every dashboard number links to its tracks.
+- ✅ **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover. Every number on Home and Statistics links to its tracks.
 - ✅ **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, empty and `0` values, and the most common values.
 - ✅ **Setup wizard:** mode, key notation, folder layout and how independently Tagwerk may work, chosen on first start.
 - ✅ **Online identification:** MusicBrainz, AcoustID, Discogs, Deezer and iTunes fill empty fields and covers; values are sure when two sources agree.
@@ -63,6 +63,9 @@ All settings are environment variables (the fields in the Unraid template):
 | `IMPORT_DIR` | `/import` | Import inbox (optional) |
 | `NAVIDROME_URL` / `NAVIDROME_USER` / `NAVIDROME_PASSWORD` | empty | Navidrome to rescan after changes (optional; admin user) |
 | `NAVIDROME_LIBRARY` | empty | With several Navidrome libraries: the name of the one using your music folder; only it is rescanned |
+| `ORIGINALS_DIR` | `/originals` | Where originals go after converting to AIFF (optional) |
+| `ACOUSTID_KEY` / `DISCOGS_TOKEN` | empty | Free keys for online identification (optional) |
+| `ANALYSIS_WORKERS` | `0` | Tracks analysed for BPM and key at the same time. `0` = as many as the container may use CPU cores (limit with `cpus:` in docker-compose, `--cpus` or Unraid's CPU pinning), fewer if memory is short |
 | `PUID` / `PGID` | `99` / `100` | User and group the app runs as |
 | `UMASK` | `022` | Permission mask for new files |
 

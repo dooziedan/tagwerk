@@ -14,9 +14,9 @@ from app.routes import (
     analysis,
     changes,
     convert,
-    dashboard,
     fields,
     final,
+    home,
     ids,
     inbox,
     library,
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Tagwerk", version=__version__, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(system.router)
-app.include_router(dashboard.router)
+app.include_router(home.router)
 app.include_router(scan.router)
 app.include_router(settings.router)
 app.include_router(setup.router)

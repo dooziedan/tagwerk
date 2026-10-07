@@ -37,3 +37,4 @@ What gets easier, what gets harder.
 | [0016](0016-private-data-cleanup.md) | Removing private ID3 data (PRIV) through Changes | Accepted |
 | [0017](0017-audio-analysis.md) | BPM and key from the audio (Essentia) | Accepted |
 | [0018](0018-musicbrainz-and-discogs-ids.md) | Fixing MusicBrainz ID fields; Discogs IDs in their own fields | Accepted |
+| [0019](0019-home-and-statistics.md) | Home and Statistics instead of one dashboard | Accepted |

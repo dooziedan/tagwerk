@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-07
+
+### Added
+- **Home**, the page Tagwerk opens with, shows what needs you: inbox tracks ready to import or needing help, pending changes, running jobs, things worth a look (BPM at half or double time, keys that differ from the audio, wrong MusicBrainz IDs, private data such as Traktor's, tracks not set-ready), the 10 most recently added tracks (playable), and headline numbers (tracks, playing time, set-ready share, added this month).
+- **Statistics** (Library menu) has the charts that used to be on the start page, plus:
+  - a **heat map** of any two of key, tempo, release year, year added, genre and format (it opens on key × tempo; ⇄ swaps rows and columns), every cell opening its tracks,
+  - **library growth**: tracks added per month and per year,
+  - **set-ready by genre** (title, artist, genre, BPM, key and cover tagged),
+  - **track length** (radio edits vs extended mixes), **top labels** and **top artists**.
+- Track list filters for release year, year or month added, length, label and set-ready.
+- Tagwerk remembers when each track joined the library: the import for tracks imported from the inbox, otherwise the file's date when it was first scanned. Existing tracks get the best date the database knows.
+- **History** has pages (50 entries each); older entries were not reachable before.
+
+### Changed
+- **BPM and key analysis uses all CPU cores** the container may use: several tracks at once (7 tracks took 12 s instead of 52 s on 12 cores), each still with low priority. Limit it with `cpus:` in docker-compose, `--cpus` / CPU pinning on Unraid, or set **Analysis Workers** (`ANALYSIS_WORKERS`) to a fixed number. With little memory, fewer run at once.
+- **Clearer navigation**: the menu has **Home**, and the entry of the page you're on is highlighted (Library for its pages, also inside the open Library menu).
+
 ## [0.9.0] - 2026-10-06
 
 ### Added

@@ -9,7 +9,7 @@ from app.jobs import scan_job
 from app.library import FLAGS, MISSING, TrackFilter, find_tracks, list_albums, list_artists
 from app.preferences import Preferences
 from app.scanner import ScanProgress, scan_library
-from app.stats import library_stats
+from app.stats import HEAT_AXES, heatmap, library_stats
 from tests.conftest import FIXTURES
 
 ALBUM = "Fixture Artist/Fixture Album"
@@ -27,11 +27,12 @@ def find(engine, **filters):
 def filter_from_url(url: str) -> TrackFilter:
     """Turn a dashboard link like /tracks?missing=BPM back into a TrackFilter."""
     params = {k: v[0] for k, v in parse_qs(urlsplit(url).query, keep_blank_values=True).items()}
-    for numeric in ("bpm_min", "bpm_max"):
+    for numeric in ("bpm_min", "bpm_max", "length_min", "length_max"):
         if numeric in params:
             params[numeric] = float(params[numeric])
-    if "decade" in params:
-        params["decade"] = int(params["decade"])
+    for whole in ("decade", "year"):
+        if whole in params:
+            params[whole] = int(params[whole])
     return TrackFilter(**params)
 
 
@@ -43,6 +44,14 @@ def test_every_dashboard_number_matches_its_track_list(engine, music_dir, mode):
         stats = library_stats(session, Preferences(mode=mode, show_musicbrainz=True))
         bars = stats.missing + stats.formats + stats.genres + stats.bpm + stats.decades
         bars += [cell for cell in stats.keys if cell.url]
+        bars += stats.growth + stats.growth_years + stats.lengths + stats.labels
+        bars += stats.top_artists + stats.set_ready_genres
+        # Every cell of the heat map, for every pair of axes.
+        for rows in HEAT_AXES:
+            for cols in HEAT_AXES:
+                if rows != cols:
+                    grid = heatmap(session, rows, cols)
+                    bars += [cell for line in grid.cells for cell in line]
         checked = 0
         for bar in bars:
             if not bar.url:
@@ -50,7 +59,7 @@ def test_every_dashboard_number_matches_its_track_list(engine, music_dir, mode):
             listed = find_tracks(session, filter_from_url(bar.url)).total
             assert listed == bar.count, f"{bar.url}: dashboard {bar.count}, list {listed}"
             checked += 1
-    assert checked >= 8
+    assert checked >= 40
 
 
 def test_flags_match_dashboard_counts(engine, music_dir):
@@ -183,7 +192,7 @@ def test_pages_render(client):
     assert "Fixture Album" in client.get("/albums", params={"artist": "Fixture Artist"}).text
     assert client.get("/api/albums").json()[0]["album"]
 
-    dashboard = client.get("/").text
+    dashboard = client.get("/stats").text
     assert 'href="/tracks?missing=' in dashboard and 'href="/tracks?format=' in dashboard
 
 
