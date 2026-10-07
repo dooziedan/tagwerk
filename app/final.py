@@ -23,21 +23,14 @@ from sqlmodel import Session, col, select
 from app import genres, naming, navidrome, preferences, writer
 from app.changes import WriteProgress
 from app.config import Settings
-from app.library import IS_FINAL, is_missing
+from app.library import IS_FINAL, SET_READY
 from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, Track
 
 log = logging.getLogger(__name__)
 
-# What a track needs before it can be marked as final (shown on the Final check page).
-COMPLETE = and_(
-    Track.error.is_(None),
-    not_(is_missing(Track.title)),
-    not_(is_missing(Track.artist)),
-    not_(is_missing(Track.genre)),
-    Track.bpm.is_not(None),
-    Track.key_camelot.is_not(None),
-    col(Track.has_cover).is_(True),
-)
+# What a track needs before it can be marked as final: set-ready (title, artist, genre, BPM,
+# key, cover), the same rule as the track list and Statistics use.
+COMPLETE = SET_READY
 _PENDING = exists().where(PendingChange.track_id == Track.id)
 # Complete, not final yet, and no unwritten edits: ready for the Final check page.
 READY = and_(COMPLETE, not_(IS_FINAL), not_(_PENDING))

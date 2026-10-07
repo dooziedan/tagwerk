@@ -336,10 +336,24 @@ def _undoable():
     )
 
 
-def history(session: Session, limit: int = 50) -> list[ChangeSet]:
+HISTORY_PAGE = 50
+
+
+def history(session: Session, limit: int = HISTORY_PAGE, page: int = 1) -> list[ChangeSet]:
+    """Applied change sets, newest first; ``page`` 2 is the next 50 older ones."""
     return list(
-        session.exec(select(ChangeSet).order_by(ChangeSet.applied_at.desc()).limit(limit)).all()
+        session.exec(
+            select(ChangeSet)
+            .order_by(ChangeSet.applied_at.desc())
+            .offset((max(1, page) - 1) * limit)
+            .limit(limit)
+        ).all()
     )
+
+
+def history_pages(session: Session) -> int:
+    total = session.exec(select(func.count(ChangeSet.id))).one()
+    return max(1, -(-total // HISTORY_PAGE))
 
 
 def entries(session: Session, changeset_id: int) -> list[ChangeEntry]:

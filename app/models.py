@@ -60,6 +60,9 @@ class Track(SQLModel, table=True):
     replaygain_track_gain: float | None = None  # dB
 
     error: str | None = None  # set when the file could not be read
+    # When the track joined the library (Statistics: library growth). Imported tracks: the
+    # import; tracks found by a scan: the file's date then. Kept when the file changes.
+    added_at: datetime | None = Field(default=None, index=True)
     # Which version of the tag reader produced this row. Rows from an older version are
     # re-read on the next scan, so new fields get filled in (see app.scanner.SCAN_VERSION).
     scan_version: int = 0

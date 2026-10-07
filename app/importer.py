@@ -16,7 +16,7 @@ import logging
 import os
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import Engine
@@ -220,6 +220,8 @@ def _import_one(
 
     stat = target.stat()
     library_track = store_file(session, target, item.destination, stat, False, None)
+    # The file keeps its download date; the library counts it from now (library growth).
+    library_track.added_at = datetime.now(UTC)
     entry.track_id = library_track.id
     entry.mtime_after = stat.st_mtime
     analysis.copy_to_library(session, track.id, library_track.id)  # same sound, no new analysis

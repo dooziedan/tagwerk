@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     acoustid_key: str = ""
     discogs_token: str = ""
 
+    # BPM and key from the audio: how many tracks are analysed at the same time. 0 = as many
+    # as the container may use CPU cores (its limit from docker-compose `cpus:`, `--cpus`,
+    # `--cpuset-cpus` or Unraid's CPU pinning), fewer if memory is short (app/analysis.py).
+    analysis_workers: int = 0
+
     @property
     def database_url(self) -> str:
         return f"sqlite:///{self.config_dir / 'tagwerk.db'}"

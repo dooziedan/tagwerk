@@ -409,13 +409,17 @@ def write_partial(request: Request, was_running: bool = False):
 
 
 @router.get("/changes/history", response_class=HTMLResponse, include_in_schema=False)
-def history_page(request: Request, session: SessionDep, error: str = ""):
+def history_page(request: Request, session: SessionDep, error: str = "", page: int = 1):
+    pages = changes.history_pages(session)
+    page = min(max(1, page), pages)
     return templates.TemplateResponse(
         request,
         "history.html",
         {
             "prefs": preferences.load(session),
-            "changesets": changes.history(session),
+            "changesets": changes.history(session, page=page),
+            "page": page,
+            "pages": pages,
             "job": write_job,
             "busy": busy(),
             "error": error,

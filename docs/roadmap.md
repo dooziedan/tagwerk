@@ -103,6 +103,11 @@ A new look before 1.0: space-like visuals and colours inspired by Orbit Stage, c
 - Navidrome stats and most played on the dashboard.
 
 ## Later / ideas
+- **Apply changes one by one**: tick the pending changes to apply instead of always applying all.
+- **Most played tracks**: play counts come from the DJ hardware and software, so this depends on reading Rekordbox data (out of scope so far).
+- **Online keys**: an extra source with tempo and key (e.g. GetSongBPM, if its terms allow) to confirm the audio analysis; Deezer only has BPM.
+- **Remove all private data** in one action, and a finder for PRIV data Tagwerk can't see (a second ID3 tag, a tag at the end of an MP3, ID3 in front of a FLAC).
+- Energy or danceability from the audio (Essentia) for statistics and set prep.
 - Harmonic mixing helpers (compatible keys), BPM/key filters for set prep.
 - Batch jobs for the existing library (e.g. look up everything without IDs).
 - Last.fm genres.

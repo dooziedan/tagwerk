@@ -15,4 +15,7 @@ services:
       - "${MUSIC_PATH:-./dev/music}:/music"   # point MUSIC_PATH at a TEST COPY of a few albums
       - "${IMPORT_PATH:-./dev/import}:/import" # new music waiting in the inbox
       - "${ORIGINALS_PATH:-./dev/originals}:/originals" # originals after converting to AIFF
+    # BPM and key analysis uses as many CPU cores as the container may use. Limit it here
+    # (e.g. 4 cores), or set ANALYSIS_WORKERS above to a fixed number of parallel analyses.
+    # cpus: 4
     restart: unless-stopped

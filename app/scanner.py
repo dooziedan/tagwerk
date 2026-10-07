@@ -159,7 +159,7 @@ def store_file(
             setattr(track, key, value)
         session.exec(delete(RawTag).where(RawTag.track_id == track.id))
     else:
-        track = Track(**columns)
+        track = Track(**columns, added_at=datetime.fromtimestamp(stat.st_mtime, UTC))
         session.add(track)
         session.flush()  # assigns track.id
     session.add_all(

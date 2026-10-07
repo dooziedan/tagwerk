@@ -169,3 +169,18 @@ def test_only_one_job_at_a_time(settings, engine, music_dir):
     assert jobs.write_job.apply(settings)  # free again afterwards
     jobs.write_job.wait(30)
     assert jobs.write_job.status == "done"
+
+
+def test_history_has_pages(client, engine):
+    from sqlmodel import Session
+
+    from app.models import ChangeSet
+
+    with Session(engine) as session:
+        for n in range(55):
+            session.add(ChangeSet(fields=f"Change {n}"))
+        session.commit()
+    first = client.get("/changes/history").text
+    assert "Page 1 of 2" in first and "Older →" in first
+    older = client.get("/changes/history?page=2").text
+    assert older.count("<tr>") == 5 + 1  # 5 rows and the header

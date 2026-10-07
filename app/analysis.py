@@ -13,6 +13,8 @@ tracks and suggestions for inbox tracks; values that differ from a tag are only 
 
 import json
 import logging
+import math
+import os
 import re
 import shutil
 import subprocess
@@ -35,6 +37,65 @@ log = logging.getLogger(__name__)
 TIMEOUT = 300
 # Lower priority than the web server (0 = normal, 19 = lowest).
 NICENESS = 10
+
+
+# Memory one analysis may need: about 750 MB for a 15-minute mix, much less for a track.
+MEMORY_PER_WORKER = 800 * 1024 * 1024
+
+
+def worker_count(settings: Settings) -> int:
+    """How many tracks to analyse at the same time.
+
+    ANALYSIS_WORKERS if set; otherwise the CPU cores the container may use, but never more
+    than its memory allows for long mixes.
+    """
+    if settings.analysis_workers > 0:
+        return settings.analysis_workers
+    by_memory = max(1, (available_memory() or 1 << 62) // MEMORY_PER_WORKER)
+    return max(1, min(available_cpus(), by_memory))
+
+
+def available_cpus() -> int:
+    """CPU cores this container may use: the cores it may run on (``--cpuset-cpus``, Unraid's
+    CPU pinning), capped by its CPU limit (``--cpus``, docker-compose ``cpus:``)."""
+    try:
+        cores = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        cores = os.cpu_count() or 1
+    limit = _cgroup_cpu_limit()
+    return max(1, min(cores, limit) if limit else cores)
+
+
+def _cgroup_cpu_limit() -> int | None:
+    """The container's CPU limit in whole cores (rounded up), or None without a limit."""
+    try:  # cgroup v2 (current Docker and Unraid): "200000 100000" = 2 cores, "max ..." = none
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()[:2]
+        return None if quota == "max" else math.ceil(int(quota) / int(period))
+    except (OSError, ValueError):
+        pass
+    try:  # cgroup v1
+        quota = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us").read_text())
+        period = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us").read_text())
+        return math.ceil(quota / period) if quota > 0 else None
+    except (OSError, ValueError):
+        return None
+
+
+def available_memory() -> int | None:
+    """Bytes the analyses may use: the container's memory limit, else what the host has free."""
+    try:
+        limit = Path("/sys/fs/cgroup/memory.max").read_text().strip()
+        if limit != "max":
+            return int(limit)
+    except (OSError, ValueError):
+        pass
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
 
 
 def table(library: bool) -> type[InboxAnalysis] | type[LibraryAnalysis]:

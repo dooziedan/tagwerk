@@ -244,6 +244,14 @@ nav details.dropdown > summary:not([role]):active {
 }
 nav details.dropdown > summary:not([role]):hover { color: var(--pico-primary-hover); }
 nav details.dropdown[open] > summary:not([role]) { color: var(--pico-primary-hover); }
+/* The menu entry of the page you're on: bold and underlined (also in the open Library menu). */
+nav a[aria-current="page"], nav details.dropdown > summary.current {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.35em;
+}
+.page-sub { margin: 0.2rem 0 0; }
 
 @media (max-width: 768px) {
   .edit-row, .edit-row.with-check { grid-template-columns: 1fr; }
@@ -448,3 +456,36 @@ body.with-player.with-action-bar { padding-bottom: 10rem; }
 .traktor-notice { margin: 1rem 0; }
 .traktor-choice { display: block; margin-top: 1rem; }
 .traktor-choice small { display: block; margin-top: 0.25rem; }
+
+/* --- Home ----------------------------------------------------------------------------------- */
+.home-list li { margin-bottom: 0.35rem; }
+.recent-table td { vertical-align: middle; }
+
+/* --- Statistics: heat map (one teal, tokens --tw-heat-0..6 in theme.css) ------------------- */
+.heat-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.heat-axes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin: 0; }
+.heat-axes label { display: flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.875rem; }
+.heat-axes select { width: auto; margin: 0; padding-block: 0.25rem; font-size: 0.875rem; }
+table.heat { width: auto; border-collapse: separate; border-spacing: 2px; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+table.heat th, table.heat td { padding: 0; border: 0; background: none; text-align: center; white-space: nowrap; }
+table.heat thead th { padding: 0 0.15rem 0.2rem; color: var(--pico-muted-color); font-weight: 500; }
+table.heat tbody th { padding-right: 0.5rem; text-align: right; color: var(--pico-muted-color); font-weight: 500; }
+table.heat td { min-width: 2rem; height: 1.6rem; border-radius: 3px; background: var(--tw-heat-0); }
+table.heat td a { display: block; line-height: 1.6rem; text-decoration: none; color: inherit; border-radius: 3px; }
+table.heat td a:hover, table.heat td a:focus-visible { outline: 2px solid var(--pico-color); outline-offset: 0; }
+.heat-1 { background: var(--tw-heat-1) !important; color: var(--tw-heat-ink-low); }
+.heat-2 { background: var(--tw-heat-2) !important; color: var(--tw-heat-ink-low); }
+.heat-3 { background: var(--tw-heat-3) !important; color: var(--tw-heat-ink-low); }
+.heat-4 { background: var(--tw-heat-4) !important; color: var(--tw-heat-ink-high); }
+.heat-5 { background: var(--tw-heat-5) !important; color: var(--tw-heat-ink-high); }
+.heat-6 { background: var(--tw-heat-6) !important; color: var(--tw-heat-ink-high); }
+.heat-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; margin: 0.6rem 0 0; }
+.heat-legend span[class^="heat-"] { display: inline-block; width: 1.1rem; height: 0.8rem; border-radius: 2px; }
+
+/* --- Statistics: library growth (one column per month, value on top) ----------------------- */
+.columns { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 11rem; padding-top: 1.2rem; }
+.column { flex: 1 1 0; min-width: 0; max-width: 3rem; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-decoration: none; color: var(--pico-muted-color); }
+.column-bar { display: block; width: 100%; min-height: 1px; background: var(--tw-chart-tempo); border-radius: 4px 4px 0 0; }
+.column:hover .column-bar, .column:focus-visible .column-bar { opacity: 0.8; }
+.column-value { font-size: 0.65rem; font-variant-numeric: tabular-nums; color: var(--pico-color); }
+.column-label { font-size: 0.6rem; margin-top: 0.2rem; white-space: nowrap; }

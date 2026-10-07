@@ -18,14 +18,14 @@ def test_status_reports_mounted_folders(client):
     assert data["database_ok"] is True
 
 
-def test_dashboard_before_first_scan(client):
+def test_home_before_first_scan(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "No tracks yet" in response.text
     assert "Setup problem" not in response.text
 
 
-def test_scan_then_dashboard(client):
+def test_scan_then_statistics(client):
     response = client.post("/api/scan")
     assert response.status_code == 202
     scan_job.wait(timeout=30)
@@ -34,7 +34,7 @@ def test_scan_then_dashboard(client):
     stats = client.get("/api/stats").json()
     assert stats["tracks"] == 10
 
-    page = client.get("/").text
+    page = client.get("/stats").text
     assert "Formats" in page and "Missing tags" in page
     assert "M4A" in page and "OPUS" in page
     assert "Decades" in page  # Collector is the default mode
@@ -82,18 +82,18 @@ def test_settings_form_and_unknown_values(client):
     assert "Settings" in client.get("/settings").text
 
 
-def test_dj_mode_shows_dj_dashboard(client):
+def test_dj_mode_shows_dj_statistics(client):
     client.post("/api/scan")
     scan_job.wait(timeout=30)
     client.put("/api/settings", json={"mode": "dj", "key_notation": "openkey"})
-    page = client.get("/").text
-    assert "DJ library" in page
+    page = client.get("/stats").text
+    assert "<h1>Statistics</h1>" in page and "DJ mode" in page
     assert "Tempo" in page and "Keys" in page
     assert ">1m<" in page  # Am shown in Open Key notation
     assert "Decades" not in page
 
     client.put("/api/settings", json={"mode": "collector"})  # changed in Settings
-    assert "Decades" in client.get("/").text
+    assert "Decades" in client.get("/stats").text
     assert 'action="/settings/mode"' not in page  # no switch in the header any more
 
 
@@ -109,3 +109,39 @@ def test_migrations_match_models(engine):
     with engine.connect() as connection:
         diff = compare_metadata(MigrationContext.configure(connection), SQLModel.metadata)
     assert diff == []
+
+
+def test_the_menu_shows_where_you_are(client):
+    """The page's menu entry is marked: Home on the start page, Library for its pages."""
+    page = client.get("/").text
+    assert '<a href="/" aria-current="page">Home</a>' in page
+    assert "<title>Home · Tagwerk</title>" in page
+    assert '<a href="/stats" aria-current="page">Statistics</a>' in client.get("/stats").text
+    tracks = client.get("/tracks").text
+    assert '<summary class="current">' in tracks
+    assert '<a href="/tracks" aria-current="page">Tracks</a>' in tracks
+    assert '<a href="/" aria-current="page">' not in tracks
+    assert '<a href="/settings" aria-current="page">Settings</a>' in client.get("/settings").text
+
+
+def test_home_shows_what_needs_you_and_recent_tracks(client):
+    client.post("/api/scan")
+    scan_job.wait(timeout=30)
+    client.put("/api/settings", json=client.get("/api/settings").json() | {"mode": "dj"})
+    page = client.get("/").text
+    assert "Waiting for you" in page and "Worth a look" in page
+    assert "Recently added" in page and "Silent Track" in page  # the fixtures' title
+    assert "tracks not set-ready yet" in page
+    data = client.get("/api/home").json()
+    assert data["tracks"] == 10 and len(data["recent"]) == 10
+    assert data["added_this_month"] == 10  # fixture files are fresh copies
+
+
+def test_heat_map_axes(client):
+    client.post("/api/scan")
+    scan_job.wait(timeout=30)
+    page = client.get("/stats?rows=year&cols=genre").text
+    assert 'aria-label="Release year by Genre: number of tracks"' in page
+    assert "/tracks?genre=Electronic&amp;year=2021" in page
+    grid = client.get("/api/stats/heatmap", params={"rows": "key", "cols": "key"}).json()
+    assert (grid["rows"], grid["cols"]) == ("key", "tempo")  # the same axis twice isn't useful

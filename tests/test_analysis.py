@@ -278,8 +278,9 @@ def test_tags_that_differ_from_the_audio_are_flagged(client, engine, settings, m
     assert key >= 7  # Am (8A) in the files, D minor (7A) from the audio
     assert missing == 0
     client.put("/api/settings", json=client.get("/api/settings").json() | {"mode": "dj"})
-    page = client.get("/").text
+    page = client.get("/stats").text
     assert "with a BPM at probably half or double the real tempo" in page
+    assert "tracks with a BPM at probably half or double time" in client.get("/").text  # Home
 
     with Session(engine) as session:
         track_id = session.exec(select(Track.id).where(Track.path.endswith("tagged.flac"))).one()
@@ -337,3 +338,74 @@ def test_a_half_time_tag_doesnt_confirm_the_genres_tempo():
     found = analysis.decide(stored_row(86.0, [172.0]), "Drum & Bass", [(86, "your tag")], [])
     assert (found.bpm, found.bpm_sure) == (172.0, True)
     assert found.bpm_notes == ["Drum & Bass is 160-185 BPM: 172, not 86"]
+
+
+# --- Parallel analyses -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("setting", "cores", "limit", "memory_gb", "expected"),
+    [
+        (0, 12, None, 32, 12),  # no limits: every core
+        (0, 12, 4, 32, 4),  # docker-compose cpus: 4
+        (0, 12, None, 2, 2),  # 2 GB: two long mixes at most
+        (0, 1, None, None, 1),
+        (3, 12, None, 32, 3),  # ANALYSIS_WORKERS=3
+    ],
+)
+def test_worker_count(monkeypatch, settings, setting, cores, limit, memory_gb, expected):
+    monkeypatch.setattr(analysis.os, "sched_getaffinity", lambda pid: set(range(cores)))
+    monkeypatch.setattr(analysis, "_cgroup_cpu_limit", lambda: limit)
+    monkeypatch.setattr(analysis, "available_memory", lambda: memory_gb and memory_gb * 1024**3)
+    monkeypatch.setattr(settings, "analysis_workers", setting)
+    assert analysis.worker_count(settings) == expected
+
+
+def test_several_tracks_are_analysed_at_once(engine, settings, monkeypatch):
+    import threading
+    import time
+
+    scan_library(engine, settings.music_dir, ScanProgress())
+    with Session(engine) as session:
+        track_ids = list(session.exec(select(Track.id).where(Track.error.is_(None))))
+    at_once, most = [0], [0]
+    lock = threading.Lock()
+
+    def slow(path):
+        with lock:
+            at_once[0] += 1
+            most[0] = max(most[0], at_once[0])
+        time.sleep(0.2)
+        with lock:
+            at_once[0] -= 1
+        return FAKE_ANALYSIS | {"version": ANALYSIS_VERSION}
+
+    monkeypatch.setattr(analysis, "run_analysis", slow)
+    monkeypatch.setattr(settings, "analysis_workers", 4)
+    job = AnalysisJob()
+    job.start(settings, track_ids, library=True)
+    job.wait(30)
+    assert job.workers == 4 and most[0] == 4
+    assert (job.progress.processed, job.progress.total) == (len(track_ids), len(track_ids))
+    with Session(engine) as session:
+        assert all(analysis.result(session, i, library=True) for i in track_ids)
+
+
+def test_final_tracks_are_not_flagged(client, engine, settings, monkeypatch):
+    """A final track's tags were checked by the owner: they stand, whatever the audio says."""
+    from app.library import TrackFilter, find_tracks
+    from app.models import FinalTrack
+
+    library_with(engine, settings, monkeypatch, bpm=63.0, bpm_sure=True, bpm_alternatives=[])
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("tagged.flac"))).one()
+        flags = ("audio_bpm_octave", "audio_key_differs")
+        before = {f: find_tracks(session, TrackFilter(flag=f)).total for f in flags}
+        session.add(FinalTrack(track_id=track.id, mtime=track.mtime))
+        session.commit()
+        for flag in flags:
+            assert find_tracks(session, TrackFilter(flag=flag)).total == before[flag] - 1
+        track_id = track.id
+    page = client.get(f"/tracks/{track_id}").text
+    assert "Final: your tags stand" in page
+    assert "in the file is probably double time" not in page and "Use 63" not in page

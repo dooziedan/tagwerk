@@ -62,9 +62,20 @@ _BPM_FIELD = or_(
 
 # Final tracks (app/final.py): marked as done; "changed" when another program wrote to the file.
 IS_FINAL = exists().where(FinalTrack.track_id == Track.id)
+# Set-ready: everything a DJ needs is tagged. Also what the Final check asks for.
+SET_READY = and_(
+    _READABLE,
+    not_(is_missing(Track.title)),
+    not_(is_missing(Track.artist)),
+    not_(is_missing(Track.genre)),
+    Track.bpm.is_not(None),
+    Track.key_camelot.is_not(None),
+    col(Track.has_cover).is_(True),
+)
 CHANGED_OUTSIDE = exists().where(FinalTrack.track_id == Track.id, FinalTrack.mtime != Track.mtime)
 
-# BPM and key from the audio (app/analysis.py): only sure decisions are compared with tags.
+# BPM and key from the audio (app/analysis.py): only sure decisions are compared with tags,
+# and never for final tracks: the owner checked those, their tags stand.
 _AUDIO = LibraryAnalysis
 _SAME_TEMPO = 0.015  # tags hold rounded BPMs (87.5 -> 88)
 
@@ -109,22 +120,28 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     ),
     "audio_bpm_octave": (
         "BPM probably half or double time",
-        exists().where(_BPM_COMPARED, _BPM_OCTAVE),
+        and_(not_(IS_FINAL), exists().where(_BPM_COMPARED, _BPM_OCTAVE)),
     ),
     "audio_bpm_differs": (
         "BPM differs from the audio",
-        exists().where(
-            _BPM_COMPARED, not_(_tempo_near(Track.bpm, _AUDIO.decided_bpm)), not_(_BPM_OCTAVE)
+        and_(
+            not_(IS_FINAL),
+            exists().where(
+                _BPM_COMPARED, not_(_tempo_near(Track.bpm, _AUDIO.decided_bpm)), not_(_BPM_OCTAVE)
+            ),
         ),
     ),
     "audio_key_differs": (
         "Key differs from the audio",
-        exists().where(
-            _AUDIO.track_id == Track.id,
-            col(_AUDIO.decided_key_sure).is_(True),
-            _AUDIO.decided_key.is_not(None),
-            Track.key_camelot.is_not(None),
-            Track.key_camelot != _AUDIO.decided_key,
+        and_(
+            not_(IS_FINAL),
+            exists().where(
+                _AUDIO.track_id == Track.id,
+                col(_AUDIO.decided_key_sure).is_(True),
+                _AUDIO.decided_key.is_not(None),
+                Track.key_camelot.is_not(None),
+                Track.key_camelot != _AUDIO.decided_key,
+            ),
         ),
     ),
     "not_analysed": (
@@ -134,9 +151,16 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
             not_(exists().where(_AUDIO.track_id == Track.id, _AUDIO.version == ANALYSIS_VERSION)),
         ),
     ),
+    "set_ready": ("Set-ready (title, artist, genre, BPM, key, cover)", SET_READY),
+    "not_set_ready": ("Not set-ready yet", and_(_READABLE, not_(SET_READY))),
     "final": ("Final", IS_FINAL),
     "final_changed": ("Final, changed outside Tagwerk", CHANGED_OUTSIDE),
 }
+
+
+def added_period(chars: int):
+    """The year ("2026", chars=4) or month ("2026-10", chars=7) a track joined the library."""
+    return func.strftime("%Y" if chars == 4 else "%Y-%m", Track.added_at)
 
 
 def genre_is(genre: str) -> ColumnElement[bool]:
@@ -167,6 +191,11 @@ class TrackFilter:
     album: str = ""  # exact
     field: str = ""  # raw tag field "system:name", e.g. "id3:TXXX:fBPM"
     value: str | None = None  # with field: only this exact value
+    year: int | None = None  # release year, exact
+    added: str = ""  # when it joined the library: "2026" or "2026-10"
+    length_min: float | None = None  # minutes
+    length_max: float | None = None  # minutes (below)
+    label: str = ""  # record label, exact
 
     def conditions(self) -> list[ColumnElement[bool]]:
         c: list[ColumnElement[bool]] = []
@@ -208,6 +237,16 @@ class TrackFilter:
             c.append(ALBUM_ARTIST == self.albumartist)
         if self.album:
             c.append(Track.album == self.album)
+        if self.year is not None:
+            c.append(Track.year == self.year)
+        if len(self.added) in (4, 7):
+            c.append(added_period(len(self.added)) == self.added)
+        if self.length_min is not None:
+            c.append(Track.duration >= self.length_min * 60)
+        if self.length_max is not None:
+            c.append(Track.duration < self.length_max * 60)
+        if self.label:
+            c.append(Track.label == self.label)
         if self.field and ":" in self.field:
             system, name = self.field.split(":", 1)
             raw = [RawTag.track_id == Track.id, RawTag.system == system, RawTag.name == name]
@@ -242,6 +281,11 @@ class TrackFilter:
             "album": lambda v: f"Album: {v}",
             "field": lambda v: f"Field: {v.split(':', 1)[-1]}",
             "value": lambda v: f"Value: {v if v else '(empty)'}",
+            "year": lambda v: f"Released {v}",
+            "added": lambda v: f"Added {v}",
+            "length_min": lambda v: f"≥ {v:g} min",
+            "length_max": lambda v: f"< {v:g} min",
+            "label": lambda v: f"Label: {v}",
         }
         chips = []
         for f in fields(self):

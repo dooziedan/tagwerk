@@ -1,5 +1,7 @@
+import os
 import re
 import shutil
+from datetime import UTC, datetime
 
 import pytest
 from sqlmodel import Session, select
@@ -39,6 +41,9 @@ def run_import(engine, settings, track_ids) -> WriteProgress:
 
 def test_import_writes_tags_and_moves_the_file_unrenamed(engine, settings, inbox):
     (settings.music_dir / "Drum & Bass").mkdir()  # the genre already has a folder
+    old = datetime(2020, 5, 1).timestamp()  # downloaded long ago
+    os.utime(inbox / "Pool" / NAME, (old, old))
+    scan_inbox(engine, inbox, ScanProgress())
     track_id = ids(engine, f"Pool/{NAME}")[0]
     with Session(engine) as session:  # the owner adds a genre on the review page
         save_values(session, session.get(InboxTrack, track_id), {"genre": "Liquid"})
@@ -52,7 +57,9 @@ def test_import_writes_tags_and_moves_the_file_unrenamed(engine, settings, inbox
     assert (info.artist, info.title) == ("Fisher", "Losing It (Extended Mix)")
     assert info.genre == "Liquid"  # what the owner typed; the folder still uses the main genre
     with Session(engine) as session:
-        assert session.exec(select(Track).where(Track.path == f"Drum & Bass/{NAME}")).one()
+        imported = session.exec(select(Track).where(Track.path == f"Drum & Bass/{NAME}")).one()
+        # Library growth counts it from the import, not from the file's download date.
+        assert imported.added_at.year == datetime.now(UTC).year
         assert session.get(InboxTrack, track_id) is None
         assert session.exec(select(ChangeSet)).one().kind == "import"
 

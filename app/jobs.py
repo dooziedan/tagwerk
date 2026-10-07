@@ -320,25 +320,28 @@ class AnalysisProgress:
 
 
 class AnalysisJob:
-    """Measures BPM and key from the audio, one track at a time (app/analysis.py).
+    """Measures BPM and key from the audio, several tracks at once (app/analysis.py).
 
     Only reads files, so like the online lookups it doesn't take the library lock and runs
-    beside scans and imports. Each track is analysed in its own low-priority process.
-    Inbox tracks go before library tracks: they are waiting for review. Tracks asked for
-    while it runs are queued; ``stop`` empties the queue (the current track finishes).
+    beside scans and imports. Each track is analysed in its own low-priority process; as many
+    run side by side as the container has CPU cores (and memory) for, see
+    ``analysis.worker_count``. Inbox tracks go before library tracks: they are waiting for
+    review. Tracks asked for while it runs are queued; ``stop`` empties the queue (tracks
+    being analysed finish).
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         # (library?, track id) -> force (analyse again even if the result is fresh), in order
         self._queue: dict[tuple[bool, int], bool] = {}
-        self._current: tuple[bool, int] | None = None
-        self._thread: threading.Thread | None = None
+        self._current: set[tuple[bool, int]] = set()  # being analysed now
+        self._threads: list[threading.Thread] = []
+        self.workers = 0  # how many run side by side in this run
         self.progress = AnalysisProgress()
 
     @property
     def running(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
+        return any(t.is_alive() for t in self._threads)
 
     def start(
         self,
@@ -363,10 +366,15 @@ class AnalysisJob:
             if self.running or not self._queue:
                 return
             self.progress = AnalysisProgress()
-            self._thread = threading.Thread(
-                target=self._run, args=(settings, engine), name="analysis", daemon=True
-            )
-            self._thread.start()
+            self.workers = min(analysis.worker_count(settings), len(self._queue))
+            self._threads = [
+                threading.Thread(
+                    target=self._run, args=(settings, engine), name=f"analysis-{n}", daemon=True
+                )
+                for n in range(self.workers)
+            ]
+            for thread in self._threads:
+                thread.start()
 
     def _next(self) -> tuple[tuple[bool, int], bool] | None:
         """The next track: inbox first, otherwise in the order they were asked for."""
@@ -376,16 +384,20 @@ class AnalysisJob:
         return key, self._queue.pop(key)
 
     def _run(self, settings: Settings, engine) -> None:
+        """One worker: takes tracks from the queue until it is empty."""
         while True:
             with self._lock:
-                self._current = None
                 picked = self._next()
                 if picked is None:
-                    self.progress.current = ""
+                    if not self._current:
+                        self.progress.current = ""
                     return
                 (library, track_id), force = picked
-                self._current = (library, track_id)
-                self.progress.total = self.progress.processed + 1 + len(self._queue)
+                self._current.add((library, track_id))
+                self.progress.total = (
+                    self.progress.processed + len(self._current) + len(self._queue)
+                )
+            failed = False
             try:
                 with Session(engine) as session:
                     track = session.get(Track if library else InboxTrack, track_id)
@@ -393,28 +405,30 @@ class AnalysisJob:
                 analysis.analyse_track(engine, settings, track_id, library, force)
                 with Session(engine) as session:
                     found = analysis.result(session, track_id, library)
-                    if found and found.error:
-                        self.progress.failed += 1
+                    failed = bool(found and found.error)
             except Exception:
                 log.exception("Audio analysis failed for track %s", track_id)
-                self.progress.failed += 1
-            self.progress.processed += 1
+                failed = True
+            with self._lock:
+                self._current.discard((library, track_id))
+                self.progress.processed += 1
+                self.progress.failed += failed
 
     def queued(self, track_id: int, library: bool = False) -> bool:
         """True while this track waits for (or is in) an analysis."""
         key = (library, track_id)
-        return self.running and (key in self._queue or key == self._current)
+        return self.running and (key in self._queue or key in self._current)
 
     def stop(self) -> int:
-        """Forget the waiting tracks; the one being analysed finishes. Returns how many."""
+        """Forget the waiting tracks; the ones being analysed finish. Returns how many."""
         with self._lock:
             count = len(self._queue)
             self._queue.clear()
             return count
 
     def wait(self, timeout: float | None = None) -> None:
-        if self._thread:
-            self._thread.join(timeout)
+        for thread in list(self._threads):
+            thread.join(timeout)
 
 
 def image_store(settings: Settings) -> ImageStore:
