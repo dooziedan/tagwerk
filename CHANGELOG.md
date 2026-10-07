@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-07
+
 ### Added
 - **Tagwerk's work** on Statistics shows what Tagwerk has done for your library, counted from the History (undone changes don't count): tag values written, tracks improved, imported, converted to AIFF, marked final and genre folders created; per field how many values were filled in, corrected or removed; files changed per month; and (DJ mode) how many tracks were set-ready before Tagwerk's first change and now. Home has a one-line summary linking to it.
 - Tagwerk now records **where each changed value came from**: you, the audio, online, the filename, a clean-up, Fix IDs or the private-data removal. The Changes page and the History show it under the field name, and Tagwerk's work shows the share of each. Changes applied before this version count as "source unknown".
