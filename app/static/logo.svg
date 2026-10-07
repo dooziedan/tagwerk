@@ -1,10 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Tagwerk logo: a luggage tag (pointed left, with a punched hole) holding four level bars.
-       Colours: Charcoal Blue tag; bars Verdigris, Jasmine, Sandy Brown, Burnt Peach. See docs/design.md. -->
-  <path fill="#264653" fill-rule="evenodd"
-        d="M4 32 L18 12 H54 a6 6 0 0 1 6 6 V46 a6 6 0 0 1 -6 6 H18 Z M11.4 32 a3.6 3.6 0 1 0 7.2 0 a3.6 3.6 0 1 0 -7.2 0 Z"/>
-  <rect x="25" y="30" width="5.5" height="14" rx="2.2" fill="#2A9D8F"/>
-  <rect x="33" y="21" width="5.5" height="23" rx="2.2" fill="#E9C46A"/>
-  <rect x="41" y="26" width="5.5" height="18" rx="2.2" fill="#F4A261"/>
-  <rect x="49" y="33" width="5.5" height="11" rx="2.2" fill="#E76F51"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="0.42" stop-color="#a5b4fc"/><stop offset="0.78" stop-color="#6366f1"/><stop offset="1" stop-color="#4338ca"/></linearGradient></defs>
+  <path fill="url(#g)" fill-rule="evenodd" d="M4 32 L18 12 H54 a6 6 0 0 1 6 6 V46 a6 6 0 0 1 -6 6 H18 Z M11.4 32 a3.6 3.6 0 1 0 7.2 0 a3.6 3.6 0 1 0 -7.2 0 Z"/>
+  <g fill="#0b0b1e"><rect x="25" y="30" width="5.5" height="14" rx="2.2"/><rect x="33" y="21" width="5.5" height="23" rx="2.2"/><rect x="41" y="26" width="5.5" height="18" rx="2.2"/><rect x="49" y="33" width="5.5" height="11" rx="2.2"/></g>
 </svg>

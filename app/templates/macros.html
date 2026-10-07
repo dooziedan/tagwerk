@@ -9,11 +9,11 @@
 {% macro bars(items, value="percent", unit="tracks", empty="Nothing to show yet.", tone="tempo") %}
 {# tone picks the chart colour token --tw-chart-<tone> (theme.css): tempo, missing, formats, genres, decades #}
 {% if items %}
-<ul class="bars" style="--bar-color: var(--tw-chart-{{ tone }})">
+<ul class="bars tone-{{ tone }}">
   {% for bar in items %}
   <li title="{{ bar.label }}: {{ bar.count | number }} {{ unit }} ({{ bar.percent }}%)">
     <span class="bar-label">{% if bar.url %}<a href="{{ bar.url }}">{{ bar.label }}</a>{% else %}{{ bar.label }}{% endif %}</span>
-    <span class="bar-track"><span class="bar-fill" style="width: {{ bar.percent }}%"></span></span>
+    <span class="bar-track">{% if bar.count %}<span class="bar-fill" style="width: {{ bar.percent }}%"></span>{% endif %}</span>
     <span class="bar-value">{{ bar.count | number }} <small>· {% if value == "size" %}{{ bar.size | filesize }}{% else %}{{ bar.percent }}%{% endif %}</small></span>
   </li>
   {% endfor %}
@@ -44,4 +44,56 @@
         data-title="{{ ((t.artist ~ " – ") if t.artist else "") ~ (t.title or t.path.rsplit("/", 1)[-1]) }}"
         data-duration="{{ t.duration or 0 }}"
         aria-label="Play {{ t.title or t.path.rsplit("/", 1)[-1] }}" title="Play">{{ icon("play") }}{{ icon("pause") }}{% if label %} {{ label }}{% endif %}</button>
+{%- endmacro %}
+
+{# Line icons for the menu (drawn for Tagwerk, coloured by the text colour). #}
+{% macro nav_icon(name) -%}
+<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{%- if name == "home" %}<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>
+{%- elif name == "stats" %}<path d="M5 19V11"/><path d="M10 19V5"/><path d="M15 19v-7"/><path d="M20 19V8"/>
+{%- elif name == "tracks" %}<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>
+{%- elif name == "albums" %}<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/>
+{%- elif name == "artists" %}<circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"/>
+{%- elif name == "fields" %}<path d="M3.5 12 9 5.5h10.5v13H9z"/><circle cx="8" cy="12" r="1.3"/>
+{%- elif name == "final" %}<path d="m12 4 2.3 4.8 5.2.7-3.8 3.6.9 5.2L12 15.8l-4.6 2.5.9-5.2-3.8-3.6 5.2-.7z"/>
+{%- elif name == "inbox" %}<path d="M4 13.5 6.5 6h11l2.5 7.5v5H4z"/><path d="M4 13.5h4.5l1 2h5l1-2H20"/>
+{%- elif name == "changes" %}<path d="M5 7h10"/><path d="m12 4 3 3-3 3"/><path d="M19 17H9"/><path d="m12 14-3 3 3 3"/>
+{%- elif name == "settings" %}<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/>
+{%- elif name == "api" %}<path d="m8.5 7.5-4 4.5 4 4.5"/><path d="m15.5 7.5 4 4.5-4 4.5"/><path d="m13.5 5.5-3 13"/>
+{%- elif name == "wave" %}<path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2"/>
+{%- elif name == "menu" %}<path d="M4 7h16M4 12h16M4 17h16"/>
+{%- elif name == "scan" %}<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/>
+{%- elif name == "edit" %}<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>
+{%- elif name == "alert" %}<path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5"/><circle cx="12" cy="17" r=".6" fill="currentColor"/>
+{%- elif name == "folder" %}<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>
+{%- elif name == "spark" %}<path d="M12 3.5 13.8 10.2 20.5 12 13.8 13.8 12 20.5 10.2 13.8 3.5 12 10.2 10.2z" fill="currentColor" stroke="none"/>
+{%- elif name == "chevron" %}<path d="m9 6 6 6-6 6"/>
+{%- elif name == "check" %}<path d="m5 12.5 4.5 4.5L19 7.5"/>
+{%- elif name == "arrow" %}<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>
+{%- endif %}</svg>
+{%- endmacro %}
+
+{# The brand mark: the luggage tag with level bars in the night-sky gradient (logo.svg). #}
+{% macro brand_mark(size=32, id="b") -%}
+<svg class="brand-mark" viewBox="0 0 64 64" width="{{ size }}" height="{{ size }}" aria-hidden="true">
+  <defs><linearGradient id="tag-{{ id }}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="0.42" stop-color="#a5b4fc"/><stop offset="0.78" stop-color="#6366f1"/><stop offset="1" stop-color="#4338ca"/></linearGradient></defs>
+  <path fill="url(#tag-{{ id }})" fill-rule="evenodd" d="M4 32 L18 12 H54 a6 6 0 0 1 6 6 V46 a6 6 0 0 1 -6 6 H18 Z M11.4 32 a3.6 3.6 0 1 0 7.2 0 a3.6 3.6 0 1 0 -7.2 0 Z"/>
+  <g fill="#0b0b1e"><rect x="25" y="30" width="5.5" height="14" rx="2.2"/><rect x="33" y="21" width="5.5" height="23" rx="2.2"/><rect x="41" y="26" width="5.5" height="18" rx="2.2"/><rect x="49" y="33" width="5.5" height="11" rx="2.2"/></g>
+</svg>
+{%- endmacro %}
+
+{# Ring gauge: a share of 100 %, value inside (SVG attributes, so every browser shows it).
+   tone: tempo (indigo), missing (rose), genres (gold), formats (sky), ok (green). #}
+{% macro ring(percent, tone="tempo", size=62, stroke=6, label=none) -%}
+{%- set colours = {"tempo": ("#818cf8", "#6366f1"), "missing": ("#fb7185", "#e11d48"), "genres": ("#f5c542", "#d4a20f"), "formats": ("#7dd3fc", "#0ea5e9"), "ok": ("#6ee7b7", "#34d399")} -%}
+{%- set tip, base = colours[tone] -%}
+{%- set r = (size - stroke) / 2 - 2 -%}
+{%- set c = 2 * 3.14159265 * r -%}
+{%- set p = [[percent, 0] | max, 100] | min -%}
+{%- set mid = size / 2 -%}
+<svg class="ring" width="{{ size }}" height="{{ size }}" viewBox="0 0 {{ size }} {{ size }}" aria-hidden="true">
+  <circle cx="{{ mid }}" cy="{{ mid }}" r="{{ r }}" fill="none" stroke="#818cf8" stroke-opacity="0.14" stroke-width="{{ stroke }}"/>
+  <circle cx="{{ mid }}" cy="{{ mid }}" r="{{ r }}" fill="none" stroke="{{ tip }}" stroke-width="{{ stroke }}" stroke-linecap="round" stroke-dasharray="{{ '%.2f' % (c * p / 100) }} {{ '%.2f' % c }}" transform="rotate(-90 {{ mid }} {{ mid }})"/>
+  {%- if label != "" %}<text x="{{ mid }}" y="{{ mid + 4.5 }}" text-anchor="middle" fill="#f8fafc" font-size="{{ 13 if size >= 60 else 11 }}" font-weight="700">{{ label if label else ((p | round | int) ~ "%") }}</text>{% endif %}
+</svg>
 {%- endmacro %}

@@ -14,7 +14,9 @@ OUTER = (98, 67)  # major keys (B): outer radius, inner radius
 INNER = (65, 34)  # minor keys (A)
 SEGMENT = 30  # degrees per key number
 GAP = 1.2  # degrees left empty between segments, so they read as separate tiles
-TEXT = "#1b1d22"  # dark text: readable on every segment colour, in light and dark mode
+TEXT = "#1b1d22"  # dark text: readable on every coloured segment
+EMPTY_FILL = "#1e1b4b"  # empty keys: the night colour of the page (theme.css --tw-space-4)
+EMPTY_TEXT = "#9aa6bf"  # muted text on it: 6.5:1
 
 
 @dataclass
@@ -34,10 +36,10 @@ def camelot_colour(number: int, letter: str, count: int) -> tuple[str, str]:
     3 yellow-green, 4 yellow, 5 orange, 6 red, 7 pink, 8 magenta, 9 purple, 10 blue,
     11 sky blue, 12 cyan. Minor (A, inner ring) is lighter than major (B). The shades are
     an approximation tuned so the dark text reads at >= 4.5:1 on every segment; blue and
-    purple majors are a little lighter for that reason. Empty keys are grey.
+    purple majors are a little lighter for that reason. Empty keys are dark, like the night sky.
     """
     if count == 0:
-        return "#9aa0a8", TEXT
+        return EMPTY_FILL, EMPTY_TEXT
     hue = (150 - (number - 1) * 30) % 360
     # Minor 80%, major 66%; blue and purple majors 71% because those hues look darker.
     lightness = 80 if letter == "A" else 71 if hue in (240, 270) else 66

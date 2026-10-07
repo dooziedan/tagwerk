@@ -1,17 +1,22 @@
-/* Tagwerk design tokens: two themes (Calm, Pop), each in light and dark. See docs/design.md.
+/* Tagwerk design tokens: "Night sky". One dark look (no themes, no light mode).
+   See docs/design.md and ADR 0021.
 
-   Loaded after pico.min.css and before app.css. It sets Pico's own variables, so every Pico
-   component follows the theme, plus a few Tagwerk tokens (--tw-*).
+   Loaded after pico.min.css and before the components. It sets Pico's own variables, so every
+   Pico component follows, plus Tagwerk tokens (--tw-*).
 
    Rules:
    - Plain colour values only. No color-mix() or other newer CSS: the owner's Safari didn't
-     apply it (white-on-white wheel in v0.3.1).
-   - Text >= 4.5:1 and chart marks >= 3:1 against their background. Values in the comments
-     are the measured WCAG contrast ratios.
-   - Light/dark follows the system unless the user picks one: <html data-theme="light|dark">.
-     The theme is <html data-style="calm|pop">. */
+     apply it (white-on-white wheel in v0.3.1). Glass (backdrop-filter) is decoration with a
+     solid fallback.
+   - Text >= 4.5:1 and chart marks >= 3:1. Glass is see-through, so the ratios in the comments
+     are the WORST of two backgrounds: the panel over pure space (#030308) and over the
+     brightest nebula spot (#2f1e6f). Measured with dev/rebrand/contrast.py.
+   - Readability first: Orbitron only for the wordmark and large page titles. Everything that is
+     read (body, card titles, buttons, nav, tables, numbers, tag values) is Inter.
+   - app.css uses translucent rgba() steps of these palette colours (glass, glows, tints):
+     without color-mix() there is no other way to fade a token. New colours start here. */
 
-/* --- Typography: Inter, shipped with the app (static/fonts, SIL Open Font License) ---------- */
+/* --- Typography --------------------------------------------------------------------------- */
 @font-face {
   font-family: "Inter";
   font-style: normal;
@@ -26,287 +31,197 @@
   font-display: swap;
   src: url("fonts/InterVariable-Italic.woff2") format("woff2");
 }
-:root {
-  --pico-font-family-sans-serif: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
-    var(--pico-font-family-emoji);
-  --pico-font-family: var(--pico-font-family-sans-serif);
+/* Orbitron (SIL OFL, unmodified, fonts/Orbitron-LICENSE.txt): the wide, spacey display face,
+   our free stand-in for Orbit Stage's heading font. */
+@font-face {
+  font-family: "Orbitron";
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url("fonts/Orbitron.woff2") format("woff2");
 }
-body { font-feature-settings: "cv11"; } /* Inter's single-storey "a": a little calmer */
 
 /* --- Palette ------------------------------------------------------------------------------ */
 :root {
-  --tw-charcoal: #264653;
-  --tw-verdigris: #2a9d8f;
-  --tw-jasmine: #e9c46a;
-  --tw-sandy: #f4a261;
-  --tw-peach: #e76f51;
+  /* Space: backgrounds, from the void to raised surfaces */
+  --tw-space-0: #030308;          /* the sky (Orbit Stage's background) */
+  --tw-space-1: #07071a;          /* deepest panels, cover placeholders */
+  --tw-space-2: #0f0f23;          /* cards (solid fallback for glass) */
+  --tw-space-3: #16163a;          /* inset: table heads, inputs, hover */
+  --tw-space-4: #1e1b4b;          /* indigo night: tracks of bars, selected rows */
+
+  /* Indigo: lines, links, focus, the cool light of the page */
+  --tw-indigo-700: #4338ca;
+  --tw-indigo-500: #6366f1;
+  --tw-indigo-400: #818cf8;       /* marks 5.8 */
+  --tw-indigo-300: #a5b4fc;       /* links 8.6 */
+  --tw-indigo-200: #c7d2fe;
+  --tw-line: rgba(129, 140, 248, 0.18);        /* hairlines */
+  --tw-line-soft: rgba(129, 140, 248, 0.1);
+  --tw-line-strong: rgba(129, 140, 248, 0.5);  /* hover, focus */
+
+  /* Gold: the one warm light. Primary actions, "final", the current page. */
+  --tw-gold: #f5c542;             /* text 10.6; dark text on it 12.7 */
+  --tw-gold-hover: #fdd96a;       /* dark text on it 15.0 */
+  --tw-gold-soft: rgba(245, 197, 66, 0.1);
+  --tw-gold-line: rgba(245, 197, 66, 0.32);
+
+  /* Text */
+  --tw-ink: #f8fafc;              /* 16.4 */
+  --tw-ink-1: #d5daea;            /* labels in lists: 12.6 */
+  --tw-ink-soft: #c3cadb;         /* nav, subtitles: 10.9 */
+  --tw-ink-3: #7d89a6;            /* small print beside a value: 4.6 */
+  --tw-ink-4: #6f7a96;            /* decoration-level text (counts, "ignored"): 3.8, never alone */
+  --tw-ink-2: #9aa6bf;            /* muted: 7.0 */
+  --tw-ink-dark: #030308;         /* on gold and light marks */
+
+  /* Status: state, always with an icon or a word, never colour alone */
+  --tw-ok: #6ee7b7;               /* sure, done, added: 11.2 */
+  --tw-check: #fdba74;            /* "check this": 10.2 */
+  --tw-warn: #fb7185;             /* problems, removed values: 6.4 */
+  --tw-ok-soft: rgba(110, 231, 183, 0.1);
+  --tw-check-soft: rgba(253, 186, 116, 0.1);
+  --tw-warn-soft: rgba(251, 113, 133, 0.1);
+
+  /* Glass. Full effects: see-through + blur. Fallback/light effects: the solid values. */
+  --tw-glass: rgba(15, 15, 35, 0.62);          /* cards */
+  --tw-glass-solid: rgba(12, 12, 30, 0.94);
+  --tw-glass-raised: rgba(11, 11, 30, 0.72);   /* header, sidebar, play bar, dialogs */
+  --tw-glass-raised-solid: rgba(9, 9, 24, 0.96);
+  --tw-glass-overlay: rgba(10, 10, 28, 0.86);  /* bars that float over content: play bar, top bar, toasts */
+  --tw-glass-inset: rgba(22, 22, 58, 0.7);
+  --tw-glass-blur: blur(18px) saturate(140%);
+  --tw-glass-blur-raised: blur(26px) saturate(150%);
+  --tw-glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --tw-glow: 0 16px 48px rgba(67, 56, 202, 0.22);
+  --tw-glow-gold: 0 8px 30px rgba(245, 197, 66, 0.35);
+
+  /* Charts: one hue per chart, a light tip on a deeper base. Worst ratio vs card glass. */
+  --tw-chart-tempo: #818cf8;      /* indigo 5.8 */
+  --tw-chart-tempo-base: #6366f1; /* 3.8 */
+  --tw-chart-missing: #fb7185;    /* rose 6.4 */
+  --tw-chart-missing-base: #e11d48;
+  --tw-chart-formats: #7dd3fc;    /* sky 10.3 */
+  --tw-chart-formats-base: #0ea5e9;
+  --tw-chart-genres: #f5c542;     /* gold 10.6 */
+  --tw-chart-genres-base: #d4a20f;
+  --tw-chart-decades: #c084fc;    /* violet 6.5 */
+  --tw-chart-decades-base: #a855f7;
+  --tw-bar-track: rgba(129, 140, 248, 0.1);
+
+  /* Heat map: one indigo, few -> many (brighter = more). Ink: light on 1-2, dark on 3-6.
+     Ratios: ink 7.5 / 5.1 / 5.4 / 7.5 / 10.4 / 14.6; level 1 vs card 2.2. */
+  --tw-heat-0: rgba(129, 140, 248, 0.06);
+  --tw-heat-1: #4544ab;
+  --tw-heat-2: #5c60c9;
+  --tw-heat-3: #757be7;
+  --tw-heat-4: #8f98ff;
+  --tw-heat-5: #afb9ff;
+  --tw-heat-6: #d6deff;
+  --tw-heat-ink-low: #f8fafc;
+  --tw-heat-ink-high: #0a0a1f;
+
+  /* Shape and motion */
+  --tw-radius-card: 20px;
+  --tw-radius-control: 12px;
+  --tw-radius-small: 8px;
+  --tw-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --tw-fast: 160ms;
+  --tw-slow: 420ms;
+
+  --tw-font-display: "Orbitron", "Inter", system-ui, sans-serif;
+  --tw-font-text: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  color-scheme: dark;
 }
 
-/* --- Light: shared by both themes ---------------------------------------------------------- */
-:root[data-style] {
-  --pico-background-color: #f6f8f8;
-  --pico-color: #1d2b30;                      /* 13.7 on background */
-  --pico-muted-color: #5b6b70;                /* 5.2 on background, 5.6 on cards */
-  --pico-muted-border-color: #e1e8ea;
-  --pico-h1-color: #16323b;
-  --pico-h2-color: #16323b;
-  --pico-h3-color: #1d2b30;
-  --pico-h4-color: #1d2b30;
-  --pico-h5-color: #1d2b30;
-  --pico-h6-color: #1d2b30;
-  --pico-card-background-color: #ffffff;
-  --pico-card-sectioning-background-color: #fafcfc;
-  --pico-card-border-color: #e1e8ea;
-  --pico-card-box-shadow: 0 1px 2px rgba(22, 50, 59, 0.06), 0 2px 8px rgba(22, 50, 59, 0.05);
-  --pico-table-border-color: #e1e8ea;
-  --pico-table-row-stripped-background-color: #f3f7f7;
-  --pico-code-background-color: #eef3f4;
-  --pico-code-color: #264653;
-  --pico-form-element-background-color: #ffffff;
-  --pico-form-element-border-color: #cfdadd;
-  --pico-form-element-color: #1d2b30;
-  --pico-dropdown-background-color: #ffffff;
-  --pico-dropdown-border-color: #e1e8ea;
-  --pico-dropdown-color: #1d2b30;
-  --pico-dropdown-hover-background-color: #eef6f5;
-  --pico-progress-background-color: #e1e8ea;
+/* --- Pico mapping. html carries data-theme="dark" so Pico starts from its dark defaults. ---- */
+:root[data-theme] {
+  --pico-font-family-sans-serif: var(--tw-font-text), var(--pico-font-family-emoji);
+  --pico-font-family: var(--pico-font-family-sans-serif);
+  --pico-border-radius: var(--tw-radius-control);
+  /* Pico grows the text up to 20 px on wide screens; a data-heavy tool reads better a bit denser. */
+  --pico-font-size: 100%;
 
-  --tw-bar-track: #dde7e8;
-  --tw-chip-hover: #eef6f5;
-  --tw-link: #1f7a6f;                         /* 4.8 on background */
-  --tw-check: #a14d00;                        /* "check this" hints: 5.5 on background */
-  --tw-brand-tag: #264653;
-  /* Heat map (Statistics): one teal, few -> many tracks. Ink: text on levels 1-3 / 4-6. */
-  --tw-heat-0: #eef3f4;
-  --tw-heat-1: #d7efeb;
-  --tw-heat-2: #aedfd7;
-  --tw-heat-3: #7ec7bb;
-  --tw-heat-4: #2b8276;
-  --tw-heat-5: #1d6359;
-  --tw-heat-6: #0f433c;
-  --tw-heat-ink-low: #16323b;
-  --tw-heat-ink-high: #ffffff;
-}
+  --pico-background-color: var(--tw-space-0);
+  --pico-color: #e6e9f4;                     /* body text 15.0 on cards */
+  --pico-muted-color: var(--tw-ink-2);
+  --pico-muted-border-color: var(--tw-line);
+  --pico-h1-color: var(--tw-ink);
+  --pico-h2-color: var(--tw-ink);
+  --pico-h3-color: var(--tw-ink);
+  --pico-h4-color: var(--tw-ink);
+  --pico-h5-color: var(--tw-ink);
+  --pico-h6-color: var(--tw-ink);
 
-/* Calm light: one accent, Verdigris */
-:root[data-style="calm"] {
-  --pico-primary: #1f7a6f;
-  --pico-primary-background: #1f7a6f;         /* white text 5.2 */
-  --pico-primary-border: #1f7a6f;
-  --pico-primary-underline: rgba(31, 122, 111, 0.5);
-  --pico-primary-hover: #17695f;
-  --pico-primary-hover-background: #17695f;
-  --pico-primary-hover-border: #17695f;
-  --pico-primary-hover-underline: #17695f;
-  --pico-primary-focus: rgba(42, 157, 143, 0.35);
-  --pico-primary-inverse: #ffffff;
-  --pico-progress-color: #2a9d8f;
-  --tw-chart-tempo: #2a9d8f;                  /* 3.3 */
-  --tw-chart-missing: #2a9d8f;
-  --tw-chart-formats: #2a9d8f;
-  --tw-chart-genres: #2a9d8f;
-  --tw-chart-decades: #2a9d8f;
-  --tw-kpi-1: transparent;
-  --tw-kpi-2: transparent;
-  --tw-kpi-3: transparent;
-  --tw-kpi-4: transparent;
-  --tw-kpi-5: transparent;
-  --tw-brand-tag: #1f7a6f;
-  --tw-brand-bar-1: #ffffff;
-  --tw-brand-bar-2: #ffffff;
-  --tw-brand-bar-3: #ffffff;
-  --tw-brand-bar-4: #ffffff;
-}
+  --pico-primary: var(--tw-indigo-300);       /* links */
+  --pico-primary-underline: rgba(165, 180, 252, 0.45);
+  --pico-primary-hover: var(--tw-indigo-200);
+  --pico-primary-hover-underline: var(--tw-indigo-200);
+  --pico-primary-background: var(--tw-gold);  /* buttons */
+  --pico-primary-border: var(--tw-gold);
+  --pico-primary-hover-background: var(--tw-gold-hover);
+  --pico-primary-hover-border: var(--tw-gold-hover);
+  --pico-primary-inverse: var(--tw-ink-dark);
+  --pico-primary-focus: rgba(245, 197, 66, 0.4);
 
-/* Pop light: the full palette. Light colours are darkened where they must be read. */
-:root[data-style="pop"] {
-  --pico-primary: #1f7a6f;                    /* links: Verdigris, 4.8 */
-  --pico-primary-background: #b8452b;        /* buttons: Burnt Peach, white text 5.4 */
-  --pico-primary-border: #b8452b;
-  --pico-primary-underline: rgba(31, 122, 111, 0.5);
-  --pico-primary-hover: #17695f;
-  --pico-primary-hover-background: #9e3a23;
-  --pico-primary-hover-border: #9e3a23;
-  --pico-primary-hover-underline: #17695f;
-  --pico-primary-focus: rgba(231, 111, 81, 0.35);
-  --pico-primary-inverse: #ffffff;
-  --pico-progress-color: #e76f51;
-  --tw-chart-tempo: #2a9d8f;                  /* Verdigris 3.3 */
-  --tw-chart-missing: #d35539;                /* Burnt Peach, darker: 4.1 */
-  --tw-chart-formats: #d27a2c;                /* Sandy Brown, darker: 3.2 */
-  --tw-chart-genres: #a9851b;                 /* Jasmine, darker: 3.5 */
-  --tw-chart-decades: #264653;                /* Charcoal Blue 10.1 */
-  --tw-kpi-1: #264653;
-  --tw-kpi-2: #2a9d8f;
-  --tw-kpi-3: #e9c46a;
-  --tw-kpi-4: #f4a261;
-  --tw-kpi-5: #e76f51;
-  --tw-brand-tag: #264653;
-  --tw-brand-bar-1: #2a9d8f;
-  --tw-brand-bar-2: #e9c46a;
-  --tw-brand-bar-3: #f4a261;
-  --tw-brand-bar-4: #e76f51;
+  --pico-secondary: var(--tw-ink-2);
+  --pico-secondary-background: var(--tw-space-3);
+  --pico-secondary-border: var(--tw-line);
+  --pico-secondary-hover: var(--tw-ink);
+  --pico-secondary-hover-background: var(--tw-space-4);
+  --pico-secondary-hover-border: var(--tw-line-strong);
+  --pico-secondary-inverse: var(--tw-ink);
+  --pico-secondary-focus: rgba(129, 140, 248, 0.35);
+
+  --pico-card-background-color: var(--tw-glass);
+  --pico-card-sectioning-background-color: rgba(22, 22, 58, 0.35);
+  --pico-card-border-color: var(--tw-line);
+  --pico-card-box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.25);
+
+  --pico-table-border-color: var(--tw-line-soft);
+  --pico-table-row-stripped-background-color: rgba(129, 140, 248, 0.045);
+  --pico-code-background-color: rgba(129, 140, 248, 0.1);
+  --pico-code-color: var(--tw-indigo-200);
+
+  --pico-form-element-background-color: rgba(7, 7, 26, 0.6);
+  --pico-form-element-selected-background-color: var(--tw-space-4);
+  --pico-form-element-border-color: rgba(129, 140, 248, 0.24);
+  --pico-form-element-color: var(--tw-ink);
+  --pico-form-element-placeholder-color: #6f7a96;
+  --pico-form-element-active-background-color: rgba(7, 7, 26, 0.8);
+  --pico-form-element-active-border-color: var(--tw-indigo-400);
+  --pico-form-element-focus-color: rgba(129, 140, 248, 0.35);
+  --pico-switch-background-color: var(--tw-space-4);
+  --pico-switch-checked-background-color: var(--tw-gold);
+  --pico-switch-color: var(--tw-ink);
+  /* Ticks are dark on gold (12.7:1); Pico's default white tick on gold would be 1.6:1. */
+  --pico-icon-checkbox: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(3, 3, 8)' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+  --pico-icon-minus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(3, 3, 8)' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'%3E%3C/line%3E%3C/svg%3E");
+  --pico-range-border-color: var(--tw-space-4);
+  --pico-range-active-border-color: var(--tw-indigo-500);
+  --pico-range-thumb-color: var(--tw-gold);
+  --pico-range-thumb-active-color: var(--tw-gold-hover);
+  --pico-range-thumb-border-color: var(--tw-space-0);
+
+  --pico-dropdown-background-color: var(--tw-glass-raised-solid);
+  --pico-dropdown-border-color: var(--tw-line);
+  --pico-dropdown-color: var(--pico-color);
+  --pico-dropdown-hover-background-color: rgba(129, 140, 248, 0.12);
+  --pico-dropdown-box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+
+  --pico-progress-background-color: var(--tw-space-4);
+  --pico-progress-color: var(--tw-gold);
+  --pico-ins-color: var(--tw-ok);
+  --pico-del-color: var(--tw-warn);
+  --pico-mark-background-color: var(--tw-gold);
+  --pico-mark-color: var(--tw-ink-dark);
+  --pico-modal-overlay-background-color: rgba(3, 3, 8, 0.72);
+  --pico-text-selection-color: rgba(129, 140, 248, 0.35);
+  --pico-tooltip-background-color: var(--tw-space-3);
+  --pico-tooltip-color: var(--tw-ink);
+
+  color-scheme: dark;
 }
 
-/* --- Dark: shared by both themes. Used when the system is dark (unless the user chose light)
-   or when the user chose dark. The two blocks below are identical on purpose. ------------- */
-@media (prefers-color-scheme: dark) {
-  :root[data-style]:not([data-theme="light"]) {
-    --pico-background-color: #0f1f26;
-    --pico-color: #e8eef0;                    /* 14.4 */
-    --pico-muted-color: #9db2ba;              /* 7.6 */
-    --pico-muted-border-color: #27434e;
-    --pico-h1-color: #f1f5f6;
-    --pico-h2-color: #f1f5f6;
-    --pico-h3-color: #e8eef0;
-    --pico-h4-color: #e8eef0;
-    --pico-h5-color: #e8eef0;
-    --pico-h6-color: #e8eef0;
-    --pico-card-background-color: #16303a;
-    --pico-card-sectioning-background-color: #1a3743;
-    --pico-card-border-color: #27434e;
-    --pico-card-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --pico-table-border-color: #27434e;
-    --pico-table-row-stripped-background-color: #183441;
-    --pico-code-background-color: #1b3a46;
-    --pico-code-color: #cfe3e6;
-    --pico-form-element-background-color: #122a33;
-    --pico-form-element-border-color: #2c4b57;
-    --pico-form-element-color: #e8eef0;
-    --pico-dropdown-background-color: #16303a;
-    --pico-dropdown-border-color: #27434e;
-    --pico-dropdown-color: #e8eef0;
-    --pico-dropdown-hover-background-color: #1f3f4b;
-    --pico-progress-background-color: #27434e;
-    --tw-bar-track: #27434e;
-    --tw-chip-hover: #1f3f4b;
-    --tw-link: #4cc0b0;
-    --tw-check: #f4a261;                      /* Sandy Brown, 8.4 */
-    --tw-heat-0: #183441;
-    --tw-heat-1: #1d4448;
-    --tw-heat-2: #215a59;
-    --tw-heat-3: #28766f;
-    --tw-heat-4: #3b9b8e;
-    --tw-heat-5: #74c4b7;
-    --tw-heat-6: #b4e5dc;
-    --tw-heat-ink-low: #e8eef0;
-    --tw-heat-ink-high: #0f1f26;
-  }
-}
-:root[data-style][data-theme="dark"] {
-  --pico-background-color: #0f1f26;
-  --pico-color: #e8eef0;
-  --pico-muted-color: #9db2ba;
-  --pico-muted-border-color: #27434e;
-  --pico-h1-color: #f1f5f6;
-  --pico-h2-color: #f1f5f6;
-  --pico-h3-color: #e8eef0;
-  --pico-h4-color: #e8eef0;
-  --pico-h5-color: #e8eef0;
-  --pico-h6-color: #e8eef0;
-  --pico-card-background-color: #16303a;
-  --pico-card-sectioning-background-color: #1a3743;
-  --pico-card-border-color: #27434e;
-  --pico-card-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --pico-table-border-color: #27434e;
-  --pico-table-row-stripped-background-color: #183441;
-  --pico-code-background-color: #1b3a46;
-  --pico-code-color: #cfe3e6;
-  --pico-form-element-background-color: #122a33;
-  --pico-form-element-border-color: #2c4b57;
-  --pico-form-element-color: #e8eef0;
-  --pico-dropdown-background-color: #16303a;
-  --pico-dropdown-border-color: #27434e;
-  --pico-dropdown-color: #e8eef0;
-  --pico-dropdown-hover-background-color: #1f3f4b;
-  --pico-progress-background-color: #27434e;
-  --tw-bar-track: #27434e;
-  --tw-chip-hover: #1f3f4b;
-  --tw-link: #4cc0b0;
-  --tw-check: #f4a261;                      /* Sandy Brown, 8.4 */
-  --tw-heat-0: #183441;
-  --tw-heat-1: #1d4448;
-  --tw-heat-2: #215a59;
-  --tw-heat-3: #28766f;
-  --tw-heat-4: #3b9b8e;
-  --tw-heat-5: #74c4b7;
-  --tw-heat-6: #b4e5dc;
-  --tw-heat-ink-low: #e8eef0;
-  --tw-heat-ink-high: #0f1f26;
-}
-
-/* Calm dark */
-@media (prefers-color-scheme: dark) {
-  :root[data-style="calm"]:not([data-theme="light"]) {
-    --pico-primary: #4cc0b0;                  /* 6.2 on cards */
-    --pico-primary-background: #2a9d8f;       /* dark text 5.1 */
-    --pico-primary-border: #2a9d8f;
-    --pico-primary-underline: rgba(76, 192, 176, 0.5);
-    --pico-primary-hover: #6fd1c3;
-    --pico-primary-hover-background: #35b0a1;
-    --pico-primary-hover-border: #35b0a1;
-    --pico-primary-hover-underline: #6fd1c3;
-    --pico-primary-inverse: #0f1f26;
-    --tw-brand-tag: #2a9d8f;
-    --tw-brand-bar-1: #0f1f26;
-    --tw-brand-bar-2: #0f1f26;
-    --tw-brand-bar-3: #0f1f26;
-    --tw-brand-bar-4: #0f1f26;
-  }
-}
-:root[data-style="calm"][data-theme="dark"] {
-  --pico-primary: #4cc0b0;
-  --pico-primary-background: #2a9d8f;
-  --pico-primary-border: #2a9d8f;
-  --pico-primary-underline: rgba(76, 192, 176, 0.5);
-  --pico-primary-hover: #6fd1c3;
-  --pico-primary-hover-background: #35b0a1;
-  --pico-primary-hover-border: #35b0a1;
-  --pico-primary-hover-underline: #6fd1c3;
-  --pico-primary-inverse: #0f1f26;
-  --tw-brand-tag: #2a9d8f;
-  --tw-brand-bar-1: #0f1f26;
-  --tw-brand-bar-2: #0f1f26;
-  --tw-brand-bar-3: #0f1f26;
-  --tw-brand-bar-4: #0f1f26;
-}
-
-/* Pop dark: the original palette colours all pass on dark cards. */
-@media (prefers-color-scheme: dark) {
-  :root[data-style="pop"]:not([data-theme="light"]) {
-    --pico-primary: #e9c46a;                  /* links: Jasmine 10.1 */
-    --pico-primary-background: #e76f51;       /* buttons: Burnt Peach, dark text 5.5 */
-    --pico-primary-border: #e76f51;
-    --pico-primary-underline: rgba(233, 196, 106, 0.5);
-    --pico-primary-hover: #f2d68f;
-    --pico-primary-hover-background: #ee8a70;
-    --pico-primary-hover-border: #ee8a70;
-    --pico-primary-hover-underline: #f2d68f;
-    --pico-primary-inverse: #0f1f26;
-    --tw-link: #e9c46a;
-    --tw-chart-tempo: #2a9d8f;                /* 4.2 */
-    --tw-chart-missing: #e76f51;              /* 4.5 */
-    --tw-chart-formats: #f4a261;              /* 6.7 */
-    --tw-chart-genres: #e9c46a;               /* 8.3 */
-    --tw-chart-decades: #8fb8c4;
-    --tw-brand-tag: #2f5866;
-  }
-}
-:root[data-style="pop"][data-theme="dark"] {
-  --pico-primary: #e9c46a;
-  --pico-primary-background: #e76f51;
-  --pico-primary-border: #e76f51;
-  --pico-primary-underline: rgba(233, 196, 106, 0.5);
-  --pico-primary-hover: #f2d68f;
-  --pico-primary-hover-background: #ee8a70;
-  --pico-primary-hover-border: #ee8a70;
-  --pico-primary-hover-underline: #f2d68f;
-  --pico-primary-inverse: #0f1f26;
-  --tw-link: #e9c46a;
-  --tw-chart-tempo: #2a9d8f;
-  --tw-chart-missing: #e76f51;
-  --tw-chart-formats: #f4a261;
-  --tw-chart-genres: #e9c46a;
-  --tw-chart-decades: #8fb8c4;
-  --tw-brand-tag: #2f5866;
-}
+@media (min-width: 1280px) { :root[data-theme] { --pico-font-size: 106.25%; } }

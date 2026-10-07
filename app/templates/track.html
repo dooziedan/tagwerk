@@ -9,7 +9,7 @@
 {% set artist = t.albumartist or t.artist %}
 
 <p><a href="{{ back }}">← Back</a></p>
-<div class="track-head">
+<div class="track-head hero glass">
   <details class="info-pop">
     <summary aria-label="More information: MusicBrainz and Discogs IDs" title="MusicBrainz and Discogs IDs">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg>
@@ -35,7 +35,16 @@
       {% if t.artist %}<a href="/tracks?{{ {'albumartist': artist} | urlencode }}">{{ t.artist }}</a>{% else %}<span class="muted">Unknown artist</span>{% endif %}
       {% if t.album %} · <a href="/tracks?{{ {'albumartist': artist, 'album': t.album, 'sort': 'album'} | urlencode }}">{{ t.album }}</a>{% endif %}
     </p>
-    <p class="muted"><small><code>{{ t.path }}</code></small></p>
+    <p><span class="path-chip">{{ t.path }}</span></p>
+    {% if not t.error %}
+    {# At a glance, like a deck's display. #}
+    <div class="deck" aria-label="At a glance">
+      <div class="deck-cell"><span class="eyebrow">BPM</span><span class="deck-n">{{ (t.bpm | bpm) if t.bpm else "–" }}</span></div>
+      <div class="deck-cell"><span class="eyebrow">Key</span><span class="deck-n">{% if t.key_camelot %}<span class="key-dot" style="--k: {{ key_colour(t.key_camelot) }}" title="Camelot colour"></span>{{ key_label(t.key_camelot, n) }}{% else %}–{% endif %}</span></div>
+      <div class="deck-cell"><span class="eyebrow">Length</span><span class="deck-n">{{ t.duration | mmss }}</span></div>
+      <div class="deck-cell"><span class="eyebrow">Format</span><span class="deck-n">{{ t.format | upper }}</span>{% if t.bitrate %}<small>{{ (t.bitrate / 1000) | round | int }} kbps</small>{% endif %}</div>
+    </div>
+    {% endif %}
     {% if t.error %}<p>⚠️ Could not be read: <code>{{ t.error }}</code></p>{% endif %}
     {% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
     {% if job.running or (unmarking and job.progress.action == "unfinal") %}{% include "partials/write_status.html" %}{% endif %}

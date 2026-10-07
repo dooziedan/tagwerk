@@ -102,7 +102,7 @@ Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bi
 2. **Apply ticked changes** ✅: tick the pending changes to apply or discard; unticked ones stay pending.
 3. **Duplicates in the library**: find tracks that are in the library more than once, with the same rules as the inbox ([ADR 0011](decisions/0011-inbox-duplicates-and-trash.md): identical file, a trusted MusicBrainz recording ID, or the same artist and title with the mix name and about the same length). A list of groups with the copies side by side (path, format, bitrate, length, size, tags, final mark), each linking to its tracks, plus a number on Home/Statistics. Tagwerk only points them out: it never deletes library files, and "not a duplicate" can be remembered so a pair isn't shown again. An ADR.
 4. **Hardening on the real library**: scans, Statistics, Home, Tagwerk's work and analysis at full size (speed, memory, caching where needed); WAV/AIFF tags compared with Navidrome; a test that upgrades an old database through every migration; a complete Unraid template (Analysis Workers, Original Files …).
-5. **Visual rebrand**, the face of 1.0 (see below).
+5. **Visual rebrand** ✅, the face of 1.0 (see below), done early at the owner's request ([ADR 0021](decisions/0021-night-sky-rebrand.md)).
 6. **README** with screenshots of the new look, a short "first steps" guide; release `v1.0.0`.
 
 

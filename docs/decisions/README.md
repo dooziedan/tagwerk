@@ -39,3 +39,4 @@ What gets easier, what gets harder.
 | [0018](0018-musicbrainz-and-discogs-ids.md) | Fixing MusicBrainz ID fields; Discogs IDs in their own fields | Accepted |
 | [0019](0019-home-and-statistics.md) | Home and Statistics instead of one dashboard | Accepted |
 | [0020](0020-tagwerks-work.md) | Tagwerk's work, and recording where values came from | Accepted |
+| [0021](0021-night-sky-rebrand.md) | The night-sky look (visual rebrand), replaces Calm and Pop | Accepted |

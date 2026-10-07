@@ -34,7 +34,7 @@ def test_single_edit_review_apply_and_undo(client, music_dir):
 
     review = client.get("/changes").text
     assert "Silent Track" in review and "Edited" in review and "130" in review
-    assert ">Changes <span" in client.get("/").text  # menu badge
+    assert 'Changes</span><span class="count-badge"' in client.get("/").text  # menu badge
     assert read_file(music_dir / ALBUM / "tagged.mp3").title == "Silent Track"  # not written yet
 
     # First apply needs the backup confirmation.

@@ -45,8 +45,7 @@ def test_settings_api(client):
         "mode": "collector",
         "key_notation": "camelot",
         "show_musicbrainz": False,
-        "style": "calm",
-        "appearance": "system",
+        "effects": "full",
         "backup_confirmed": False,
         "setup_done": True,  # set by the client fixture (tests/conftest.py)
         "folder_layout": "genre",
@@ -112,17 +111,15 @@ def test_migrations_match_models(engine):
 
 
 def test_the_menu_shows_where_you_are(client):
-    """The page's menu entry is marked: Home on the start page, Library for its pages."""
+    """The sidebar marks the page you're on (Home on the start page, Tracks on a track page)."""
     page = client.get("/").text
-    assert 'aria-label="Tagwerk, home" aria-current="page">' in page  # the logo leads home
-    assert ">Home</a>" not in page  # no separate Home link
+    assert '<a class="nav" href="/" aria-current="page">' in page
     assert "<title>Home · Tagwerk</title>" in page
-    assert '<a href="/stats" aria-current="page">Statistics</a>' in client.get("/stats").text
+    assert '<a class="nav" href="/stats" aria-current="page">' in client.get("/stats").text
     tracks = client.get("/tracks").text
-    assert '<summary class="current">' in tracks
-    assert '<a href="/tracks" aria-current="page">Tracks</a>' in tracks
-    assert 'home" aria-current="page"' not in tracks
-    assert '<a href="/settings" aria-current="page">Settings</a>' in client.get("/settings").text
+    assert '<a class="nav" href="/tracks" aria-current="page">' in tracks
+    assert '<a class="nav" href="/" aria-current="page">' not in tracks
+    assert '<a class="nav" href="/settings" aria-current="page">' in client.get("/settings").text
 
 
 def test_home_shows_what_needs_you_and_recent_tracks(client):

@@ -1,4 +1,6 @@
 # 0008: Two themes from one palette, contrast-checked tokens, no newer CSS
+
+> Superseded by [0021](0021-night-sky-rebrand.md): one night-sky look replaces Calm and Pop. Contrast-checked tokens and "no newer CSS for essentials" still apply.
 Date: 2026-10-04 · Status: Accepted
 
 ## Context
