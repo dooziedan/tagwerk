@@ -11,7 +11,7 @@ from app.config import SettingsDep
 from app.db import SessionDep
 from app.genres import DEFAULT_MAP, GenreMap
 from app.keys import NOTATIONS
-from app.preferences import APPEARANCES, MODES, STYLES, Preferences, PreferencesDep
+from app.preferences import EFFECTS, MODES, Preferences, PreferencesDep
 from app.routes.setup import apply_choices, choices_context
 from app.templating import templates
 
@@ -62,8 +62,7 @@ def _settings_page(request, prefs, settings, session, saved=False, errors=None, 
             "prefs": prefs,
             "modes": MODES,
             "notations": NOTATIONS,
-            "styles": STYLES,
-            "appearances": APPEARANCES,
+            "effects": EFFECTS,
             "saved": saved,
             "online": [
                 {
@@ -160,8 +159,7 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
         mode=form.get("mode", prefs.mode),
         key_notation=form.get("key_notation", prefs.key_notation),
         show_musicbrainz=form.get("show_musicbrainz") == "on",  # unchecked boxes aren't sent
-        style=form.get("style", prefs.style),
-        appearance=form.get("appearance", prefs.appearance),
+        effects=form.get("effects", prefs.effects),
     )
     preferences.save(session, updated)
     return RedirectResponse("/settings?saved=true", status_code=303)

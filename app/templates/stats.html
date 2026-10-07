@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import bars, kpi_value %}
+{% from "macros.html" import bars, kpi_value, ring %}
 {% block title %}Statistics · Tagwerk{% endblock %}
 {% block content %}
 
@@ -34,8 +34,10 @@
 {# Boxes are defined once, then arranged per mode: missing tags first, genres last. #}
 {% set missing_box %}
   <article>
-    <header><strong>Missing tags</strong> <small class="muted">share of readable tracks</small></header>
-    {{ bars(stats.missing, tone="missing") }}
+    <header><strong>Missing tags</strong> <small class="muted">ring = share of readable tracks that have the tag</small></header>
+    <div class="rings">
+      {% for m in stats.missing %}<a class="ring-item"{% if m.url %} href="{{ m.url }}"{% endif %} title="{{ m.label }}: {{ m.count | plural('track') }} without it ({{ m.percent }}%)">{{ ring(100 - m.percent, "missing" if m.percent > 50 else ("ok" if m.count == 0 else "tempo")) }}<span class="ring-name">{{ m.label }}</span><span class="ring-count">{{ m.count | number }} missing</span></a>{% endfor %}
+    </div>
     <footer>
       <ul class="notes">
         <li><a href="/tracks?flag=untagged">{{ stats.untagged | plural('file') }}</a> without any tags.</li>

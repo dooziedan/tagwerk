@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 from fastapi.templating import Jinja2Templates
 
 from app import __version__, writer
-from app.charts import key_wheel
+from app.charts import camelot_colour, key_wheel
 from app.keys import NOTATIONS, display, to_camelot
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -146,6 +146,7 @@ templates.env.globals.update(
     version=__version__,
     key_notations=NOTATIONS,
     key_wheel=key_wheel,
+    key_colour=lambda code: camelot_colour(int(code[:-1]), code[-1], 1)[0] if code else "",
     key_label=display,
     key_code=to_camelot,  # key_code("Am") -> "8A"  # key_label("8A", "musical") -> "Am"
     page_url=page_url,

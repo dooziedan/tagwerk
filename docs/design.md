@@ -1,52 +1,73 @@
-# Design language
+# Design language: the night sky
 
-Tagwerk is calm and functional: a well-made tool for looking after a music library. Two themes, chosen in **Settings → Theme**, each in light and dark (**Settings → Appearance**: follow system, light, dark).
-
-| | **Calm** (default) | **Pop** |
-|---|---|---|
-| Idea | One accent colour, quiet and focused | The full palette, every section has its own colour |
-| Buttons | Verdigris | Burnt Peach |
-| Links | Verdigris | Verdigris (light), Jasmine (dark) |
-| Charts | all Verdigris | tempo Verdigris, missing tags Burnt Peach, formats Sandy Brown, genres Jasmine, decades Charcoal Blue |
-| Headline tiles | plain | colour stripe per tile |
-
-## Typography
-
-**Inter** (v4.1, [rsms/inter](https://github.com/rsms/inter)), shipped inside the app as a variable font (`app/static/fonts/`, all weights, plus italic), so it looks the same on every device and nothing loads from the internet. Licence: SIL Open Font License, included as `Inter-LICENSE.txt`. Stylistic set `cv11` (single-storey "a") for a calmer look. Numbers in tables and tiles use tabular figures so columns line up. Tag values and paths keep the system monospace font.
+Tagwerk looks like a clear night over a festival campsite: a deep black-blue sky with slowly
+drifting stars, indigo light for lines and charts, and **one warm gold** for what you press.
+Inspired by Orbit Stage (the owner's drum & bass collective), with SoulSync's page structure and
+a touch of glass. Decision record: [ADR 0021](decisions/0021-night-sky-rebrand.md).
+**One dark look**; Settings → Effects only chooses Full or Lighter.
 
 ## Palette
+All values are tokens in [`app/static/theme.css`](../app/static/theme.css) (Pico's `--pico-*`
+plus Tagwerk's `--tw-*`). Pages never hard-code colours. Ratios are the worst case: the colour on
+a glass card over the brightest part of the nebula.
 
-| Name | Hex | Used for |
-|---|---|---|
-| Charcoal Blue | `#264653` | brand, headings, dark backgrounds (`#0f1f26`, cards `#16303a`) |
-| Verdigris | `#2A9D8F` | the Calm accent, charts |
-| Jasmine | `#E9C46A` | Pop accent (links in dark mode, genres) |
-| Sandy Brown | `#F4A261` | Pop accent (formats) |
-| Burnt Peach | `#E76F51` | Pop buttons, missing tags |
+| Token | Value | Used for | Ratio |
+|---|---|---|---|
+| `--tw-space-0` | `#030308` | the sky | |
+| `--tw-space-2` | `#0f0f23` | cards (glass at 62 %, solid fallback) | |
+| `--tw-space-4` | `#1e1b4b` | bar tracks, selected rows, empty keys | |
+| `--tw-indigo-400` | `#818cf8` | lines, focus, default chart colour | 5.8 |
+| `--tw-indigo-300` | `#a5b4fc` | links | 8.6 |
+| `--tw-gold` | `#f5c542` | buttons (dark text 12.7), current page, final | 10.6 |
+| `--tw-ink` / `--pico-color` | `#f8fafc` / `#e6e9f4` | titles / running text | 16.4 / 15.0 |
+| `--tw-ink-2` | `#9aa6bf` | muted text | 7.0 |
+| `--tw-ok` · `--tw-check` · `--tw-warn` | `#6ee7b7` · `#fdba74` · `#fb7185` | sure · check this · problem (always with a word) | 11.2 · 10.2 · 6.4 |
 
-All values live in [`app/static/theme.css`](../app/static/theme.css) as CSS variables (Pico's `--pico-*` plus Tagwerk's `--tw-*`). Pages never hard-code colours.
+Charts use **one hue per chart**, a deeper base fading into a light tip: tempo and growth indigo,
+missing tags rose, formats sky, genres gold, decades violet. Values are always printed. The heat
+map is one indigo from dark (few) to light (many), with light ink on levels 1–2 and dark ink on
+3–6 (all ≥ 5:1).
 
-## Contrast rules
+## Type
+- **Inter** (OFL, `fonts/InterVariable.woff2`) for everything that is read: text, card titles,
+  menus, buttons, tables, numbers (tabular figures), tag values. Stylistic set `cv11`.
+- **Orbitron** (OFL, `fonts/Orbitron.woff2`, shipped unmodified) for the wordmark and page titles
+  only: big, short, uppercase, Tagwerk's own words. Never for track titles or other tag values,
+  never below 1.25 rem. Readability comes first.
+- Small uppercase labels ("eyebrows") with letter spacing sit above or below numbers.
 
-- Text at least **4.5:1**, chart marks at least **3:1** against their background. Measured ratios are noted next to each value in `theme.css`.
-- Light colours (Jasmine, Sandy Brown) are too pale on white. In light mode, readable uses get darker steps: `#A9851B`, `#D27A2C`, `#D35539`, `#1F7A6F`.
-- One chart = one colour. Colours never have to be told apart within a chart; values are always printed next to bars.
-
-## Camelot wheel
-
-The key wheel uses the **standard Camelot colours in every theme** (hue running clockwise from 1 aqua-green through orange at 5 and blue at 10 to cyan at 12), minor lighter than major, empty keys grey. Shades are tuned so the dark labels reach 4.5:1 on every segment; a test checks all 24.
-
-## Logo
-
-A luggage tag (pointed left, with a punched hole) holding four level bars: [`app/static/logo.svg`](../app/static/logo.svg). Pop: Charcoal Blue tag with palette-coloured bars. Calm: Verdigris tag with plain bars. Also exported as favicon, Apple touch icon and the Unraid icon (`unraid/tagwerk-icon.png`).
+## Sky, glass and motion
+- The sky (`sky.css`, generated by `scripts/make_sky.py`): nebula glows and
+  three layers of `box-shadow` stars at different depths. It lives outside `#page`, so page swaps
+  never restart it. `sky.js` adds depth on pointer and scroll and a short warp on page change.
+- **Movement only on intent**: hover lifts and glows, the page-change warp. Ambient motion is
+  limited to the slow drift, breathing stars and slow orbits in Home's header.
+- Glass: cards and page heads are smoked glass; sidebar, play bar, menus and dialogs frosted.
+  `backdrop-filter` (+ `-webkit-`) only inside `@supports`, always over a solid fallback. Bars
+  that float over content (play bar, top bar, toasts) stay opaque enough to read without blur.
+- **Lighter effects** (`<html data-effects="light">`): no blur, drift, twinkle or glow.
+  `prefers-reduced-motion`: a still sky. Forced colours: plain surfaces with borders.
 
 ## Building blocks
+Pico CSS provides the base; `app/static/app.css` adds Tagwerk's pieces: the shell (sidebar, top
+bar), page heads (glass hero with a rising planet), headline tiles (`.kpi`), hero numbers, ring
+gauges (`macros.html` → `ring()`), bar beams (`bars(..., tone=…)`), column charts, heat map, key
+wheel, cover cards with planet placeholders, task lists, chips, status pills, the track page's
+deck readout, notices, toasts, the play bar.
 
-Pico CSS provides the base components; `app/static/app.css` adds Tagwerk's: headline tiles (`.kpi`), bar lists (`macros.html` → `bars(..., tone=…)`), chips (`.chip`), badges (`.badge`), the key wheel, track tables, the brand mark.
+## Camelot wheel
+Standard Camelot colours (hue clockwise from 1 aqua-green through orange at 5 and blue at 10),
+minor lighter than major; empty keys dark (`#1e1b4b`, label `#9aa6bf`, 6.5:1). A test checks
+every segment's label contrast.
+
+## Logo
+The luggage tag (pointed left, punched hole) with four level bars, in the indigo planet gradient
+(`#f8fafc → #a5b4fc → #6366f1 → #4338ca`) with dark bars: [`logo.svg`](../app/static/logo.svg).
+The favicon, Apple touch icon and Unraid icon put it on a night-blue rounded square.
 
 ## Browser support
-
-Must work in current Chrome/Edge/Brave, Firefox and **Safari**.
-
-- **No `color-mix()`** or similar newer CSS for anything essential: the owner's Safari didn't apply it (white-on-white wheel in v0.3.1). Chart colours are SVG attributes.
-- Every release is checked with [`scripts/screenshots.py`](../scripts/screenshots.py): the main pages in Chromium, Firefox and WebKit (Safari's engine), both themes, light and dark, desktop and phone, failing on browser errors.
+Current Chrome/Edge/Brave, Firefox and **Safari**. No `color-mix()` or other newer CSS for
+anything essential (chart colours are SVG attributes); glass, gradient text and glows are
+decoration with fallbacks. Every release is checked with
+[`scripts/screenshots.py`](../scripts/screenshots.py): all main pages in Chromium, Firefox and
+WebKit, desktop and phone, failing on browser errors.

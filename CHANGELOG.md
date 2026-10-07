@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-07
+
+### Changed
+- **A new look: the night sky.** Tagwerk now looks like a clear night: a deep black-blue sky with slowly drifting stars, indigo light for lines and charts, and gold for what you press. Inspired by Orbit Stage, with glass panels and a sidebar that shows every page, grouped into Library, Work and System (a floating glass bar with a menu on phones). Page headers are glass panels with a planet rising at the bottom edge; Home greets you, shows set-ready as a planet with orbits and recently added tracks as cover cards (tracks without art get their own little planet); Statistics shows missing tags as rings; the track page has a deck-style readout of BPM, key, length and format. Bars glow like thin beams, one colour per chart. Big page titles use the Orbitron font; everything you read stays in Inter.
+- **Settings → Effects** replaces Theme and Appearance: Full, or Lighter (no blur, drifting stars or glow) for weak devices. Calm, Pop and light mode are gone. "Reduce motion" in your system gives a still sky.
+- The key wheel keeps the standard Camelot colours; empty keys are now dark instead of grey.
+- New logo colours (the same tag, in indigo) for the favicon, Apple touch icon and Unraid icon.
+
 ## [0.11.0] - 2026-10-07
 
 ### Added
@@ -12,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Tagwerk now records **where each changed value came from**: you, the audio, online, the filename, a clean-up, Fix IDs or the private-data removal. The Changes page and the History show it under the field name, and Tagwerk's work shows the share of each. Changes applied before this version count as "source unknown".
 
 - **Tick the changes to apply** on the Changes page: every pending change has a tick box (all ticked to start with, one box per track for all its changes, plus Tick all / Untick all). **Apply** and **Discard** only act on the ticked changes; the others stay pending. The API takes `change_ids` too.
+
 
 ### Changed
 - **Library growth** on Statistics shows tracks added per month and per year side by side, both as column charts.

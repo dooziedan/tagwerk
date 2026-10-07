@@ -1,30 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Settings · Tagwerk{% endblock %}
 {% block content %}
-<h1>Settings</h1>
+<div class="page-head"><div><h1>Settings</h1><p class="muted page-sub">How Tagwerk looks and works.</p></div></div>
 {% if saved %}<p role="status">✅ Saved.</p>{% endif %}
 
-<form method="post" action="/settings">
+<form method="post" action="/settings" class="glass panel">
   <fieldset>
-    <legend><strong>Theme</strong></legend>
-    {% for value, label in styles.items() %}
+    <legend><strong>Effects</strong></legend>
+    {% for value, label in effects.items() %}
     <label>
-      <input type="radio" name="style" value="{{ value }}" {% if prefs.style == value %}checked{% endif %}>
+      <input type="radio" name="effects" value="{{ value }}" {% if prefs.effects == value %}checked{% endif %}>
       {{ label }}
     </label>
     <p class="option-hint muted">
-      {% if value == "calm" %}One accent colour, quiet and focused.{% else %}The full colour palette: every section gets its own colour.{% endif %}
+      {% if value == "full" %}The night sky with slowly drifting stars, glass and glow.{% else %}No blur, no drifting stars, no glow: for weak devices, or if scrolling stutters.{% endif %}
     </p>
-    {% endfor %}
-  </fieldset>
-
-  <fieldset>
-    <legend><strong>Appearance</strong></legend>
-    {% for value, label in appearances.items() %}
-    <label>
-      <input type="radio" name="appearance" value="{{ value }}" {% if prefs.appearance == value %}checked{% endif %}>
-      {{ label }}
-    </label>
     {% endfor %}
   </fieldset>
 

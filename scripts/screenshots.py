@@ -28,9 +28,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ENGINES = ("chromium", "firefox", "webkit")
-SCHEMES = ("light", "dark")
+SCHEMES = ("dark",)  # one dark look since 1.0 (ADR 0021)
 DEVICES = {"desktop": {"width": 1280, "height": 900}, "phone": {"width": 390, "height": 844}}
-STYLES = ("calm", "pop")
 
 
 def put_settings(base: str, **changes) -> None:
@@ -89,8 +88,8 @@ def main(base: str, out: Path) -> int:
     errors: list[str] = []
     count = 0
     with sync_playwright() as p:
-        for style in STYLES:
-            put_settings(base, style=style, appearance="system", mode="dj")
+        put_settings(base, mode="dj")
+        for style in ("night",):
             for engine in ENGINES:
                 browser = getattr(p, engine).launch()
                 for scheme in SCHEMES:
@@ -113,7 +112,6 @@ def main(base: str, out: Path) -> int:
                         context.close()
                 browser.close()
                 print(f"{style:5} {engine:9} done", flush=True)
-    put_settings(base, style="calm", appearance="system")
 
     print(f"{count} screenshots in {out}")
     for error in errors:

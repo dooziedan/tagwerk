@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import kpi_value, play_button %}
+{% from "macros.html" import play_button, nav_icon, brand_mark, ring %}
 {% block title %}Home · Tagwerk{% endblock %}
 {% block content %}
 {# What needs you now; the charts are on Statistics (app/home.py). #}
@@ -21,12 +21,39 @@
 </article>
 {% endif %}
 
-<div class="page-head">
-  <div>
-    <h1>Home</h1>
-    {% if home %}<p class="muted page-sub">What needs you, and what's new · {% if prefs.mode == "dj" %}DJ{% else %}Collector{% endif %} mode</p>{% endif %}
+{% set dj = prefs.mode == "dj" %}
+<div class="page-head home-head">
+  <div class="home-hero-text">
+    <span class="pill-eyebrow">{% if dj %}DJ{% else %}Collector{% endif %} mode</span>
+    <h1 id="greeting">Home</h1>
+    {# The greeting follows the browser's clock; without JavaScript it stays "Home". #}
+    <script>(function () { const h = new Date().getHours(); document.getElementById("greeting").textContent = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; })();</script>
+    {% if home %}<p class="muted page-sub">What needs you, and what's new in your library.</p>{% endif %}
+    {% if home and home.tracks %}
+    <section class="hero-stats" aria-label="Your library">
+      <a class="hero-stat" href="/tracks"><span class="n">{{ home.tracks | number }}</span><span class="l">Tracks</span></a>
+      {% set dur = (home.duration | duration ~ "").split(" ", 1) %}
+      <span class="hero-stat"><span class="n">{{ dur[0] }}{% if dur | length > 1 %}<small>{{ dur[1] }}</small>{% endif %}</span><span class="l">Playing time</span></span>
+      <a class="hero-stat" href="{{ home.added_this_month_url }}"><span class="n">{{ home.added_this_month | number }}</span><span class="l">Added this month</span></a>
+    </section>
+    {% endif %}
+    <div class="hero-actions">{% include "partials/scan_status.html" %}</div>
   </div>
-  {% include "partials/scan_status.html" %}
+  {% if home and home.tracks %}
+  <div class="orbits">
+    <div class="o o3" aria-hidden="true"><i></i></div>
+    <div class="o o2" aria-hidden="true"><i></i></div>
+    <div class="o o1" aria-hidden="true"><i></i></div>
+    {% if dj %}
+    <a class="core gauge-planet" href="/tracks?flag=set_ready" title="Title, artist, genre, BPM, key and cover tagged">
+      {{ ring(home.set_ready_percent, "genres", 168, 7, "") }}
+      <span class="n">{{ home.set_ready_percent }}<small>%</small></span><span class="l">Set-ready</span>
+    </a>
+    {% else %}
+    <span class="core gauge-planet" aria-hidden="true">{{ brand_mark(84, "home") }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 
 {% if home is none %}
@@ -36,71 +63,72 @@
   <p><strong>No tracks yet.</strong> Click <em>Scan library</em> to read your music folder. Scanning only reads your files, it never changes them.</p>
 </article>
 {% else %}
-{% set dj = prefs.mode == "dj" %}
-<section class="kpis" aria-label="Your library">
-  <a class="kpi-link" href="/tracks"><article class="kpi"><span class="kpi-value">{{ home.tracks | number }}</span><span class="kpi-label">Tracks</span></article></a>
-  <article class="kpi">{{ kpi_value(home.duration | duration) }}<span class="kpi-label">Playing time</span></article>
-  {% if dj %}<a class="kpi-link" href="/tracks?flag=set_ready"><article class="kpi" title="Title, artist, genre, BPM, key and cover tagged"><span class="kpi-value">{{ home.set_ready_percent }}%</span><span class="kpi-label">Set-ready</span></article></a>{% endif %}
-  <a class="kpi-link" href="{{ home.added_this_month_url }}"><article class="kpi"><span class="kpi-value">{{ home.added_this_month | number }}</span><span class="kpi-label">Added this month</span></article></a>
-</section>
 
-{% if work %}<p class="work-line">✨ Tagwerk has written <a href="/stats#work">{{ work[0] | plural('tag value') }} to {{ work[1] | plural('track') }}</a> so far.</p>{% endif %}
+{% if work %}<p class="work-pill"><span class="spark">{{ nav_icon("spark") }}</span><span>Tagwerk has written <a href="/stats#work">{{ work[0] | plural('tag value') }} to {{ work[1] | plural('track') }}</a> so far.</span></p>{% endif %}
 
-<div class="grid-2">
-  <article>
-    <header><strong>Waiting for you</strong></header>
-    {% set busy = analysis_job.running or identify_job.running or write_job.running %}
-    {% if not (inbox and inbox.total) and not pending and not folders and not busy %}
-    <p class="muted">Nothing waiting. ✓</p>
-    {% endif %}
-    <ul class="notes home-list">
-      {% if inbox and inbox.total %}
-      <li>📥 <a href="/inbox">{{ inbox.total | plural('track') }} in the inbox</a>{% if inbox.ready or inbox.help %}:
-        {% if inbox.ready %}<a href="/inbox?show=ready">{{ inbox.ready | number }} ready to import</a>{% endif %}{% if inbox.ready and inbox.help %}, {% endif %}
-        {% if inbox.help %}<a href="/inbox?show=help">{{ inbox.help | number }} need your help</a>{% endif %}{% endif %}</li>
+<div class="with-rail">
+  <div class="stack">
+    <article>
+      <header class="card-head"><span><strong>Recently added</strong> <small>newest first</small></span><a href="/stats#growth" class="small-link">Growth and statistics →</a></header>
+      {% if home.recent %}
+      <div class="covers">
+        {% for t in home.recent %}
+        {% set name = t.title or t.path.rsplit("/", 1)[-1] %}
+        <div class="cover-card">
+          <div class="art-wrap">
+            <a class="art" href="/tracks/{{ t.id }}" aria-label="{{ name }}">
+              {% if t.has_cover %}<img src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="" loading="lazy">
+              {% else %}<span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((t.artist or name) | length) % 8] }}"><i></i><b></b><em></em></span>{% endif %}
+              {% if dj and t.key_camelot %}<span class="key-chip" style="background: {{ key_colour(t.key_camelot) }}">{{ key_label(t.key_camelot, prefs.key_notation) }}</span>{% endif %}
+            </a>
+            {% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}
+          </div>
+          <div>
+            <a class="t" href="/tracks/{{ t.id }}">{{ name }}</a>
+            <span class="a">{{ t.artist or "Unknown artist" }}</span>
+            <span class="m">{% if dj and t.bpm %}{{ t.bpm | bpm }} BPM · {% endif %}{{ t.genre or "no genre" }} · <time data-local data-date-only datetime="{{ t.added_at | isoutc }}">{{ t.added_at | isoutc }}</time></span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">Nothing yet.</p>{% endif %}
+    </article>
+
+    <article>
+      <header><strong>Worth a look</strong> <small>things Tagwerk noticed</small></header>
+      {% if home.problems %}
+      <ul class="task-list">
+        {% for p in home.problems %}
+        <li><span class="ic{% if p.warn %} check{% endif %}">{{ nav_icon("alert" if p.warn else "fields") }}</span><span class="grow"><a href="{{ p.url }}">{{ p.count | plural(p.noun) }} {{ p.text }}</a>{% if p.hint %}<small>{{ p.hint }}</small>{% endif %}</span><span class="go">{{ nav_icon("chevron") }}</span></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-note">{{ nav_icon("check") }} Nothing to fix.</p>
       {% endif %}
-      {% if pending %}<li>✏️ <a href="/changes">{{ pending | plural('pending change') }}</a> to review and apply</li>{% endif %}
-      {% if folders %}<li>📁 <a href="/changes">{{ folders | plural('new genre folder') }}</a> proposed</li>{% endif %}
-      {% if write_job.running %}<li><span aria-busy="true">Writing tags…</span> <a href="/changes/history">History</a></li>{% endif %}
-      {% if identify_job.running %}<li><span aria-busy="true">Looking up online: {{ identify_job.progress.processed }} of {{ identify_job.progress.total }}</span></li>{% endif %}
-    </ul>
-    {% with job = analysis_job %}{% include "partials/analysis_status.html" %}{% endwith %}
-  </article>
-  <article>
-    <header><strong>Worth a look</strong></header>
-    {% if home.problems %}
-    <ul class="notes home-list">
-      {% for p in home.problems %}
-      <li>{% if p.warn %}⚠️ {% endif %}<a href="{{ p.url }}">{{ p.count | plural(p.noun) }} {{ p.text }}</a>{% if p.hint %} <small class="muted">· {{ p.hint }}</small>{% endif %}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="muted">Nothing to fix. ✓</p>
-    {% endif %}
-  </article>
-</div>
-
-<article>
-  <header><strong>Recently added</strong> <small class="muted">newest first</small></header>
-  {% if home.recent %}
-  <div class="overflow-auto">
-  <table class="striped recent-table">
-    <thead><tr><th scope="col"><span class="visually-hidden">Play</span></th><th scope="col">Track</th>{% if dj %}<th scope="col" class="num">BPM</th><th scope="col">Key</th>{% endif %}<th scope="col">Genre</th><th scope="col">Added</th></tr></thead>
-    <tbody>
-      {% for t in home.recent %}
-      <tr>
-        <td>{% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}</td>
-        <td><a href="/tracks/{{ t.id }}">{{ t.title or t.path.rsplit("/", 1)[-1] }}</a>{% if t.artist %}<br><small class="muted">{{ t.artist }}</small>{% endif %}</td>
-        {% if dj %}<td class="num">{{ t.bpm | bpm }}</td><td>{{ key_label(t.key_camelot, prefs.key_notation) if t.key_camelot else "" }}</td>{% endif %}
-        <td>{{ t.genre or "" }}</td>
-        <td><time data-local datetime="{{ t.added_at | isoutc }}">{{ t.added_at | isoutc }}</time></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    </article>
   </div>
-  <p><a href="/stats#growth">Library growth and all statistics →</a></p>
-  {% else %}<p class="muted">Nothing yet.</p>{% endif %}
-</article>
+
+  <div class="stack rail">
+    <article>
+      <header><strong>Waiting for you</strong></header>
+      {% set busy = analysis_job.running or identify_job.running or write_job.running %}
+      {% if not (inbox and inbox.total) and not pending and not folders and not busy %}
+      <p class="empty-note">{{ nav_icon("check") }} Nothing waiting.</p>
+      {% endif %}
+      <ul class="task-list">
+        {% if inbox and inbox.total %}
+        <li><span class="ic gold">{{ nav_icon("inbox") }}</span><span class="grow"><a href="/inbox">{{ inbox.total | plural('track') }} in the inbox</a>{% if inbox.ready or inbox.help %}<small>
+          {% if inbox.ready %}<a href="/inbox?show=ready" class="ok-link">{{ inbox.ready | number }} ready to import</a>{% endif %}{% if inbox.ready and inbox.help %} · {% endif %}
+          {% if inbox.help %}<a href="/inbox?show=help" class="check-link">{{ inbox.help | number }} need your help</a>{% endif %}</small>{% endif %}</span><span class="count-badge">{{ inbox.total }}</span></li>
+        {% endif %}
+        {% if pending %}<li><span class="ic gold">{{ nav_icon("changes") }}</span><span class="grow"><a href="/changes">{{ pending | plural('pending change') }}</a><small>to review and apply</small></span><span class="count-badge">{{ pending }}</span></li>{% endif %}
+        {% if folders %}<li><span class="ic">{{ nav_icon("folder") }}</span><span class="grow"><a href="/changes">{{ folders | plural('new genre folder') }}</a><small>proposed</small></span></li>{% endif %}
+        {% if write_job.running %}<li><span class="ic">{{ nav_icon("edit") }}</span><span class="grow"><span aria-busy="true">Writing tags…</span> <a href="/changes/history">History</a></span></li>{% endif %}
+        {% if identify_job.running %}<li><span class="ic">{{ nav_icon("scan") }}</span><span class="grow"><span aria-busy="true">Looking up online: {{ identify_job.progress.processed }} of {{ identify_job.progress.total }}</span></span></li>{% endif %}
+      </ul>
+      {% with job = analysis_job %}{% include "partials/analysis_status.html" %}{% endwith %}
+    </article>
+  </div>
+</div>
 {% endif %}
 {% endblock %}

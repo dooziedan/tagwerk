@@ -19,14 +19,10 @@ MODES = {
     "collector": "Collector",
 }
 
-STYLES = {
-    "calm": "Calm",
-    "pop": "Pop",
-}
-APPEARANCES = {
-    "system": "Follow system",
-    "light": "Light",
-    "dark": "Dark",
+# The night-sky look (ADR 0021): full effects, or lighter ones for weak devices.
+EFFECTS = {
+    "full": "Full",
+    "light": "Lighter",
 }
 
 # Where imported tracks go (only folders: filenames never change on import).
@@ -44,8 +40,7 @@ AUTOMATIONS = {
 
 Mode = Literal["dj", "collector"]
 KeyNotation = Literal["camelot", "openkey", "musical"]
-Style = Literal["calm", "pop"]
-Appearance = Literal["system", "light", "dark"]
+Effects = Literal["full", "light"]
 
 
 @dataclass
@@ -55,9 +50,9 @@ class Preferences:
     key_notation: KeyNotation = "camelot"
     # MusicBrainz IDs are irrelevant for edits, bootlegs and promos, so they're opt-in.
     show_musicbrainz: bool = False
-    # Look (docs/design.md): Calm = one accent colour, Pop = the full palette.
-    style: Style = "calm"
-    appearance: Appearance = "system"
+    # Look (docs/design.md): "light" turns off blur, star drift and glows for weak devices.
+    # (Old databases may still hold "style"/"appearance" rows: load() ignores unknown keys.)
+    effects: Effects = "full"
     # Set once the owner confirmed having a backup, before the very first write to files.
     backup_confirmed: bool = False
     # The setup wizard was completed (or skipped); until then the start page leads there.
@@ -111,10 +106,8 @@ def _validated(prefs: Preferences) -> Preferences:
         prefs.key_notation = default.key_notation
     prefs.show_musicbrainz = bool(prefs.show_musicbrainz)
     prefs.backup_confirmed = bool(prefs.backup_confirmed)
-    if prefs.style not in STYLES:
-        prefs.style = default.style
-    if prefs.appearance not in APPEARANCES:
-        prefs.appearance = default.appearance
+    if prefs.effects not in EFFECTS:
+        prefs.effects = default.effects
     for flag in ("setup_done", "rename_on_final"):
         setattr(prefs, flag, bool(getattr(prefs, flag)))
     if prefs.folder_layout not in LAYOUTS:

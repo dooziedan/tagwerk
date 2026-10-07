@@ -1,5 +1,4 @@
-/* Tagwerk styles on top of Pico CSS. Colors come from Pico's variables, so light and dark
-   mode both work automatically. */
+/* Tagwerk styles on top of Pico CSS. Colours come from theme.css (Pico's variables and --tw-*). */
 
 .muted { color: var(--pico-muted-color); }
 
@@ -494,3 +493,669 @@ table.heat td a:hover, table.heat td a:focus-visible { outline: 2px solid var(--
 .work-fields td.num, .work-fields th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .work-line { margin-bottom: var(--pico-spacing); }
 .change-source { font-weight: normal; }
+
+
+/* Night-sky building blocks (ADR 0021). They come after the older rules above and win.
+   Colours only from tokens. Glass needs @supports and a solid fallback; anything that carries
+   information must read without the effect. Movement only on intent (hover, page change),
+   never in a loop on the page itself (the sky is the only ambient motion). */
+
+/* --- Base ----------------------------------------------------------------------------------- */
+html, body { background: var(--tw-space-0); }
+#page, .board { position: relative; } /* above the sky (z-index 0), without a stacking context */
+body { font-feature-settings: "cv11"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+::selection { background: rgba(129, 140, 248, 0.38); color: var(--tw-ink); }
+:focus-visible { outline: 2px solid var(--tw-gold); outline-offset: 2px; }
+a { text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+.muted { color: var(--pico-muted-color); }
+h1, h2, h3 { text-wrap: balance; letter-spacing: -0.01em; }
+/* Thin indigo scrollbars where the browser allows it */
+* { scrollbar-width: thin; scrollbar-color: rgba(129, 140, 248, 0.35) transparent; }
+
+/* Display type: Orbitron, only for the wordmark and big page titles (short, Tagwerk's own words,
+   never tag values). Gradient fill is decoration: browsers without background-clip keep the ink. */
+.display {
+  font-family: var(--tw-font-display); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.035em; line-height: 1.05; color: var(--tw-ink);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .display.shine {
+    background: linear-gradient(100deg, #f8fafc 10%, #c7d2fe 55%, #a5b4fc 95%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.35));
+  }
+}
+/* Small uppercase label above a title or a number (Orbit Stage's "eyebrow"), in Inter. */
+.eyebrow { display: block; margin: 0 0 0.35rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tw-ink-2); }
+.eyebrow.gold { color: var(--tw-gold); }
+.pill-eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.85rem; border-radius: 999px; border: 1px solid var(--tw-gold-line); background: var(--tw-gold-soft); color: var(--tw-gold); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; }
+
+/* --- Glass ---------------------------------------------------------------------------------- */
+/* Cards (Pico's <article>) are smoked glass: solid first, see-through + blur when supported
+   and effects are on. Raised glass (header, sidebar, play bar, dialogs) is a bit stronger. */
+article, .glass {
+  background: var(--tw-glass-solid);
+  border: 1px solid var(--tw-line);
+  border-radius: var(--tw-radius-card);
+  box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+.glass-raised, .player-bar, dialog > article, .toast, .side, .topbar {
+  background: var(--tw-glass-raised-solid);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not([data-effects="light"]) article, :root:not([data-effects="light"]) .glass {
+    background: var(--tw-glass);
+    -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur);
+  }
+  :root:not([data-effects="light"]) .glass-raised, :root:not([data-effects="light"]) .player-bar,
+  :root:not([data-effects="light"]) dialog > article, :root:not([data-effects="light"]) .toast,
+  :root:not([data-effects="light"]) .side, :root:not([data-effects="light"]) .topbar {
+    background: var(--tw-glass-raised);
+    -webkit-backdrop-filter: var(--tw-glass-blur-raised); backdrop-filter: var(--tw-glass-blur-raised);
+  }
+  /* Over content (not just the sky): more opaque, so text behind never competes, blur or not. */
+  :root:not([data-effects="light"]) .player-bar, :root:not([data-effects="light"]) .topbar,
+  :root:not([data-effects="light"]) .toast { background: var(--tw-glass-overlay); }
+}
+article { padding: 1.25rem 1.4rem; margin-bottom: var(--pico-spacing); }
+article > header, article > footer {
+  margin: -1.25rem -1.4rem 1rem; padding: 1rem 1.4rem 0.85rem;
+  background: transparent; border-bottom: 1px solid var(--tw-line-soft);
+  border-radius: var(--tw-radius-card) var(--tw-radius-card) 0 0;
+}
+article > footer { margin: 1rem -1.4rem -1.25rem; padding: 0.85rem 1.4rem 1rem; border-top: 1px solid var(--tw-line-soft); border-bottom: 0; border-radius: 0 0 var(--tw-radius-card) var(--tw-radius-card); }
+/* Card titles: Inter, readable; a muted note may follow. */
+article > header strong, .card-title { font-size: 1rem; font-weight: 650; color: var(--tw-ink); letter-spacing: 0; }
+article > header small { margin-left: 0.35rem; color: var(--tw-ink-2); }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+
+/* Interactive tiles (links) lift and glow on hover, with a soft spotlight under the pointer
+   (sky.js sets --mx/--my). Still without JS. */
+.lift { position: relative; transition: transform var(--tw-fast) var(--tw-ease), border-color var(--tw-fast), box-shadow var(--tw-fast); }
+.lift::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity var(--tw-fast);
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%), rgba(129, 140, 248, 0.14), rgba(129, 140, 248, 0) 70%); }
+a:hover > .lift, .lift:hover, a:focus-visible > .lift { transform: translateY(-3px); border-color: var(--tw-line-strong); box-shadow: var(--tw-glass-edge), var(--tw-glow); }
+a:hover > .lift::after, .lift:hover::after { opacity: 1; }
+.tile-link, .tile-link:hover { color: inherit; text-decoration: none; }
+
+/* --- App shell: sidebar on wide screens, floating top bar on narrow ones ---------------------- */
+.shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); min-height: 100vh; }
+.side {
+  position: sticky; top: 0; height: 100vh; height: calc(100vh - var(--side-bottom, 0px)); display: flex; flex-direction: column; gap: 1.25rem;
+  padding: 1.4rem 1rem 1rem; border-right: 1px solid var(--tw-line); overflow-y: auto;
+  border-radius: 0; box-shadow: none;
+}
+.brand { display: inline-flex; align-items: center; gap: 0.7rem; padding: 0.15rem 0.4rem; text-decoration: none; color: var(--tw-ink); }
+.brand:hover { text-decoration: none; }
+.brand-mark { display: block; flex: none; filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.35)); }
+.brand-word { font-family: var(--tw-font-display); font-weight: 800; font-size: 1.12rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.side-group { display: flex; flex-direction: column; gap: 0.15rem; }
+.side-group .eyebrow { padding: 0 0.75rem; margin-bottom: 0.3rem; font-size: 0.66rem; color: var(--tw-ink-3); }
+.side a.nav {
+  position: relative; display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0.75rem; border-radius: 10px;
+  color: var(--tw-ink-soft); text-decoration: none; font-size: 0.92rem; font-weight: 500;
+  transition: background var(--tw-fast), color var(--tw-fast);
+}
+.side a.nav svg { flex: none; width: 18px; height: 18px; color: var(--tw-ink-3); transition: color var(--tw-fast); }
+.side a.nav:hover { background: rgba(129, 140, 248, 0.08); color: var(--tw-ink); }
+.side a.nav:hover svg { color: var(--tw-indigo-300); }
+/* The page you are on: brighter, an indigo glass tint, and a gold light on the left edge. */
+.side a.nav[aria-current="page"] { background: linear-gradient(90deg, rgba(129, 140, 248, 0.18), rgba(129, 140, 248, 0.05)); color: var(--tw-ink); font-weight: 600; }
+.side a.nav[aria-current="page"] svg { color: var(--tw-gold); }
+.side a.nav[aria-current="page"]::before { content: ""; position: absolute; left: -1rem; top: 22%; bottom: 22%; width: 3px; border-radius: 0 3px 3px 0; background: var(--tw-gold); box-shadow: 0 0 12px rgba(245, 197, 66, 0.8); }
+.side .count-badge { margin-left: auto; }
+.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 0.6rem; padding: 0.85rem 0.75rem 0.25rem; border-top: 1px solid var(--tw-line-soft); font-size: 0.78rem; color: var(--tw-ink-2); }
+.side-foot a { color: var(--tw-ink-2); }
+.mode-switch { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(7, 7, 26, 0.7); border: 1px solid var(--tw-line); }
+.mode-switch span { padding: 0.2rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: var(--tw-ink-2); }
+.mode-switch span[aria-current] { background: var(--tw-space-4); color: var(--tw-ink); box-shadow: inset 0 0 0 1px var(--tw-line-strong); }
+
+.main-col { min-width: 0; display: flex; flex-direction: column; }
+.main-col > main { width: 100%; max-width: 82rem; margin: 0 auto; padding: 1.75rem 2rem 2rem; }
+.main-col > footer { max-width: 82rem; width: 100%; margin: 0 auto; padding: 0 2rem 2rem; color: var(--tw-ink-2); font-size: 0.8rem; }
+
+/* Narrow: the sidebar becomes a floating glass bar (Orbit Stage's nav) with a menu. */
+.topbar { display: none; }
+@media (max-width: 1099px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+  .topbar {
+    position: sticky; top: 0.6rem; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    margin: 0.6rem 0.75rem 0; padding: 0.55rem 0.6rem 0.55rem 0.8rem; border: 1px solid var(--tw-line); border-radius: 18px;
+    box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  .topbar nav { display: flex; align-items: center; gap: 0.35rem; }
+  .topbar a.nav { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.6rem; border-radius: 10px; color: var(--tw-ink-soft); text-decoration: none; font-size: 0.88rem; font-weight: 500; }
+  .topbar a.nav[aria-current="page"] { color: var(--tw-ink); background: rgba(129, 140, 248, 0.14); }
+  .menu-button { display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border-radius: 12px; border: 1px solid var(--tw-line); color: var(--tw-ink); }
+  .main-col > main { padding: 1.25rem 1rem 1.5rem; }
+  .main-col > footer { padding: 0 1rem 1.5rem; }
+}
+@media (max-width: 560px) { .topbar .wide-nav { display: none; } }
+
+/* --- Page header ("hero"): a glass panel with a planet rising at the bottom edge ----------- */
+.hero {
+  position: relative; overflow: hidden; isolation: isolate;
+  padding: 1.9rem 2rem 1.6rem; margin-bottom: 1.5rem; border-radius: 26px;
+}
+/* The planet: a huge dark disc whose top edge catches the light (thin bright rim + atmosphere glow).
+   Only its top 2.6 rem show, inside the hero's bottom padding, so the rim never crosses text. */
+.hero { padding-bottom: 3.2rem; }
+.hero::before {
+  content: ""; position: absolute; z-index: -1; left: -30%; right: -30%; bottom: 0; aspect-ratio: 1; border-radius: 50%;
+  transform: translateY(calc(100% - 2.6rem));
+  background: radial-gradient(closest-side, #07071a 96%, rgba(7, 7, 26, 0));
+  box-shadow: 0 -1px 0 rgba(199, 210, 254, 0.55), 0 -10px 40px rgba(129, 140, 248, 0.35), 0 -40px 120px rgba(67, 56, 202, 0.45);
+}
+/* A faint light from the top left, like the glow of the nebula on the glass */
+.hero::after { content: ""; position: absolute; z-index: -2; inset: 0; pointer-events: none;
+  background: radial-gradient(70% 90% at 0% 0%, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0) 60%); }
+.hero-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem 2rem; }
+.hero h1 { margin: 0.2rem 0 0.4rem; font-size: clamp(1.7rem, 1.1rem + 2vw, 2.6rem); }
+.hero .page-sub { margin: 0; color: var(--tw-ink-2); max-width: 46rem; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.hero-actions > * { margin: 0; width: auto; }
+.status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; margin-top: 1.2rem; font-size: 0.82rem; color: var(--tw-ink-2); }
+.status-line .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tw-ok); box-shadow: 0 0 8px rgba(110, 231, 183, 0.8); }
+.status-line strong { color: var(--tw-ink); font-weight: 600; }
+
+/* Big numbers inside the hero (Home), SoulSync-style: number, then a small uppercase label. */
+.hero-stats { display: flex; flex-wrap: wrap; gap: 1.25rem 2.75rem; margin-top: 1.5rem; }
+.hero-stat { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.hero-stat:hover { text-decoration: none; }
+.hero-stat .n { font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); font-weight: 700; line-height: 1; color: var(--tw-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.hero-stat .n small { font-size: 0.5em; font-weight: 600; margin-left: 0.15em; color: var(--tw-ink-2); letter-spacing: 0; }
+.hero-stat .l { margin-top: 0.45rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tw-ink-2); }
+.hero-stat:hover .n { color: var(--tw-indigo-200); }
+
+/* --- Layout helpers --------------------------------------------------------------------------- */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr)); gap: var(--pico-spacing); }
+.grid-2 > article, .grid-3 > article { margin: 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); gap: var(--pico-spacing); }
+.with-rail { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: var(--pico-spacing); align-items: start; }
+.with-rail > * { min-width: 0; }
+@media (max-width: 1240px) { .with-rail { grid-template-columns: minmax(0, 1fr); } .with-rail > .rail { order: -1; } }
+.stack { display: flex; flex-direction: column; gap: var(--pico-spacing); }
+.stack > article { margin: 0; }
+.section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin: 2.2rem 0 1rem; }
+.section-title h2 { margin: 0; font-size: 1.3rem; }
+
+/* --- KPI tiles ------------------------------------------------------------------------------ */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--pico-spacing); margin-bottom: var(--pico-spacing); }
+.kpi { display: flex; flex-direction: column; justify-content: center; gap: 0.15rem; margin: 0; height: 100%; padding: 1.05rem 1.2rem; }
+.kpi .eyebrow { margin: 0.35rem 0 0; letter-spacing: 0.12em; }
+.kpi { justify-content: flex-start; }
+.kpi-value { font-size: clamp(1.5rem, 1rem + 1.1vw, 2rem); font-weight: 700; line-height: 1.1; color: var(--tw-ink); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -0.015em; }
+.kpi-unit { font-size: 0.55em; font-weight: 600; margin-left: 0.2em; color: var(--tw-ink-2); letter-spacing: 0; }
+.kpi-meta { font-size: 0.78rem; color: var(--tw-ink-2); }
+.kpi-meta .up { color: var(--tw-ok); }
+.kpi.with-ring { flex-direction: row; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.kpi.with-ring > div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+/* Ring gauge (inline SVG, colours as attributes): a share of 100 %, value printed inside. */
+.ring { display: block; flex: none; }
+.ring-label { font: 700 13px/1 var(--tw-font-text); fill: var(--tw-ink); }
+.rings { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr)); gap: 1rem 0.5rem; }
+.ring-item { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; text-align: center; text-decoration: none; color: inherit; font-size: 0.8rem; }
+.ring-item:hover { text-decoration: none; }
+.ring-item:hover .ring-name { color: var(--tw-ink); }
+.ring-name { color: var(--tw-ink-2); font-weight: 500; }
+.ring-count { font-size: 0.72rem; color: var(--tw-ink-3); font-variant-numeric: tabular-nums; }
+
+/* --- Bar lists: light beams. One hue per chart, value always printed. ----------------------- */
+.bars { list-style: none; padding: 0; margin: 0; }
+.bars li { display: grid; grid-template-columns: 8rem 1fr 7rem; align-items: center; gap: 0.85rem; padding: 0.32rem 0; margin: 0; }
+.bar-label { font-size: 0.88rem; color: var(--tw-ink-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-label a { color: inherit; text-decoration: none; }
+.bar-label a:hover { color: var(--tw-indigo-200); text-decoration: underline; }
+.bar-track { height: 0.5rem; border-radius: 999px; background: var(--tw-bar-track); overflow: visible; }
+.bar-fill {
+  display: block; height: 100%; min-width: 3px; border-radius: 999px;
+  background: var(--bar-color, var(--tw-chart-tempo));
+  background: linear-gradient(90deg, var(--bar-base, var(--tw-chart-tempo-base)), var(--bar-color, var(--tw-chart-tempo)));
+  box-shadow: 0 0 10px var(--bar-glow, rgba(129, 140, 248, 0.45));
+}
+.bar-value { font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem; white-space: nowrap; color: var(--tw-ink); }
+.bar-value small { color: var(--tw-ink-2); }
+.tone-tempo { --bar-color: var(--tw-chart-tempo); --bar-base: var(--tw-chart-tempo-base); --bar-glow: rgba(129, 140, 248, 0.45); }
+.tone-missing { --bar-color: var(--tw-chart-missing); --bar-base: var(--tw-chart-missing-base); --bar-glow: rgba(251, 113, 133, 0.4); }
+.tone-formats { --bar-color: var(--tw-chart-formats); --bar-base: var(--tw-chart-formats-base); --bar-glow: rgba(125, 211, 252, 0.4); }
+.tone-genres { --bar-color: var(--tw-chart-genres); --bar-base: var(--tw-chart-genres-base); --bar-glow: rgba(245, 197, 66, 0.4); }
+.tone-decades { --bar-color: var(--tw-chart-decades); --bar-base: var(--tw-chart-decades-base); --bar-glow: rgba(192, 132, 252, 0.4); }
+:root[data-effects="light"] .bar-fill { box-shadow: none; }
+@media (max-width: 576px) { .bars li { grid-template-columns: 6.5rem 1fr 6rem; gap: 0.55rem; } }
+
+/* --- Column chart: glowing pillars standing on a horizon line ------------------------------ */
+.columns { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 6px; height: 12rem; padding-top: 1.3rem; border-bottom: 1px solid var(--tw-line); }
+.column { flex: 1 1 0; min-width: 0; max-width: 3.2rem; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-decoration: none; color: var(--tw-ink-2); }
+.column-bar { display: block; width: 100%; min-height: 2px; border-radius: 6px 6px 1px 1px;
+  background: var(--tw-chart-tempo); background: linear-gradient(180deg, var(--tw-chart-tempo), var(--tw-chart-tempo-base) 70%, rgba(99, 102, 241, 0.55));
+  box-shadow: 0 0 16px rgba(129, 140, 248, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35); transition: filter var(--tw-fast); }
+.column:hover .column-bar, .column:focus-visible .column-bar { filter: brightness(1.2); }
+.column-value { font-size: 0.68rem; font-variant-numeric: tabular-nums; color: var(--tw-ink); margin-bottom: 0.3rem; }
+.column-labels { display: flex; justify-content: center; gap: 6px; }
+.column-labels span { flex: 1 1 0; max-width: 3.2rem; min-width: 0; text-align: center; font-size: 0.62rem; color: var(--tw-ink-2); padding-top: 0.35rem; white-space: nowrap; line-height: 1.3; }
+.column-labels span b { display: block; font-weight: 600; color: var(--tw-ink-2); opacity: 0.75; }
+
+/* --- Heat map ------------------------------------------------------------------------------- */
+table.heat { width: auto; border-collapse: separate; border-spacing: 3px; font-size: 0.72rem; font-variant-numeric: tabular-nums; margin: 0; }
+table.heat th, table.heat td { padding: 0; border: 0; background: none; text-align: center; white-space: nowrap; }
+table.heat thead th { padding: 0 0.1rem 0.25rem; color: var(--tw-ink-2); font-weight: 500; }
+table.heat tbody th { padding-right: 0.5rem; text-align: right; color: var(--tw-ink-2); font-weight: 500; }
+table.heat td { min-width: 1.9rem; height: 1.55rem; border-radius: 5px; background: var(--tw-heat-0); }
+table.heat td a { display: block; line-height: 1.55rem; text-decoration: none; color: inherit; border-radius: 5px; font-weight: 600; }
+table.heat td a:hover { outline: 2px solid var(--tw-ink); outline-offset: 0; }
+.heat-1 { background: var(--tw-heat-1) !important; color: var(--tw-heat-ink-low); }
+.heat-2 { background: var(--tw-heat-2) !important; color: var(--tw-heat-ink-low); }
+.heat-3 { background: var(--tw-heat-3) !important; color: var(--tw-heat-ink-high); }
+.heat-4 { background: var(--tw-heat-4) !important; color: var(--tw-heat-ink-high); box-shadow: 0 0 10px rgba(143, 152, 255, 0.35); }
+.heat-5 { background: var(--tw-heat-5) !important; color: var(--tw-heat-ink-high); box-shadow: 0 0 12px rgba(175, 185, 255, 0.45); }
+.heat-6 { background: var(--tw-heat-6) !important; color: var(--tw-heat-ink-high); box-shadow: 0 0 14px rgba(214, 222, 255, 0.55); }
+.heat-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--tw-ink-2); }
+.heat-legend span[class^="heat-"] { display: inline-block; width: 1.15rem; height: 0.8rem; border-radius: 3px; box-shadow: none; }
+
+/* --- Key wheel: standard Camelot colours, set in the SVG (app/charts.py) -------------------- */
+.key-wheel { position: relative; margin: 0 auto 0.75rem; max-width: 22rem; color: var(--tw-ink); }
+.key-wheel svg { display: block; width: 100%; height: auto; overflow: visible; }
+.wheel-seg text { pointer-events: none; font-variant-numeric: tabular-nums; }
+a.wheel-seg, a.wheel-seg:hover, a.wheel-seg text { text-decoration: none; }
+.wheel-seg path { transition: filter var(--tw-fast); }
+.wheel-seg:hover path { filter: brightness(1.12); }
+
+/* --- Chips, badges, status pills -------------------------------------------------------------- */
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; margin: 0.75rem 0; }
+.chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.22rem 0.75rem; border-radius: 999px; font-size: 0.82rem; text-decoration: none;
+  border: 1px solid var(--tw-line); background: rgba(129, 140, 248, 0.07); color: var(--tw-ink-1); transition: border-color var(--tw-fast), background var(--tw-fast); }
+.chip:hover { border-color: var(--tw-line-strong); background: rgba(129, 140, 248, 0.14); color: var(--tw-ink); text-decoration: none; }
+.chip[aria-pressed="true"], .chip.on { border-color: var(--tw-gold-line); background: var(--tw-gold-soft); color: var(--tw-gold); }
+.badge { display: inline-block; padding: 0.05rem 0.55rem; border-radius: 999px; font-size: 0.75rem; white-space: nowrap; background: rgba(129, 140, 248, 0.12); color: var(--tw-indigo-200); }
+.count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; padding: 0 0.4rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+  background: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 10px rgba(245, 197, 66, 0.45); font-variant-numeric: tabular-nums; }
+.status { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.08rem 0.6rem; border-radius: 999px; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.01em;
+  border: 1px solid var(--tw-line); color: var(--tw-ink-2); background: rgba(129, 140, 248, 0.06); white-space: nowrap; }
+.status-sure { color: var(--tw-ok); border-color: rgba(110, 231, 183, 0.35); background: var(--tw-ok-soft); }
+.status-help, .status-check { color: var(--tw-check); border-color: rgba(253, 186, 116, 0.35); background: var(--tw-check-soft); }
+.status-warn, .status-dup { color: var(--tw-warn); border-color: rgba(251, 113, 133, 0.38); background: var(--tw-warn-soft); }
+.status-you { color: var(--tw-indigo-200); border-color: var(--tw-line-strong); background: rgba(129, 140, 248, 0.12); }
+.status-final { color: var(--tw-gold); border-color: var(--tw-gold-line); background: var(--tw-gold-soft); }
+
+/* --- Buttons (Pico buttons, restyled) --------------------------------------------------------- */
+button, [role="button"], input[type="submit"] {
+  border-radius: var(--tw-radius-control); font-weight: 650; letter-spacing: 0.005em;
+  transition: transform var(--tw-fast) var(--tw-ease), box-shadow var(--tw-fast), background-color var(--tw-fast), border-color var(--tw-fast), color var(--tw-fast);
+}
+button:not(.secondary):not(.outline):not(.contrast):not(.plain):hover,
+[role="button"]:not(.secondary):not(.outline):not(.contrast):not(.plain):hover { transform: translateY(-1px); box-shadow: var(--tw-glow-gold); }
+/* Secondary: glass with an indigo hairline */
+button.secondary, [role="button"].secondary { background: rgba(129, 140, 248, 0.08); border-color: var(--tw-line); color: var(--tw-ink); }
+button.secondary:hover, [role="button"].secondary:hover { background: rgba(129, 140, 248, 0.16); border-color: var(--tw-line-strong); color: var(--tw-ink); }
+button.outline:not(.secondary), [role="button"].outline:not(.secondary) { border-color: var(--tw-gold-line); color: var(--tw-gold); background: var(--tw-gold-soft); }
+button.outline:not(.secondary):hover, [role="button"].outline:not(.secondary):hover { border-color: var(--tw-gold); background: rgba(245, 197, 66, 0.18); color: var(--tw-gold-hover); }
+button.outline.secondary, [role="button"].outline.secondary { background: transparent; border-color: var(--tw-line); color: var(--tw-ink-1); }
+button.outline.secondary:hover, [role="button"].outline.secondary:hover { border-color: var(--tw-line-strong); color: var(--tw-ink); background: rgba(129, 140, 248, 0.08); }
+button.danger, [role="button"].danger { background: var(--tw-warn-soft); border-color: rgba(251, 113, 133, 0.4); color: var(--tw-warn); }
+button.small, .small[role="button"] { padding: 0.22rem 0.7rem; font-size: 0.8rem; margin: 0; border-radius: 9px; }
+.btn-icon { display: inline-flex; align-items: center; gap: 0.5rem; }
+.btn-icon svg { width: 16px; height: 16px; }
+
+/* Play buttons: round glass, the playing one glows gold (Orbit Stage's play buttons). */
+.play-button { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; padding: 0; margin: 0; border-radius: 50%;
+  background: rgba(129, 140, 248, 0.1); border: 1px solid var(--tw-line); color: var(--tw-ink); flex: none; }
+.play-button:hover { background: var(--tw-gold); border-color: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 22px rgba(245, 197, 66, 0.55); transform: none; }
+.play-button.playing { background: var(--tw-gold); border-color: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 22px rgba(245, 197, 66, 0.55); }
+.play-button svg { width: 0.85rem; height: 0.85rem; }
+
+/* --- Forms ------------------------------------------------------------------------------------ */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { border-radius: var(--tw-radius-control); }
+input[type="checkbox"], input[type="radio"] { border-color: rgba(129, 140, 248, 0.45); }
+input[type="checkbox"]:checked, input[type="checkbox"]:indeterminate { background-color: var(--tw-gold); border-color: var(--tw-gold); }
+/* Radio: a dark dot in a gold ring. Switch: a dark thumb on gold when on. */
+input[type="radio"]:checked { background-color: var(--tw-ink-dark); border-color: var(--tw-gold); border-width: 0.32em; }
+input[type="checkbox"][role="switch"]:checked::before { background-color: var(--tw-ink-dark); }
+input[type="range"] { accent-color: var(--tw-gold); }
+label { color: var(--tw-ink-1); }
+
+/* --- Tables ------------------------------------------------------------------------------------ */
+table { --pico-background-color: transparent; }
+th, td { background: transparent; border-bottom: 1px solid var(--tw-line-soft); }
+thead th { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--tw-ink-2); border-bottom: 1px solid var(--tw-line); }
+tbody tr { transition: background var(--tw-fast); }
+tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.title-cell a { color: var(--tw-ink); font-weight: 600; text-decoration: none; }
+.title-cell a:hover { color: var(--tw-indigo-200); text-decoration: underline; }
+.title-cell small { display: block; color: var(--tw-ink-2); }
+.key-chip { display: inline-block; min-width: 2.4rem; padding: 0.05rem 0.45rem; border-radius: 6px; text-align: center; font-size: 0.78rem; font-weight: 700; color: #0a0a1f; }
+
+/* --- Covers: art, or a little planet for tracks without one ---------------------------------- */
+.cover { width: 168px; height: 168px; object-fit: cover; border-radius: 16px; flex: none; background: var(--tw-space-1); border: 1px solid var(--tw-line); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.03) inset; }
+.cover-planet { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: radial-gradient(120% 120% at 20% 0%, rgba(99, 102, 241, 0.25), rgba(7, 7, 26, 0) 60%), var(--tw-space-1); }
+.cover-planet i { position: absolute; width: 46%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, hsl(var(--h, 240), 85%, 78%), hsl(var(--h, 240), 70%, 50%) 45%, hsl(var(--h, 240), 75%, 18%) 100%);
+  box-shadow: 0 0 30px hsla(var(--h, 240), 90%, 65%, 0.35); }
+.cover-planet b { position: absolute; width: 78%; height: 18%; border-radius: 50%; border: 2px solid hsla(var(--h, 240), 90%, 82%, 0.6); transform: rotate(-18deg);
+  -webkit-mask: linear-gradient(180deg, transparent 45%, #000 46%); mask: linear-gradient(180deg, transparent 45%, #000 46%); }
+.cover-planet em { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #fff; font-style: normal; }
+
+/* --- Notices, toast, dialog -------------------------------------------------------------------- */
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.75rem 1rem; border-radius: 14px; font-size: 0.9rem;
+  border: 1px solid var(--tw-line); background: rgba(129, 140, 248, 0.08); }
+.notice.check { border-color: rgba(253, 186, 116, 0.35); background: var(--tw-check-soft); }
+.notice.check strong { color: var(--tw-check); }
+.notice button { margin: 0; width: auto; }
+.toast { position: fixed; z-index: 30; left: 50%; bottom: calc(1.25rem + var(--player-height, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 0.9rem;
+  max-width: calc(100vw - 2rem); padding: 0.7rem 0.6rem 0.7rem 1.1rem; border-radius: 16px; border: 1px solid var(--tw-line-strong);
+  box-shadow: var(--tw-glass-edge), 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.2); font-size: 0.92rem; }
+.toast .ok { color: var(--tw-ok); font-weight: 700; }
+.toast a { white-space: nowrap; font-weight: 600; }
+
+/* --- Play bar (player.js measures its height into --player-height) ---------------------------- */
+.player-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; border-top: 1px solid var(--tw-line); box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.45); border-radius: 0; }
+.player-inner { display: flex; align-items: center; gap: 0.9rem; max-width: 82rem; margin: 0 auto; padding: 0.6rem 1.25rem; }
+.player-control { display: inline-flex; align-items: center; justify-content: center; width: 2.6rem; height: 2.6rem; padding: 0; margin: 0; flex: none; border-radius: 50%; }
+#player-toggle { background: var(--tw-gold); border-color: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 24px rgba(245, 197, 66, 0.55); }
+.player-title { flex: 0 1 19rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+.player-title small { display: block; color: var(--tw-ink-2); font-size: 0.78rem; }
+.player-seek { flex: 1; position: relative; height: 6px; border-radius: 999px; background: var(--tw-space-4); }
+.player-seek span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, var(--tw-indigo-500), var(--tw-indigo-300)); box-shadow: 0 0 10px rgba(129, 140, 248, 0.6); }
+.player-seek span::after { content: ""; position: absolute; right: -7px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: var(--tw-gold); box-shadow: 0 0 12px rgba(245, 197, 66, 0.8); }
+.player-time { flex: none; font-size: 0.8rem; color: var(--tw-ink-2); font-variant-numeric: tabular-nums; }
+
+/* --- Orbit decoration: rings with glowing moons (pure decoration, aria-hidden) ---------------- */
+.orbit-deco { position: absolute; pointer-events: none; }
+.orbit-deco svg { display: block; overflow: visible; }
+
+/* --- Page load: cards rise gently into place (transform/opacity only, no layout shift) -------- */
+@keyframes tw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.rise > * { animation: tw-rise 520ms var(--tw-ease) both; }
+.rise > :nth-child(2) { animation-delay: 50ms; }
+.rise > :nth-child(3) { animation-delay: 100ms; }
+.rise > :nth-child(4) { animation-delay: 150ms; }
+.rise > :nth-child(5) { animation-delay: 200ms; }
+.rise > :nth-child(n+6) { animation-delay: 250ms; }
+@media (prefers-reduced-motion: reduce) {
+  .rise > * { animation: none; }
+  .lift, .lift:hover, a:hover > .lift { transition: none; transform: none; }
+  button:hover, [role="button"]:hover { transform: none !important; }
+}
+:root[data-effects="light"] .rise > * { animation: none; }
+
+/* --- Windows high contrast / forced colours: drop the effects, keep borders ----------------- */
+@media (forced-colors: active) {
+  .tw-sky { display: none; }
+  article, .glass, .glass-raised, .side, .topbar, .player-bar { background: Canvas; border: 1px solid CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .display.shine { -webkit-text-fill-color: CanvasText; background: none; filter: none; }
+  .bar-fill, .column-bar { background: Highlight; box-shadow: none; }
+}
+
+/* === Page pieces ===================================================================== */
+.back { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0 0 1rem; font-size: 0.88rem; color: var(--tw-ink-2); text-decoration: none; }
+.back:hover { color: var(--tw-ink); text-decoration: none; }
+.back svg { width: 16px; height: 16px; transform: rotate(180deg); }
+
+/* "What Tagwerk did": a gold pill with a spark */
+.work-pill { display: inline-flex; align-items: center; gap: 0.65rem; margin: 0 0 var(--pico-spacing); padding: 0.4rem 1rem 0.4rem 0.45rem; border-radius: 999px;
+  border: 1px solid var(--tw-gold-line); background: linear-gradient(90deg, rgba(245, 197, 66, 0.13), rgba(245, 197, 66, 0.02)); font-size: 0.9rem; color: var(--pico-color); }
+.work-pill .spark { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; background: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 14px rgba(245, 197, 66, 0.5); }
+.work-pill .spark svg { width: 15px; height: 15px; }
+.work-pill a { color: var(--tw-gold); font-weight: 600; text-decoration-color: var(--tw-gold-line); }
+
+/* Task lists ("Waiting for you", "Worth a look"): an icon tile, the text, a count */
+.task-list { list-style: none; padding: 0; margin: 0; }
+.task-list li { display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 0; margin: 0; border-bottom: 1px solid var(--tw-line-soft); font-size: 0.92rem; }
+.task-list li:last-child { border-bottom: 0; padding-bottom: 0.15rem; }
+.task-list li:first-child { padding-top: 0.15rem; }
+.task-list .ic { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: 11px; flex: none; background: rgba(129, 140, 248, 0.1); color: var(--tw-indigo-300); border: 1px solid var(--tw-line-soft); }
+.task-list .ic.gold { background: var(--tw-gold-soft); color: var(--tw-gold); border-color: rgba(245, 197, 66, 0.18); }
+.task-list .ic.check { background: var(--tw-check-soft); color: var(--tw-check); border-color: rgba(253, 186, 116, 0.18); }
+.task-list .ic.warn { background: var(--tw-warn-soft); color: var(--tw-warn); border-color: rgba(251, 113, 133, 0.18); }
+.task-list .grow { flex: 1; min-width: 0; }
+.task-list .grow a { color: var(--tw-ink); font-weight: 600; text-decoration: none; }
+.task-list .grow a:hover { color: var(--tw-indigo-200); text-decoration: underline; }
+.task-list .grow small { display: block; color: var(--tw-ink-2); font-size: 0.8rem; margin-top: 0.1rem; }
+.task-list .go { color: var(--tw-ink-3); flex: none; }
+.empty-note { display: flex; align-items: center; gap: 0.6rem; color: var(--tw-ink-2); font-size: 0.92rem; margin: 0; }
+.empty-note svg { color: var(--tw-ok); }
+
+/* Cover cards (Recently added) */
+.covers { display: grid; grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)); gap: 1.1rem 1rem; }
+.cover-card { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.art-wrap { position: relative; }
+.cover-card .art { display: block; position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; border: 1px solid var(--tw-line); background: var(--tw-space-1);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4); transition: transform var(--tw-fast) var(--tw-ease), box-shadow var(--tw-fast), border-color var(--tw-fast); }
+.cover-card:hover .art { transform: translateY(-3px); border-color: var(--tw-line-strong); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), var(--tw-glow); }
+.cover-card .art .key-chip { position: absolute; top: 0.5rem; right: 0.5rem; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4); }
+.cover-card .art .new { position: absolute; top: 0.5rem; left: 0.5rem; }
+.cover-card .play-button { position: absolute; left: 0.55rem; bottom: 0.55rem; z-index: 1; opacity: 0; transform: translateY(4px);
+  background: var(--tw-gold); color: var(--tw-ink-dark); border-color: var(--tw-gold); box-shadow: 0 0 22px rgba(245, 197, 66, 0.55); transition: opacity var(--tw-fast), transform var(--tw-fast); }
+.cover-card:hover .play-button, .cover-card:focus-within .play-button { opacity: 1; transform: none; }
+@media (hover: none) { .cover-card .play-button { opacity: 1; transform: none; } }
+.cover-card .t { display: block; font-weight: 600; font-size: 0.9rem; color: var(--tw-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
+.cover-card .t:hover { color: var(--tw-indigo-200); }
+.cover-card .a { display: block; font-size: 0.8rem; color: var(--tw-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.05rem; }
+.cover-card .m { display: block; font-size: 0.74rem; color: var(--tw-ink-3); font-variant-numeric: tabular-nums; margin-top: 0.15rem; }
+.cover-planet.fill { position: absolute; inset: 0; }
+/* 3D orbit rings with moons (Orbit Stage's hero), reused around big gauges and empty states */
+.orbits { position: relative; width: 280px; height: 260px; perspective: 900px; flex: none; }
+.orbits .o { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1px solid rgba(129, 140, 248, 0.38); transform-style: preserve-3d; pointer-events: none; }
+.orbits .o i { position: absolute; left: 50%; top: -4px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 26px rgba(245, 197, 66, 0.5); }
+.orbits .o2 i { width: 6px; height: 6px; top: -3px; background: #a5b4fc; box-shadow: 0 0 10px #818cf8; }
+.orbits .o1 { width: 196px; height: 196px; margin: -98px; transform: rotate(40deg); }
+.orbits .o2 { width: 270px; height: 270px; margin: -135px; border-color: rgba(129, 140, 248, 0.26); transform: rotateX(68deg) rotateY(14deg) rotate(120deg); }
+.orbits .o3 { width: 300px; height: 300px; margin: -150px; border-color: rgba(245, 197, 66, 0.18); transform: rotateX(75deg) rotateY(-20deg) rotate(250deg); }
+.orbits .core { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+@keyframes tw-o1 { from { transform: rotate(40deg); } to { transform: rotate(400deg); } }
+@keyframes tw-o2 { from { transform: rotateX(68deg) rotateY(14deg) rotate(120deg); } to { transform: rotateX(68deg) rotateY(14deg) rotate(480deg); } }
+@keyframes tw-o3 { from { transform: rotateX(75deg) rotateY(-20deg) rotate(250deg); } to { transform: rotateX(75deg) rotateY(-20deg) rotate(610deg); } }
+:root:not([data-motion="still"]):not([data-effects="light"]) .orbits .o1 { animation: tw-o1 120s linear infinite; }
+:root:not([data-motion="still"]):not([data-effects="light"]) .orbits .o2 { animation: tw-o2 200s linear infinite reverse; }
+:root:not([data-motion="still"]):not([data-effects="light"]) .orbits .o3 { animation: tw-o3 320s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .orbits .o { animation: none !important; } }
+/* The big gauge in Home's hero: set-ready share as a planet */
+.gauge-planet { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 150px; height: 150px; border-radius: 50%; text-decoration: none; color: inherit;
+  background: radial-gradient(circle at 35% 30%, #2a2670, #0b0b22 70%); box-shadow: inset -12px -16px 30px rgba(0, 0, 0, 0.55), 0 0 40px rgba(99, 102, 241, 0.35); }
+.gauge-planet:hover { text-decoration: none; }
+.gauge-planet .ring { position: absolute; inset: -9px; width: calc(100% + 18px); height: calc(100% + 18px); }
+.gauge-planet .n { position: relative; font-size: 2.1rem; font-weight: 700; line-height: 1; color: var(--tw-ink); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.gauge-planet .n small { font-size: 0.5em; color: var(--tw-ink-2); }
+.gauge-planet .l { position: relative; margin-top: 0.35rem; font-size: 0.64rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tw-ink-2); }
+@media (max-width: 760px) { .hero .orbits { display: none; } }
+
+/* Key-value tables (track page cards) */
+.kv { margin: 0; font-size: 0.9rem; }
+.kv th { width: 9rem; font-weight: 500; color: var(--tw-ink-2); text-transform: none; letter-spacing: 0; font-size: 0.86rem; }
+.kv td, .kv th { padding: 0.5rem 0.25rem; }
+.kv tr:last-child th, .kv tr:last-child td { border-bottom: 0; }
+.kv a { color: var(--tw-indigo-300); }
+.kv .dim { color: var(--tw-ink-4); }
+
+/* Track page: hero with the cover, title and a deck-style readout */
+.track-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.6rem; align-items: start; }
+.track-hero .cover { width: 200px; height: 200px; position: relative; overflow: hidden; }
+.track-hero h1 { margin: 0.1rem 0 0.35rem; font-size: clamp(1.6rem, 1.1rem + 1.6vw, 2.4rem); font-weight: 750; line-height: 1.1; letter-spacing: -0.02em; }
+.track-sub { margin: 0 0 0.55rem; font-size: 1.02rem; color: var(--tw-ink-soft); }
+.track-sub a { color: var(--tw-ink); font-weight: 600; text-decoration: none; }
+.track-sub a:hover { color: var(--tw-indigo-200); text-decoration: underline; }
+.path-chip { display: inline-flex; max-width: 100%; padding: 0.2rem 0.6rem; border-radius: 8px; font-family: var(--pico-font-family-monospace); font-size: 0.76rem; color: var(--tw-ink-2); background: rgba(7, 7, 26, 0.6); border: 1px solid var(--tw-line-soft); overflow-wrap: anywhere; }
+.track-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 1.1rem; }
+.track-actions > * { margin: 0; width: auto; }
+.track-actions .pending { font-size: 0.85rem; color: var(--tw-check); text-decoration: none; }
+.info-dot { position: absolute; top: 1.2rem; right: 1.2rem; display: inline-flex; align-items: center; justify-content: center; width: 2.3rem; height: 2.3rem; border-radius: 50%; border: 1px solid var(--tw-line); color: var(--tw-ink-2); background: rgba(7, 7, 26, 0.5); }
+.deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 1.3rem; border-radius: 16px; overflow: hidden; border: 1px solid var(--tw-line);
+  background: linear-gradient(180deg, rgba(7, 7, 26, 0.75), rgba(15, 15, 35, 0.55)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 0 40px rgba(67, 56, 202, 0.12); }
+.deck-cell { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.8rem 1rem 0.85rem; border-left: 1px solid var(--tw-line-soft); min-width: 0; }
+.deck-cell:first-child { border-left: 0; }
+.deck-cell .eyebrow { margin: 0; font-size: 0.62rem; }
+.deck-n { font-size: 1.75rem; font-weight: 700; line-height: 1.15; color: var(--tw-ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; text-shadow: 0 0 18px rgba(165, 180, 252, 0.35); white-space: nowrap; }
+.deck-n.check { color: var(--tw-check); text-shadow: 0 0 18px rgba(253, 186, 116, 0.35); }
+.deck-cell small { font-size: 0.74rem; color: var(--tw-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck .key-chip { font-size: 1.15rem; padding: 0.1rem 0.55rem; border-radius: 8px; vertical-align: 0.15em; }
+@media (max-width: 760px) {
+  .track-hero { grid-template-columns: minmax(0, 1fr); }
+  .track-hero .cover { width: 100%; height: auto; aspect-ratio: 1; max-width: 18rem; }
+  .deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .deck-cell:nth-child(3) { border-left: 0; }
+  .deck-cell:nth-child(n+3) { border-top: 1px solid var(--tw-line-soft); }
+}
+
+/* "From the audio" and "Found online" */
+.box-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.box-head form, .box-head button { margin: 0; }
+.notes { margin: 0.6rem 0 0; padding-left: 1.1rem; font-size: 0.84rem; color: var(--tw-ink-2); }
+.notes li { margin: 0 0 0.2rem; }
+.fine { display: block; margin-top: 0.75rem; font-size: 0.8rem; color: var(--tw-ink-3); }
+
+/* All tag fields */
+.raw-table { font-size: 0.84rem; }
+.raw-table td { vertical-align: middle; }
+.raw-table .field code { background: rgba(129, 140, 248, 0.1); color: var(--tw-indigo-200); font-size: 0.78rem; }
+.raw-table .field small { display: block; color: var(--tw-ink-4); font-size: 0.7rem; margin-top: 0.15rem; }
+.raw-table .value code { background: none; padding: 0; color: var(--tw-ink-1); font-size: 0.8rem; overflow-wrap: anywhere; white-space: normal; }
+.raw-table .ignored { color: var(--tw-ink-4); font-size: 0.78rem; }
+
+/* Ranked lists (Statistics: labels, artists) */
+.ranked { list-style: none; padding: 0; margin: 0; counter-reset: rank; }
+.ranked li { counter-increment: rank; display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; padding: 0.42rem 0; margin: 0; border-bottom: 1px solid var(--tw-line-soft); font-size: 0.88rem; }
+.ranked li:last-child { border-bottom: 0; }
+.ranked li::before { content: counter(rank); font-size: 0.74rem; font-weight: 700; color: var(--tw-ink-4); text-align: right; font-variant-numeric: tabular-nums; }
+.ranked li:nth-child(-n+3)::before { color: var(--tw-gold); }
+.ranked a { color: var(--tw-ink-1); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranked a:hover { color: var(--tw-indigo-200); text-decoration: underline; }
+.ranked .v { font-variant-numeric: tabular-nums; color: var(--tw-ink); font-size: 0.85rem; }
+.ranked .v small { color: var(--tw-ink-2); }
+
+/* Section heading between card groups (display font, big and short) */
+.section-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.5rem 1rem; margin: 2.6rem 0 1rem; }
+.section-head h2 { margin: 0; font-size: clamp(1.15rem, 0.95rem + 0.8vw, 1.45rem); }
+.section-head p { margin: 0.3rem 0 0; color: var(--tw-ink-2); font-size: 0.9rem; }
+
+/* Layout helpers used across pages */
+.data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr)); gap: var(--pico-spacing); }
+.data-grid > article { margin: 0; }
+.overflow-x { overflow-x: auto; }
+.row-wrap { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.row-wrap > * { margin: 0; width: auto; }
+.planet { display: block; flex: none; filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.35)); }
+
+/* The page ends above the play bar (player.js measures its height into --player-height) */
+body.with-player { padding-bottom: calc(var(--player-height, 4.2rem) + 0.5rem); --side-bottom: var(--player-height, 4.2rem); }
+@media (max-width: 600px) {
+  .player-inner { flex-wrap: wrap; gap: 0.5rem 0.75rem; padding: 0.55rem 0.9rem; }
+  .player-title { flex: 1 1 0; order: 1; }
+  #player-toggle { order: 0; }
+  .player-inner > .secondary { order: 2; }
+  .player-inner::after { content: ""; order: 4; flex-basis: 100%; height: 0; }
+  .player-seek { order: 5; flex: 1 1 0; }
+  .player-time { order: 6; }
+}
+@media (max-width: 760px) {
+  .hero { padding: 1.4rem 1.2rem 3rem; border-radius: 22px; }
+  .hero-stats { gap: 1rem 1.6rem; }
+  article { padding: 1.1rem 1.1rem; }
+  article > header, article > footer { margin-left: -1.1rem; margin-right: -1.1rem; padding-left: 1.1rem; padding-right: 1.1rem; }
+  article > header { margin-top: -1.1rem; }
+  article > footer { margin-bottom: -1.1rem; }
+}
+
+/* Tables with numbers: tighter heads so four columns fit a half-width card */
+table.work-fields th, table.work-fields td { padding-left: 0.45rem; padding-right: 0.45rem; }
+table.work-fields thead th { letter-spacing: 0.08em; font-size: 0.64rem; }
+@media (max-width: 600px) { .kv th { width: 6rem; } }
+
+/* === Pages built on the older markup ============================================================ */
+/* Every page header (.page-head) is a glass hero with the rising planet; its h1 is the page title
+   in the display font (short, Tagwerk's own words). Track titles use .track-head, not this. */
+.page-head {
+  position: relative; overflow: hidden; isolation: isolate; align-items: flex-start; gap: 1rem 2rem;
+  padding: 1.7rem 2rem 3.2rem; margin-bottom: 1.5rem; border-radius: 26px;
+  border: 1px solid var(--tw-line); background: var(--tw-glass-solid); box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not([data-effects="light"]) .page-head { background: var(--tw-glass); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur); }
+  :root:not([data-effects="light"]) .action-bar, :root:not([data-effects="light"]) .edit-actions, :root:not([data-effects="light"]) .wizard-actions {
+    background: var(--tw-glass-overlay); -webkit-backdrop-filter: var(--tw-glass-blur-raised); backdrop-filter: var(--tw-glass-blur-raised); }
+}
+.page-head::before {
+  content: ""; position: absolute; z-index: -1; left: -30%; right: -30%; bottom: 0; aspect-ratio: 1; border-radius: 50%;
+  transform: translateY(calc(100% - 2.6rem)); background: radial-gradient(closest-side, var(--tw-space-1) 96%, rgba(7, 7, 26, 0));
+  box-shadow: 0 -1px 0 rgba(199, 210, 254, 0.55), 0 -10px 40px rgba(129, 140, 248, 0.35), 0 -40px 120px rgba(67, 56, 202, 0.45);
+}
+.page-head::after { content: ""; position: absolute; z-index: -2; inset: 0; pointer-events: none; background: radial-gradient(70% 90% at 0% 0%, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0) 60%); }
+.page-head h1 { margin: 0.15rem 0 0.4rem; font-family: var(--tw-font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.035em; line-height: 1.05; font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.4rem); color: var(--tw-ink); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .page-head h1 { background: linear-gradient(100deg, #f8fafc 10%, #c7d2fe 55%, #a5b4fc 95%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.35)); }
+}
+.page-head .page-sub { color: var(--tw-ink-2); }
+.page-head .pill-eyebrow { margin-bottom: 0.6rem; }
+.home-head { flex-wrap: nowrap; }
+.home-hero-text { flex: 1 1 26rem; min-width: 0; }
+.home-head .hero-actions { margin-top: 1.5rem; }
+.hero-actions .scan { align-items: flex-start; min-width: 0; }
+.action-bar, .edit-actions, .wizard-actions { background: var(--tw-glass-raised-solid); border-top-color: var(--tw-line); }
+.track-head.hero { margin-bottom: 1.5rem; }
+.track-head.hero .info-pop { top: 1.1rem; right: 1.1rem; }
+.track-head.hero p { margin-bottom: 0.4rem; }
+.track-head .deck { margin: 0.9rem 0 1rem; max-width: 40rem; }
+@media (max-width: 760px) {
+  .page-head { padding: 1.3rem 1.2rem 3rem; border-radius: 22px; }
+  .home-head .orbits { display: none; }
+}
+/* KPI tiles: number, then a small uppercase label */
+.kpi { border-top: 1px solid var(--tw-line); }
+.kpi-label { margin-top: 0.35rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tw-ink-2); }
+.kpi-link:hover .kpi { outline: 0; transform: translateY(-3px); border-color: var(--tw-line-strong); box-shadow: var(--tw-glass-edge), var(--tw-glow); }
+.kpi-link .kpi { transition: transform var(--tw-fast) var(--tw-ease), border-color var(--tw-fast), box-shadow var(--tw-fast); }
+/* The menu: no underline on the current page (the sidebar shows it with light instead) */
+.side a.nav[aria-current="page"], .topbar a.nav[aria-current="page"] { text-decoration: none; }
+.top-menu > summary::after { display: none; }
+.top-menu { margin: 0; }
+.top-menu > summary.menu-button { padding: 0; border: 1px solid var(--tw-line); }
+.small-link { font-size: 0.85rem; }
+.task-list .grow small a.ok-link { color: var(--tw-ok); font-weight: 500; }
+.task-list .grow small a.check-link { color: var(--tw-check); font-weight: 500; }
+.cover-card .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.key-wheel svg { filter: drop-shadow(0 0 26px rgba(99, 102, 241, 0.25)); }
+main > h1:first-child { font-weight: 750; letter-spacing: -0.02em; }
+
+/* List views: tables that are not inside a card sit on their own glass panel (blurred, like the
+   cards), so the stars never run behind rows of text. :where() keeps it weak: tables inside cards,
+   key-value tables and the heat map stay plain. */
+main :where(table) {
+  border-collapse: separate; border-spacing: 0; border-radius: 18px; overflow: hidden;
+  background: var(--tw-glass-solid); border: 1px solid var(--tw-line);
+  box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not([data-effects="light"]) main :where(table) {
+    background: var(--tw-glass-overlay); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur);
+  }
+}
+main :where(table) thead th { background: rgba(22, 22, 58, 0.55); }
+main :where(table) tbody tr:last-child > * { border-bottom: 0; }
+article table, table.kv, table.heat, .info-panel table, .notice table {
+  border-collapse: collapse; border-radius: 0; overflow: visible; background: none; border: 0; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+article table thead th, table.kv thead th { background: none; }
+:root:not([data-effects="light"]) article table, :root:not([data-effects="light"]) table.kv, :root:not([data-effects="light"]) table.heat { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.overflow-auto:has(> table) { border-radius: 18px; }
+
+/* Play button on cover cards: solid gold with a dark ring, so it stands out on light and dark art. */
+.cover-card .art-wrap button.play-button, .cover-card .art-wrap button.play-button:hover, .cover-card .art-wrap button.play-button.playing {
+  width: 2.5rem; height: 2.5rem; background: var(--tw-gold); border: 0; color: var(--tw-ink-dark);
+  box-shadow: 0 0 0 3px rgba(3, 3, 8, 0.65), 0 6px 18px rgba(0, 0, 0, 0.55), 0 0 22px rgba(245, 197, 66, 0.5);
+}
+.cover-card .art-wrap button.play-button:hover { background: var(--tw-gold-hover); }
+.cover-card .art-wrap button.play-button .icon { width: 1rem; height: 1rem; }
+
+/* The track page's key: big like the other values, with a glowing dot in its Camelot colour. */
+.deck .key-dot { display: inline-block; width: 0.5em; height: 0.5em; margin: 0 0.3em 0.12em 0.05em; border-radius: 50%; vertical-align: middle;
+  background: var(--k, var(--tw-indigo-400)); box-shadow: 0 0 0 2px rgba(3, 3, 8, 0.6), 0 0 12px var(--k, var(--tw-indigo-400)); }
+/* Forms and sections on the page background get a glass panel too (readability over the stars). */
+.panel, .settings-section { padding: 1.4rem 1.6rem; margin: 0 0 var(--pico-spacing); border: 1px solid var(--tw-line); border-radius: var(--tw-radius-card);
+  background: var(--tw-glass-solid); box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.28); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not([data-effects="light"]) .settings-section { background: var(--tw-glass); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur); }
+}
+.settings-section { margin-top: var(--pico-spacing); }

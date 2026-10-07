@@ -1,76 +1,80 @@
 <!doctype html>
-{% from "macros.html" import icon %}
+{% from "macros.html" import icon, nav_icon, brand_mark %}
 {% set ui = prefs or none %}
-<html lang="en" data-style="{{ ui.style if ui else 'calm' }}"{% if ui and ui.appearance != 'system' %} data-theme="{{ ui.appearance }}"{% endif %}>
+{# One dark look (ADR 0021). data-effects="light" turns off blur, drift and glows. #}
+<html lang="en" data-theme="dark" data-motion="calm" data-effects="{{ ui.effects if ui else 'full' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#030308">
   <title>{% block title %}Tagwerk{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='theme.css') }}?v={{ static_version('theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='sky.css') }}?v={{ static_version('sky.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v={{ static_version('app.css') }}">
   <link rel="icon" href="{{ url_for('static', path='logo.svg') }}" type="image/svg+xml">
   <link rel="icon" href="{{ url_for('static', path='favicon-32.png') }}" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="{{ url_for('static', path='apple-touch-icon.png') }}">
   <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
 </head>
-{# hx-boost: links and forms load only #page, so the play bar below keeps playing between
-   pages (the script at the end aims every boosted swap at #page). #}
 <body hx-boost="true">
-  <div id="page" hx-history-elt>
-  <header class="container">
+  {# The night sky (sky.css, sky.js): outside #page, so page swaps never restart it. #}
+  <div class="tw-sky" aria-hidden="true">
+    <div class="tw-nebula"></div>
+    <div class="tw-warp">
+      <div class="tw-depth"><div class="tw-stars far"></div></div>
+      <div class="tw-depth"><div class="tw-stars mid"></div></div>
+      <div class="tw-depth"><div class="tw-stars near"></div></div>
+    </div>
+    <div class="tw-twinkle"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div id="page" class="shell" hx-history-elt>
     {# Which menu entry the current page belongs to: it is highlighted, so you see where you are. #}
     {% set path = request.url.path %}
-    {% if path == "/" %}{% set section = "home" %}
-    {% elif path.startswith(("/stats", "/tracks", "/albums", "/artists", "/fields", "/final", "/convert")) %}{% set section = "library" %}
-    {% elif path.startswith("/inbox") %}{% set section = "inbox" %}
-    {% elif path.startswith("/changes") %}{% set section = "changes" %}
-    {% elif path.startswith(("/settings", "/setup")) %}{% set section = "settings" %}
-    {% else %}{% set section = "" %}{% endif %}
-    {% macro here(name) %}{% if section == name %} aria-current="page"{% endif %}{% endmacro %}
-    {% macro this_page(prefix) %}{% if path == prefix or path.startswith(prefix ~ "/") %} aria-current="page"{% endif %}{% endmacro %}
-    <nav>
-      <ul>
-        <li>
-          <a href="/" class="brand" aria-label="Tagwerk, home"{{ here("home") }}>
-            <svg class="brand-mark" viewBox="0 0 64 64" width="32" height="32" aria-hidden="true">
-              <path class="brand-tag" fill-rule="evenodd" d="M4 32 L18 12 H54 a6 6 0 0 1 6 6 V46 a6 6 0 0 1 -6 6 H18 Z M11.4 32 a3.6 3.6 0 1 0 7.2 0 a3.6 3.6 0 1 0 -7.2 0 Z"/>
-              <rect class="brand-bar-1" x="25" y="30" width="5.5" height="14" rx="2.2"/>
-              <rect class="brand-bar-2" x="33" y="21" width="5.5" height="23" rx="2.2"/>
-              <rect class="brand-bar-3" x="41" y="26" width="5.5" height="18" rx="2.2"/>
-              <rect class="brand-bar-4" x="49" y="33" width="5.5" height="11" rx="2.2"/>
-            </svg>
-            <strong>Tagwerk</strong>
-          </a>
-        </li>
-      </ul>
-      <ul>
-        {% set inbox_n = inbox_count() %}
-        {% set pending_n = pending_count() %}
-        <li>
-          <details class="dropdown">
-            <summary{% if section == "library" %} class="current"{% endif %}><span class="wide-inline">Library</span><span class="narrow-inline">Menu{% if inbox_n or pending_n %} <span class="count-badge" aria-label="{{ inbox_n + pending_n }} waiting">{{ inbox_n + pending_n }}</span>{% endif %}</span></summary>
-            <ul dir="rtl">
-              <li><a href="/stats"{{ this_page("/stats") }}>Statistics</a></li>
-              <li><a href="/tracks"{{ this_page("/tracks") }}>Tracks</a></li>
-              <li><a href="/albums"{{ this_page("/albums") }}>Albums</a></li>
-              <li><a href="/artists"{{ this_page("/artists") }}>Artists</a></li>
-              <li><a href="/fields"{{ this_page("/fields") }}>Tag fields</a></li>
-              <li><a href="/final"{{ this_page("/final") }}>Final check</a></li>
-              <li class="narrow-only"><a href="/inbox"{{ here("inbox") }}>Inbox{% if inbox_n %} <span class="count-badge">{{ inbox_n }}</span>{% endif %}</a></li>
-              <li class="narrow-only"><a href="/changes"{{ here("changes") }}>Changes{% if pending_n %} <span class="count-badge">{{ pending_n }}</span>{% endif %}</a></li>
-              <li class="narrow-only"><a href="/settings"{{ here("settings") }}>Settings</a></li>
-            </ul>
-          </details>
-        </li>
-        <li class="wide-only"><a href="/inbox"{{ here("inbox") }}{% if inbox_n %} class="has-badge"{% endif %}>Inbox{% if inbox_n %} <span class="count-badge" aria-label="{{ inbox_n }} tracks">{{ inbox_n }}</span>{% endif %}</a></li>
-        <li class="wide-only"><a href="/changes"{{ here("changes") }}{% if pending_n %} class="has-badge"{% endif %}>Changes{% if pending_n %} <span class="count-badge" aria-label="{{ pending_n }} pending">{{ pending_n }}</span>{% endif %}</a></li>
-        <li class="wide-only"><a href="/settings"{{ here("settings") }}>Settings</a></li>
-        <li class="wide-only"><a href="/docs" hx-boost="false">API</a></li>
-      </ul>
-    </nav>
-  </header>
-  <main class="container">
+    {% macro here(prefix) %}{% if path == prefix or (prefix != "/" and path.startswith(prefix ~ "/")) %} aria-current="page"{% endif %}{% endmacro %}
+    {% set inbox_n = inbox_count() %}
+    {% set pending_n = pending_count() %}
+    {% macro nav(href, label, ic, count=0, unit="waiting") %}<a class="nav" href="{{ href }}"{{ here(href) }}>{{ nav_icon(ic) }}<span>{{ label }}</span>{% if count %}<span class="count-badge" aria-label="{{ count }} {{ unit }}">{{ count }}</span>{% endif %}</a>{% endmacro %}
+    {# Wide screens: the sidebar shows every page, grouped. #}
+    <aside class="side" aria-label="Main menu">
+      <a href="/" class="brand" aria-label="Tagwerk, home">{{ brand_mark(34, "side") }}<span class="brand-word">Tagwerk</span></a>
+      <nav class="side-group" aria-label="Library">
+        <span class="eyebrow">Library</span>
+        {{ nav("/", "Home", "home") }}{{ nav("/stats", "Statistics", "stats") }}{{ nav("/tracks", "Tracks", "tracks") }}
+        {{ nav("/albums", "Albums", "albums") }}{{ nav("/artists", "Artists", "artists") }}{{ nav("/fields", "Tag fields", "fields") }}
+      </nav>
+      <nav class="side-group" aria-label="Work">
+        <span class="eyebrow">Work</span>
+        {{ nav("/inbox", "Inbox", "inbox", inbox_n, "tracks") }}{{ nav("/changes", "Changes", "changes", pending_n, "pending") }}
+        {{ nav("/final", "Final check", "final") }}{{ nav("/convert", "Convert", "wave") }}
+      </nav>
+      <nav class="side-group" aria-label="System">
+        <span class="eyebrow">System</span>
+        {{ nav("/settings", "Settings", "settings") }}
+        <a class="nav" href="/docs" hx-boost="false">{{ nav_icon("api") }}<span>API</span></a>
+      </nav>
+      <div class="side-foot">
+        <span>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a></span>
+      </div>
+    </aside>
+    <div class="main-col">
+    {# Narrow windows and phones: a floating glass bar with Inbox, Changes and a menu. #}
+    <header class="topbar">
+      <a href="/" class="brand" aria-label="Tagwerk, home">{{ brand_mark(28, "top") }}<span class="brand-word">Tagwerk</span></a>
+      <nav aria-label="Main menu">
+        <a class="nav" href="/inbox"{{ here("/inbox") }} aria-label="Inbox">{{ nav_icon("inbox") }}{% if inbox_n %}<span class="count-badge">{{ inbox_n }}</span>{% endif %}</a>
+        <a class="nav" href="/changes"{{ here("/changes") }} aria-label="Changes">{{ nav_icon("changes") }}{% if pending_n %}<span class="count-badge">{{ pending_n }}</span>{% endif %}</a>
+        <details class="dropdown top-menu">
+          <summary class="menu-button" aria-label="Menu">{{ nav_icon("menu") }}</summary>
+          <ul dir="rtl">
+            <li><a href="/">Home</a></li><li><a href="/stats">Statistics</a></li><li><a href="/tracks">Tracks</a></li>
+            <li><a href="/albums">Albums</a></li><li><a href="/artists">Artists</a></li><li><a href="/fields">Tag fields</a></li>
+            <li><a href="/final">Final check</a></li><li><a href="/convert">Convert</a></li><li><a href="/settings">Settings</a></li>
+          </ul>
+        </details>
+      </nav>
+    </header>
+  <main>
     {% block content %}{% endblock %}
   </main>
   {% set saved = request.query_params.get("saved") %}
@@ -96,13 +100,14 @@
     })();
   </script>
   {% endif %}
-  <footer class="container">
+  <footer>
     <small>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
   </footer>
+    </div>
   </div>
   {# The play bar (app/static/player.js): shown once a ▶ button is pressed. #}
   <div class="player-bar" id="player" hidden>
-    <div class="container player-inner">
+    <div class="player-inner">
       <button type="button" id="player-toggle" class="player-control playing" aria-label="Pause">{{ icon("play") }}{{ icon("pause") }}</button>
       <span id="player-title" class="player-title"></span>
       <input type="range" id="player-seek" min="0" max="1000" step="1" value="0" aria-label="Position">
@@ -186,5 +191,6 @@
     });
   </script>
   <script src="{{ url_for('static', path='player.js') }}?v={{ static_version('player.js') }}" defer></script>
+  <script src="{{ url_for('static', path='sky.js') }}?v={{ static_version('sky.js') }}" defer></script>
 </body>
 </html>
