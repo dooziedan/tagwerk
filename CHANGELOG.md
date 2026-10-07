@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-07
+
+### Changed
+- The **Home** link in the menu is gone: the Tagwerk logo leads to Home.
+
+### Fixed
+- **Analyse BPM & key** for ticked tracks seemed to do nothing when they were analysed before: they were skipped without a word. Ticked tracks are now always analysed again (**Analyse all** still skips tracks that have a result), and the track list says what the last analysis did, e.g. "47 tracks analysed, 3 skipped".
+- While the play bar is open, the **Save** buttons on edit pages (track, inbox review), the setup wizard's buttons, the inbox's selection bar and short notices sit above the player instead of under it.
+
 ## [0.10.0] - 2026-10-07
 
 ### Added

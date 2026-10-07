@@ -172,7 +172,7 @@ a.wheel-seg.empty { pointer-events: none; }
 .edit-form .edit-input input { margin-bottom: 0.25rem; }
 .edit-form .edit-input input + small { display: block; margin-top: 0; margin-bottom: 0.5rem; }
 /* The save bar stays at the bottom of the window; fields scrolled into view keep clear of it. */
-.edit-actions { position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 1rem; padding: 0.75rem 0; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
+.edit-actions { position: sticky; bottom: var(--player-height, 0px); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 1rem; padding: 0.75rem 0; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
 .edit-actions button { margin: 0; width: auto; }
 .edit-actions small { flex: 1 1 14rem; }
 .edit-form input, .edit-form fieldset { scroll-margin-bottom: 7rem; }
@@ -245,7 +245,7 @@ nav details.dropdown > summary:not([role]):active {
 nav details.dropdown > summary:not([role]):hover { color: var(--pico-primary-hover); }
 nav details.dropdown[open] > summary:not([role]) { color: var(--pico-primary-hover); }
 /* The menu entry of the page you're on: bold and underlined (also in the open Library menu). */
-nav a[aria-current="page"], nav details.dropdown > summary.current {
+nav a[aria-current="page"]:not(.brand), nav details.dropdown > summary.current {
   font-weight: 600;
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -306,11 +306,11 @@ nav a[aria-current="page"], nav details.dropdown > summary.current {
 .trash-list form { margin: 0; }
 .ok { color: var(--pico-ins-color); font-weight: 600; white-space: nowrap; }
 /* Actions for ticked items: fixed at the bottom of the window, so the list never moves. */
-.action-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08); }
+.action-bar { position: fixed; left: 0; right: 0; bottom: var(--player-height, 0px); z-index: 5; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.08); }
 .action-bar[hidden] { display: none; }
 .action-bar-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .action-bar button { margin: 0; width: auto; }
-body.with-action-bar { padding-bottom: 6rem; }
+body.with-action-bar { padding-bottom: calc(6rem + var(--player-height, 0px)); }
 .page-head .scan { margin: 0; }
 /* Tabs that filter a list (Inbox: All, Needs help, Edited, ...) */
 .view-tabs { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 0.4rem; margin: 0 0 0.75rem; }
@@ -332,7 +332,7 @@ body.with-action-bar { padding-bottom: 6rem; }
 .edit-actions button + button { margin-left: 0; }
 
 /* Short confirmation at the bottom of the window (e.g. "Saved 3 pending changes"). */
-.toast { position: fixed; z-index: 10; left: 50%; bottom: 1.25rem; transform: translateX(-50%); display: flex; align-items: center; gap: 0.9rem; max-width: calc(100vw - 2rem); padding: 0.7rem 0.6rem 0.7rem 1.1rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); font-size: 0.95rem; }
+.toast { position: fixed; z-index: 10; left: 50%; bottom: calc(1.25rem + var(--player-height, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 0.9rem; max-width: calc(100vw - 2rem); padding: 0.7rem 0.6rem 0.7rem 1.1rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); font-size: 0.95rem; }
 .toast a { white-space: nowrap; font-weight: 600; }
 .toast-close { margin: 0; padding: 0 0.5rem; width: auto; border: 0; background: none; color: var(--pico-muted-color); font-size: 1.3rem; line-height: 1; }
 
@@ -354,7 +354,7 @@ body.with-action-bar { padding-bottom: 6rem; }
 .wizard-steps li.done::before { content: "✓"; border-color: var(--pico-primary); color: var(--pico-primary); }
 .wizard-steps li[aria-current="step"] { color: var(--pico-color); font-weight: 600; }
 .wizard-steps li[aria-current="step"]::before { background: var(--pico-primary-background); border-color: var(--pico-primary-background); color: var(--pico-primary-inverse); }
-.wizard-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; margin-top: 1.5rem; padding: 0.75rem 0; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
+.wizard-actions { position: sticky; bottom: var(--player-height, 0px); display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1rem; margin-top: 1.5rem; padding: 0.75rem 0; background: var(--pico-background-color); border-top: 1px solid var(--pico-muted-border-color); }
 .wizard-actions button, .wizard-actions [role="button"] { margin: 0; width: auto; }
 .setup-checks { list-style: none; padding: 0; }
 .setup-checks li { list-style: none; margin-bottom: 0.5rem; }
@@ -424,9 +424,9 @@ body.with-action-bar { padding-bottom: 6rem; }
 .volume-box { position: relative; width: 2.75rem; height: 8.5rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
 #player-volume { position: absolute; left: 50%; top: 50%; width: 7rem; margin: 0; transform: translate(-50%, -50%) rotate(-90deg); }  /* a normal slider turned upright: works in every browser */
 @media (hover: none) { .player-volume { display: none; } }  /* touch screens: the hardware buttons set the volume */
-body.with-player { padding-bottom: 4rem; }
-body.with-player .action-bar { bottom: 3.5rem; }  /* the selection bar sits above the player */
-body.with-player.with-action-bar { padding-bottom: 10rem; }
+/* The player measures its height into --player-height (player.js): bars that stick to the
+   bottom (Save, the selection bar, notices) sit above it, and the page ends above it. */
+body.with-player { padding-bottom: calc(var(--player-height, 4rem) + 0.5rem); }
 .play-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; width: 2rem; height: 2rem; padding: 0; margin: 0; border-radius: 50%; font-size: 0.75rem; line-height: 1; flex: none; }
 .play-button .icon { width: 0.9rem; height: 0.9rem; }
 .play-button.with-label { width: auto; padding: 0.35rem 0.9rem; border-radius: var(--pico-border-radius); font-size: 0.9rem; height: auto; }
@@ -441,8 +441,6 @@ body.with-player.with-action-bar { padding-bottom: 10rem; }
   .player-inner::after { content: ""; order: 4; flex-basis: 100%; height: 0; }
   #player-seek { order: 5; flex: 1 1 0; width: auto; min-width: 0; }
   .player-time { order: 6; }
-  body.with-player { padding-bottom: 6rem; }
-  body.with-player .action-bar { bottom: 5.5rem; }
 }
 .play-row { display: flex; align-items: center; gap: 0.6rem; }
 .play-row > div { min-width: 0; }

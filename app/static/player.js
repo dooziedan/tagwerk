@@ -104,6 +104,16 @@
     audio.play().catch(() => show(false));
   }
 
+  // The bar's height, for the page (app.css --player-height): Save buttons and other bars
+  // that stick to the bottom sit just above the player instead of under it. The height
+  // changes when the bar wraps onto two lines (phones) or the window is resized.
+  function measure() {
+    const height = bar.hidden ? 0 : bar.offsetHeight;
+    document.documentElement.style.setProperty("--player-height", height + "px");
+  }
+  if (window.ResizeObserver) new ResizeObserver(measure).observe(bar);
+  window.addEventListener("resize", measure);
+
   function play(data) {
     startWebAudio();
     if (track && track.play === data.play) {
@@ -115,6 +125,7 @@
     title.textContent = track.title;
     bar.hidden = false;
     document.body.classList.add("with-player");
+    measure();
     load(0);
   }
 
@@ -125,6 +136,7 @@
     track = null;
     bar.hidden = true;
     document.body.classList.remove("with-player");
+    measure();
     show(false);
   }
 

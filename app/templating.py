@@ -123,7 +123,17 @@ def static_version(name: str) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:10]
 
 
+def recent(when: datetime | None, seconds: float) -> bool:
+    """True if ``when`` was less than ``seconds`` ago (e.g. "show the last result a while")."""
+    if when is None:
+        return False
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - when).total_seconds() < seconds
+
+
 templates.env.globals.update(
+    recent=recent,
     pending_count=pending_count,
     inbox_count=inbox_count,
     version=__version__,
