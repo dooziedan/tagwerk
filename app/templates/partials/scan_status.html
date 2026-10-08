@@ -13,7 +13,7 @@
   <button hx-post="/partials/scan" hx-target="#scan" hx-swap="outerHTML">Scan library</button>
   {% if job.status == "done" %}
   <small class="muted">
-    Last scan: {{ p.added | number }} added, {{ p.updated | number }} updated,
+    Last scan: {{ p.added | number }} added, {{ p.updated | number }} updated,{% if p.moved %} {{ p.moved | number }} moved,{% endif %}
     {{ p.unchanged | number }} unchanged, {{ p.removed | number }} removed{% if p.errors %}, ⚠️ {{ p.errors | number }} errors{% endif %}.
   </small>
   {% elif job.status == "failed" %}

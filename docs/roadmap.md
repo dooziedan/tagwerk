@@ -8,11 +8,12 @@ SSD are out of scope (that would be a separate tool).
 
 **1.0 means:** Tagwerk can be trusted with the real master library, and it is a joy to look at.
 
-## Where we are (v0.13)
+## Where we are (v0.14)
 Everything on the original plan is built: scanning and statistics, editing with review and undo,
 the import inbox with automatic mode, online identification, BPM and key from the audio, final
-tracks, converting to AIFF, the play bar, the night-sky look and now duplicates in the library.
-What's left before 1.0 is checking it all on the real library and the README.
+tracks, converting to AIFF, the play bar, the night-sky look, duplicates in the library (with
+the copy to keep) and the README. What's left before 1.0: the owner's run on the real library
+and an onboarding tour.
 
 ## Road to 1.0
 In this order:
@@ -28,7 +29,8 @@ In this order:
    page.
 4. **Duplicates in the library** ✅ v0.13: groups of copies side by side, a number on Home and
    Statistics, "keep them all"; Tagwerk never deletes library files
-   ([ADR 0022](decisions/0022-library-duplicates.md)).
+   ([ADR 0022](decisions/0022-library-duplicates.md)). v0.14: suggests the copy to keep (the
+   best sound) and lets the owner take tags and covers over from the other copies.
 5. **Hardening on the real library**, partly done:
    - ✅ Speed at full size: `scripts/benchmark.py` times every page on a made-up library of
      20,000 tracks. A missing index made Home take 3.5 s and Statistics 10.7 s; now 0.15 s and
@@ -39,13 +41,23 @@ In this order:
      tracks (online results are only read for tracks that were looked up).
    - ✅ The Unraid template has every setting (a test keeps it that way), with a **CPU Cores**
      field in the main view.
-   - Open: **a run on the real library** by the owner: scan time, memory and the page times
-     on the Unraid server; WAV/AIFF tags compared with what Navidrome shows (open since v0.2).
-6. **Polish**: glass for the remaining forms on the bare page (edit form, wizard, convert,
-   fields), a planet placeholder on the track page when there is no cover, retire unused old
-   rules in `app.css` (`.mode-switch`, old dropdown rules).
-7. **README** with screenshots of the night-sky look and a short "first steps" guide; release
-   `v1.0.0`.
+   - ✅ v0.14: a scan never empties the library when the music folder looks empty (unmounted
+     share); files moved outside Tagwerk keep their added date, final mark and analysis.
+   - In progress: **the owner's real library** on Unraid (about 1,500 tracks, filled through
+     the import inbox from a separate DJ library): scan time, memory and page times; WAV/AIFF
+     tags compared with what Navidrome shows (open since v0.2).
+6. **Polish** ✅ v0.14: glass for the edit form and the wizard, a planet on the track page
+   when there is no cover, the Play button matches the buttons next to it, unused old rules
+   retired.
+7. **README** ✅ v0.14: screenshots from a made-up showcase library and a "first steps" guide.
+8. **Onboarding tour**: after the setup wizard, a short guided look at the interface for people
+   new to Tagwerk. It highlights one area at a time with a sentence or two and *Next* / *Skip*:
+   the menu (Library, Work, System), Home's "Waiting for you" and "Worth a look", the way every
+   edit becomes a pending change (Changes → Apply → History and undo), the Inbox, Duplicates,
+   Statistics, and where Settings live. On the owner's real library, not a demo; works on
+   phones; shown once, and again from Settings (*Show the tour*). Calm, like the rest of the
+   motion: no constant movement, nothing with reduced motion.
+9. **Release `v1.0.0`** once the owner's real-library run (5.) shows nothing more to fix.
 
 ## Released
 Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/README.md).
@@ -65,6 +77,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.11 | Tagwerk's work, value sources, ticking changes to apply. | [0020](decisions/0020-tagwerks-work.md) |
 | 0.12 | The night-sky look. | [0021](decisions/0021-night-sky-rebrand.md) |
 | 0.13 | Duplicates in the library, speed at full size, tidier Settings, 2D orbits, new motion. | [0022](decisions/0022-library-duplicates.md) |
+| 0.14 | The copy to keep among duplicates, safer scans, honest percentages, the stardust Apply, README screenshots. | [0022](decisions/0022-library-duplicates.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.
@@ -81,5 +94,7 @@ Not planned for 1.0; open for discussion.
 - **Batch jobs** for the existing library (e.g. look up everything without IDs).
 - **Reorganising the existing library** by the folder layout (so far only new inbox tracks are
   sorted; check how Navidrome handles moved files first).
+- **Filename parsing**: scene-style names (`artist-title-(vip)-128bpm`) and BPM/key at the end
+  without brackets (`… (Extended Mix) 174 Am`) aren't read yet; `[174 Am]` is.
 - Last.fm genres.
 - Login protection (low priority: Tagwerk is a local tool for one user).

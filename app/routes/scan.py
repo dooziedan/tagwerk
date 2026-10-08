@@ -56,6 +56,7 @@ def scan_state(job: ScanJob) -> dict:
         "added": p.added,
         "updated": p.updated,
         "unchanged": p.unchanged,
+        "moved": p.moved,
         "removed": p.removed,
         "errors": p.errors,
         "current": p.current,

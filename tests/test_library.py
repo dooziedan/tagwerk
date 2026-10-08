@@ -210,3 +210,22 @@ def test_cover_endpoint(client, music_dir):
     (music_dir / "Unsorted" / "Cover.JPG").write_bytes(b"\xff\xd8 fake jpeg")
     sidecar = client.get(f"/tracks/{tracks['Unsorted/untagged.mp3']}/cover")
     assert sidecar.status_code == 200 and sidecar.headers["content-type"] == "image/jpeg"
+
+
+@pytest.mark.parametrize(
+    ("part", "whole", "digits", "expected"),
+    [
+        (1497, 1500, 0, 99),  # 99.8 %: three missing is not 100 %
+        (1500, 1500, 0, 100),
+        (1, 1500, 0, 1),  # 0.07 %: one is not 0 %
+        (0, 1500, 0, 0),
+        (1499, 1500, 1, 99.9),
+        (1, 3000, 1, 0.1),
+        (1, 2, 0, 50),
+        (5, 0, 0, 0),
+    ],
+)
+def test_percentages_never_round_to_100_or_0_while_not_exact(part, whole, digits, expected):
+    from app.percent import percent
+
+    assert percent(part, whole, digits) == expected

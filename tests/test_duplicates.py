@@ -2,6 +2,7 @@ import shutil
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from mutagen.flac import FLAC
 from sqlmodel import Session, select
 
 from app import duplicates, trash
@@ -271,7 +272,8 @@ def test_library_duplicates_after_a_scan(client, music_dir):
     # The test library's "Silent Track" in seven formats: the same recording (one MBID).
     formats = next(g for g in groups.values() if len(g["tracks"]) == 7)
     assert formats["reasons"] == ["mbid"]
-    assert sum(t["best_sound"] for t in formats["tracks"]) <= 1
+    kept = next(t for t in formats["tracks"] if t["id"] == formats["keep"])
+    assert kept["format"] in ("flac", "wav", "aiff")  # lossless sounds best
 
     # Every number points at the same tracks.
     listed = client.get("/api/tracks", params={"flag": "duplicate"}).json()["total"]
@@ -302,3 +304,59 @@ def test_library_duplicates_after_a_scan(client, music_dir):
 
 def test_no_duplicates_page(client):
     assert "No duplicates." in client.get("/duplicates").text
+
+
+def _copy(id, fmt="mp3", bitrate=320000, rate=44100, bits=None, **tags):
+    track = Track(id=id, path=f"x/{id}.{fmt}", format=fmt, size=1, mtime=0, bitrate=bitrate,
+                  sample_rate=rate, bits_per_sample=bits, **tags)  # fmt: skip
+    return duplicates.Copy(track, final=False, reason="name")
+
+
+def test_the_best_sound_is_kept_even_with_fewer_tags():
+    flac = _copy(1, "flac", 900000, 44100, 16, title="T")
+    mp3 = _copy(2, title="T", artist="A", label="Hospital", genre="Drum & Bass")
+    group = duplicates.Group(1, [mp3, flac])
+    assert group.keeper is flac and group.ordered == [flac, mp3]
+    assert group.why == "The best sound: FLAC · 44.1 kHz · 16 bit."
+    # Its tags may be the poorer ones: the others offer theirs.
+    assert group.missing == {"artist": "A", "genre": "Drum & Bass", "label": "Hospital"}
+    assert group.offers(mp3, "label") and not group.offers(mp3, "title")
+
+
+def test_with_the_same_sound_the_most_tags_win_and_the_owner_can_choose():
+    plain, tagged = _copy(1, title="T"), _copy(2, title="T", label="L")
+    group = duplicates.Group(1, [plain, tagged])
+    assert group.keeper is tagged and "most tags" in group.why
+    group.chosen = 1
+    assert group.keeper is plain and group.why == "Your choice."
+
+
+def test_taking_tags_over_from_another_copy(client, music_dir):
+    from mutagen.id3 import ID3, TPUB
+
+    mp3 = music_dir / "Fixture Artist/Fixture Album/tagged.mp3"
+    tags = ID3(mp3)
+    tags.add(TPUB(encoding=3, text=["Hospital Records"]))
+    tags.save()
+    flac_path = music_dir / "Fixture Artist/Fixture Album/tagged.flac"
+    flac = FLAC(flac_path)
+    del flac["genre"]
+    flac.save()
+    scan_job_run(client)
+    group = next(g for g in client.get("/api/duplicates").json() if len(g["tracks"]) == 7)
+    ids = {t["path"].rsplit("/", 1)[-1]: t["id"] for t in group["tracks"]}
+    keep, other = ids["tagged.flac"], ids["tagged.mp3"]
+
+    client.post("/duplicates/take", data={"keep": keep, "source": other, "field": "label"})
+    client.post("/duplicates/take", data={"keep": keep, "source": keep, "field": "missing"})
+    pending = client.get("/api/changes").json()
+    assert [p["track_id"] for p in pending] == [keep]  # only the copy to keep gets changes
+    changes = {c["field"]: c for c in pending[0]["changes"]}
+    assert changes["label"]["new_value"] == "Hospital Records"
+    assert changes["label"]["source"] == "copy"
+    assert changes["genre"]["new_value"] == "Electronic"  # the other copies agree on it
+    page = client.get("/duplicates", params={"group": group["group"], "keep": keep}).text
+    assert "→ Hospital Records" in page and "Review and apply the pending changes" in page
+    other_group = client.post("/api/duplicates/take", json={"keep": keep, "source": 999999,
+                                                             "fields": ["label"]})  # fmt: skip
+    assert other_group.status_code == 400

@@ -104,6 +104,6 @@
 <svg class="ring" width="{{ size }}" height="{{ size }}" viewBox="0 0 {{ size }} {{ size }}" aria-hidden="true">
   <circle cx="{{ mid }}" cy="{{ mid }}" r="{{ r }}" fill="none" stroke="#818cf8" stroke-opacity="0.14" stroke-width="{{ stroke }}"/>
   <circle cx="{{ mid }}" cy="{{ mid }}" r="{{ r }}" fill="none" stroke="{{ tip }}" stroke-width="{{ stroke }}" stroke-linecap="round" stroke-dasharray="{{ '%.2f' % (c * p / 100) }} {{ '%.2f' % c }}" transform="rotate(-90 {{ mid }} {{ mid }})"/>
-  {%- if label != "" %}<text x="{{ mid }}" y="{{ mid + 4.5 }}" text-anchor="middle" fill="#f8fafc" font-size="{{ 13 if size >= 60 else 11 }}" font-weight="700">{{ label if label else ((p | round | int) ~ "%") }}</text>{% endif %}
+  {%- if label != "" %}<text x="{{ mid }}" y="{{ mid + 4.5 }}" text-anchor="middle" fill="#f8fafc" font-size="{{ 13 if size >= 60 else 11 }}" font-weight="700">{{ label if label else ((p | whole_percent) ~ "%") }}</text>{% endif %}
 </svg>
 {%- endmacro %}

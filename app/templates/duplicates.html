@@ -33,26 +33,29 @@
 </nav>
 {% if group and not groups %}<p class="muted">This group is gone: a copy was deleted, or you kept them all.</p>{% endif %}
 
-{% for g in groups %}
+{% for g in groups %}{% set k = g.keeper %}{% set mine = pending.get(k.track.id, {}) %}
 <article class="dup-group" id="group-{{ g.id }}">
   <header class="card-head">
     <span><strong>{{ g.name }}</strong> <small>{{ g.copies | length }} copies{% if g.extra_size %} · {{ g.extra_size | filesize }} extra{% endif %}</small></span>
     <span class="dup-reasons">{% for r in g.reasons %}<span class="status{% if r == 'file' %} status-sure{% endif %}">{{ reasons[r] }}</span>{% endfor %}</span>
   </header>
+  <p class="dup-advice"><span class="status status-final">Keep</span> <strong>{{ k.track.path.rsplit("/", 1)[-1] }}</strong> · {{ g.why }}
+    {% if k.final %}<br><small class="muted">It's final, so its tags are locked: remove the mark on its track page to take tags over.</small>
+    {% else %}<br><small class="muted">Check its tags against the other copies: <strong>Use</strong> takes a value over as a pending change.</small>{% endif %}</p>
   <div class="dup-scroll">
     <table class="dup-table">
       <thead>
         <tr>
           <th scope="col"><span class="visually-hidden">Field</span></th>
-          {% for c in g.copies %}{% set t = c.track %}
-          <th scope="col">
+          {% for c in g.ordered %}{% set t = c.track %}
+          <th scope="col"{% if c is sameas k %} class="keep"{% endif %}>
             <span class="dup-file">
               {% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}
               <span><a href="/tracks/{{ t.id }}">{{ t.path.rsplit("/", 1)[-1] }}</a>
               <small class="muted">{{ t.path.rsplit("/", 1)[0] if "/" in t.path else "(top folder)" }}</small></span>
             </span>
             <span class="dup-badges">
-              {% if c.best_sound %}<span class="status status-sure">Best sound</span>{% endif %}
+              {% if c is sameas k %}<span class="status status-final">Keep</span>{% else %}<a class="small-link" href="/duplicates?group={{ g.id }}&keep={{ t.id }}">Keep this one instead</a>{% endif %}
               {% if c.most_tags %}<span class="status">Most tags</span>{% endif %}
               {% if c.final %}<span class="status status-final">Final</span>{% endif %}
             </span>
@@ -61,30 +64,52 @@
         </tr>
       </thead>
       <tbody>
-        {% macro quality(t) %}{{ t.format | upper }}{% if t.format in ("flac", "wav", "aiff") or (t.bits_per_sample or 0) > 0 %}{% if t.sample_rate %} · {{ (t.sample_rate / 1000) | round(1) }} kHz{% endif %}{% if t.bits_per_sample %} · {{ t.bits_per_sample }} bit{% endif %}{% elif t.bitrate %} · {{ (t.bitrate / 1000) | round | int }} kbps{% endif %}{% endmacro %}
-        <tr{% if g.differs("format") or g.differs("bitrate") or g.differs("sample_rate") %} class="differs"{% endif %}><th scope="row">Audio</th>{% for c in g.copies %}<td>{{ quality(c.track) }}</td>{% endfor %}</tr>
-        <tr{% if g.differs("duration") %} class="differs"{% endif %}><th scope="row">Length</th>{% for c in g.copies %}<td>{{ c.track.duration | mmss }}</td>{% endfor %}</tr>
+        <tr{% if g.copies | map(attribute="sound") | unique | list | length > 1 %} class="differs"{% endif %}><th scope="row">Audio</th>{% for c in g.ordered %}<td{% if c is sameas k %} class="keep"{% endif %}>{{ c.quality }}</td>{% endfor %}</tr>
+        <tr{% if g.differs("duration") %} class="differs"{% endif %}><th scope="row">Length</th>{% for c in g.ordered %}<td{% if c is sameas k %} class="keep"{% endif %}>{{ c.track.duration | mmss }}</td>{% endfor %}</tr>
         {# Sizes as shown: copies a few bytes apart (other tags) read the same, so they aren't marked. #}
-        <tr{% if g.copies | map(attribute="track.size") | map("filesize") | unique | list | length > 1 %} class="differs"{% endif %}><th scope="row">Size</th>{% for c in g.copies %}<td>{{ c.track.size | filesize }}</td>{% endfor %}</tr>
-        {% for label, field in fields %}
-        <tr{% if g.differs(field) %} class="differs"{% endif %}><th scope="row">{{ label }}</th>
-          {% for c in g.copies %}{% set v = c.track[field] %}
-          <td>{% if v in (None, "") %}<span class="muted">–</span>{% elif field == "key_camelot" %}{{ key_label(v, n) }}{% elif field == "bpm" %}{{ v | bpm }}{% else %}{{ v }}{% endif %}</td>
+        <tr{% if g.copies | map(attribute="track.size") | map("filesize") | unique | list | length > 1 %} class="differs"{% endif %}><th scope="row">Size</th>{% for c in g.ordered %}<td{% if c is sameas k %} class="keep"{% endif %}>{{ c.track.size | filesize }}</td>{% endfor %}</tr>
+        {# One row per tag that any copy has (or that has a pending change). #}
+        {% for field in compared %}
+        {% if g.has(field) or field in mine %}
+        <tr{% if g.differs(field) %} class="differs"{% endif %}><th scope="row">{{ field_label(field) }}</th>
+          {% for c in g.ordered %}{% set v = c.value(field) %}
+          <td{% if c is sameas k %} class="keep"{% endif %}>
+            {% if v in (none, "") %}<span class="muted">–</span>{% elif field == "key" and c.track.key_camelot %}{{ key_label(c.track.key_camelot, n) }}{% else %}{{ v }}{% endif %}
+            {% if c is sameas k and field in mine %}<span class="dup-pending">→ {{ mine[field] if mine[field] not in (none, "") else "(removed)" }} <span class="status status-you">pending</span></span>{% endif %}
+            {% if not k.final and g.offers(c, field) and mine.get(field) != v %}
+            <form method="post" action="/duplicates/take" class="dup-use"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ c.track.id }}"><input type="hidden" name="field" value="{{ field }}"><button class="outline secondary small" title="Take this value over to the copy you keep (a pending change)">Use</button></form>
+            {% endif %}
+          </td>
           {% endfor %}
         </tr>
+        {% endif %}
         {% endfor %}
-        <tr{% if g.differs("has_cover") %} class="differs"{% endif %}><th scope="row">Cover</th>{% for c in g.copies %}<td>{% if c.track.has_cover %}<img class="dup-cover" src="/tracks/{{ c.track.id }}/cover?v={{ c.track.mtime }}" alt="Cover" width="44" height="44" loading="lazy">{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}</tr>
-        <tr><th scope="row">Added</th>{% for c in g.copies %}<td>{% if c.track.added_at %}<time data-local data-date-only datetime="{{ c.track.added_at | isoutc }}">{{ c.track.added_at | isoutc }}</time>{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}</tr>
+        {% set cover_ids = [] %}{% for c in g.copies %}{% set _ = cover_ids.append(covers.get(c.track.id)) %}{% endfor %}
+        <tr{% if cover_ids | unique | list | length > 1 %} class="differs"{% endif %}><th scope="row">Cover</th>
+          {% for c in g.ordered %}<td{% if c is sameas k %} class="keep"{% endif %}>
+            {% if c.track.has_cover %}<img class="dup-cover" src="/tracks/{{ c.track.id }}/cover?v={{ c.track.mtime }}" alt="Cover" width="44" height="44" loading="lazy">{% else %}<span class="muted">–</span>{% endif %}
+            {% if c is sameas k and cover_field in mine %}<span class="dup-pending">→ new cover <span class="status status-you">pending</span></span>{% endif %}
+            {% if c is not sameas k and covers.get(c.track.id) and covers.get(c.track.id) != covers.get(k.track.id) and not k.final %}
+            <form method="post" action="/duplicates/take" class="dup-use"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ c.track.id }}"><input type="hidden" name="field" value="{{ cover_field }}"><button class="outline secondary small" title="Take this cover over to the copy you keep (a pending change)">Use</button></form>
+            {% endif %}
+          </td>{% endfor %}</tr>
+        <tr><th scope="row">Added</th>{% for c in g.ordered %}<td{% if c is sameas k %} class="keep"{% endif %}>{% if c.track.added_at %}<time data-local data-date-only datetime="{{ c.track.added_at | isoutc }}">{{ c.track.added_at | isoutc }}</time>{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}</tr>
       </tbody>
     </table>
   </div>
   <footer class="dup-foot">
-    <small class="muted">To remove a copy, delete its file in your file manager; the next scan notices.</small>
-    <form method="post" action="/duplicates/keep">
-      {% for c in g.copies %}<input type="hidden" name="track_ids" value="{{ c.track.id }}">{% endfor %}
-      <input type="hidden" name="back" value="/duplicates?reason={{ reason }}&page={{ page }}">
-      <button class="outline secondary small" title="They're different tracks, or you want every copy: this group isn't shown again (unless another copy turns up)">Keep them all</button>
-    </form>
+    <small class="muted">{% if mine %}<a href="/changes">Review and apply the pending changes →</a> Then delete{% else %}When the tags are right, delete{% endif %} the other copies in your file manager; the next scan notices.</small>
+    <span class="button-row">
+      {% set missing = g.missing %}
+      {% if missing and not k.final %}
+      <form method="post" action="/duplicates/take"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ k.track.id }}"><input type="hidden" name="field" value="missing"><button class="small" title="{% for f in missing %}{{ field_label(f) }}{{ ', ' if not loop.last }}{% endfor %}">Take over {{ missing | length | plural('missing tag') }}</button></form>
+      {% endif %}
+      <form method="post" action="/duplicates/keep">
+        {% for c in g.copies %}<input type="hidden" name="track_ids" value="{{ c.track.id }}">{% endfor %}
+        <input type="hidden" name="back" value="/duplicates?reason={{ reason }}&page={{ page }}">
+        <button class="outline secondary small" title="They're different tracks, or you want every copy: this group isn't shown again (unless another copy turns up)">Keep them all</button>
+      </form>
+    </span>
   </footer>
 </article>
 {% endfor %}

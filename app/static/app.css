@@ -597,9 +597,6 @@ a:hover > .lift::after, .lift:hover::after { opacity: 1; }
 .side .count-badge { margin-left: auto; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 0.6rem; padding: 0.85rem 0.75rem 0.25rem; border-top: 1px solid var(--tw-line-soft); font-size: 0.78rem; color: var(--tw-ink-2); }
 .side-foot a { color: var(--tw-ink-2); }
-.mode-switch { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(7, 7, 26, 0.7); border: 1px solid var(--tw-line); }
-.mode-switch span { padding: 0.2rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: var(--tw-ink-2); }
-.mode-switch span[aria-current] { background: var(--tw-space-4); color: var(--tw-ink); box-shadow: inset 0 0 0 1px var(--tw-line-strong); }
 
 .main-col { min-width: 0; display: flex; flex-direction: column; }
 .main-col > main { width: 100%; max-width: 82rem; margin: 0 auto; padding: 1.75rem 2rem 2rem; }
@@ -856,8 +853,6 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
   .toast { animation: tw-toast-out 1ms linear 6s forwards; }
   .toast-warn { animation: none; }
 }
-.toast .ok { color: var(--tw-ok); font-weight: 700; }
-.toast a { white-space: nowrap; font-weight: 600; }
 
 /* --- Play bar (player.js measures its height into --player-height) ---------------------------- */
 .player-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; border-top: 1px solid var(--tw-line); box-shadow: 0 -20px 50px rgba(0, 0, 0, 0.45); border-radius: 0; }
@@ -1163,10 +1158,11 @@ article table thead th, table.kv thead th { background: none; }
 .deck .key-dot { display: inline-block; width: 0.5em; height: 0.5em; margin: 0 0.3em 0.12em 0.05em; border-radius: 50%; vertical-align: middle;
   background: var(--k, var(--tw-indigo-400)); box-shadow: 0 0 0 2px rgba(3, 3, 8, 0.6), 0 0 12px var(--k, var(--tw-indigo-400)); }
 /* Forms and sections on the page background get a glass panel too (readability over the stars). */
-.panel, .settings-section { padding: 1.4rem 1.6rem; margin: 0 0 var(--pico-spacing); border: 1px solid var(--tw-line); border-radius: var(--tw-radius-card);
+.panel, .settings-section, .edit-form, .wizard-body { padding: 1.4rem 1.6rem; margin: 0 0 var(--pico-spacing); border: 1px solid var(--tw-line); border-radius: var(--tw-radius-card);
   background: var(--tw-glass-solid); box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.28); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root:not([data-effects="light"]) .settings-section { background: var(--tw-glass); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur); }
+  :root:not([data-effects="light"]) .settings-section, :root:not([data-effects="light"]) .edit-form,
+  :root:not([data-effects="light"]) .wizard-body { background: var(--tw-glass); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur); }
 }
 .settings-section { margin-top: var(--pico-spacing); }
 
@@ -1272,3 +1268,26 @@ article table thead th, table.kv thead th { background: none; }
 .dup-rules .inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0.5rem 0 0; }
 .dup-rules .inline-form button { width: auto; margin: 0; }
 .dup-table thead th { text-transform: none; letter-spacing: 0; font-size: 0.86rem; }
+/* The copy to keep: its column has a faint gold wash; "Use" buttons sit under other copies' values. */
+.dup-advice { margin: 0 0 0.85rem; font-size: 0.9rem; }
+.dup-advice .status { margin: 0 0.35rem 0 0; }
+.dup-table .keep { background: var(--tw-gold-wash); }
+.dup-table thead th.keep { border-bottom-color: var(--tw-gold-line); }
+.dup-pending { display: block; margin-top: 0.25rem; color: var(--tw-ink); }
+.dup-pending .status { margin-left: 0.3rem; }
+.dup-use { display: inline; margin: 0 0 0 0.4rem; }
+.dup-use button { width: auto; margin: 0; padding: 0.08rem 0.55rem; font-size: 0.75rem; }
+.dup-foot .button-row { margin: 0; }
+.dup-foot .button-row button { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+
+/* Track page without a cover: Home's little planet instead of a note sign. */
+.track-head .cover-missing { position: relative; overflow: hidden; }
+
+/* "▶ Play" next to other buttons (track and inbox pages): as tall and bold as they are, with
+   the icon in a gold disc like the cover cards' play button. */
+.play-button.with-label { width: auto; height: auto; gap: 0.65rem; margin: 0; padding: 0.625rem 1.15rem 0.625rem 0.625rem; vertical-align: middle;
+  border-radius: var(--tw-radius-control); border: 1px solid var(--tw-line-strong); background: rgba(129, 140, 248, 0.1);
+  color: var(--tw-ink); font-size: 1rem; font-weight: 650; line-height: 1.5; }
+.play-button.with-label .icon { width: 1.75rem; height: 1.75rem; padding: 0.45rem; border-radius: 50%;
+  background: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 14px rgba(245, 197, 66, 0.4); }
+.play-button.with-label:hover, .play-button.with-label.playing { background: var(--tw-gold-soft); border-color: var(--tw-gold-line); color: var(--tw-gold); box-shadow: none; }

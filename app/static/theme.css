@@ -64,6 +64,7 @@
   --tw-gold: #f5c542;             /* text 10.6; dark text on it 12.7 */
   --tw-gold-hover: #fdd96a;       /* dark text on it 15.0 */
   --tw-gold-soft: rgba(245, 197, 66, 0.1);
+  --tw-gold-wash: rgba(245, 197, 66, 0.045);  /* a whole column or row marked gold (Duplicates: the copy to keep) */
   --tw-gold-line: rgba(245, 197, 66, 0.32);
 
   /* Text */

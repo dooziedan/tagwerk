@@ -71,6 +71,21 @@ docker run --rm --network host -v "$PWD:/work" -w /work \
 
 It saves screenshots of every main page to `dev/shots/` (Chromium, Firefox, WebKit × desktop/phone) and fails on browser errors. See [design.md](design.md) for the rules.
 
+## Screenshots for the README
+
+The README never shows real music (the repository is public). A made-up showcase library has
+invented artists, generated covers and silent audio:
+
+```sh
+.venv/bin/python scripts/showcase_library.py dev/showcase
+docker run -d --name tagwerk-showcase -p 8005:8000 -e PUID=$(id -u) -e PGID=$(id -g) \
+    -v "$PWD/dev/showcase/music:/music" -v "$PWD/dev/showcase/config:/config" \
+    -v "$PWD/dev/showcase/import:/import" tagwerk:dev
+```
+
+Finish the setup (DJ mode), scan, then run `scripts/readme_screenshots.py` in the Playwright
+image (see its docstring). The JPEGs land in `docs/screenshots/`.
+
 ## Speed with a big library
 
 ```sh

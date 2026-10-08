@@ -1,6 +1,11 @@
 """Scan the music folder and keep the ``track`` table in sync with the files on disk.
 
-Read-only: the scanner never modifies music files.
+Read-only: the scanner never modifies music files. Two safeguards keep what Tagwerk knows about
+a track (when it was added, its final mark, its analysis, its history):
+- a file moved or renamed outside Tagwerk (same size and modification time under a new path)
+  keeps its row instead of being removed and added again;
+- a music folder without any audio files while the library has tracks is taken for a share that
+  isn't mounted: the scan stops and changes nothing.
 """
 
 import logging
@@ -9,6 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from glob import escape as glob_escape
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Engine
 from sqlmodel import Session, delete, select
@@ -38,6 +44,7 @@ class ScanProgress:
     added: int = 0
     updated: int = 0
     unchanged: int = 0
+    moved: int = 0  # moved or renamed outside Tagwerk, recognised by size and date
     removed: int = 0
     errors: int = 0
     current: str = ""  # file being read right now
@@ -62,6 +69,10 @@ def find_files(music_dir: Path) -> tuple[list[Path], set[Path]]:
     return audio, lyrics
 
 
+class EmptyLibraryError(Exception):
+    """The music folder has no audio files, but the library has tracks."""
+
+
 def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> None:
     files, lrc_files = find_files(music_dir)
     progress.total = len(files)
@@ -82,7 +93,22 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 )
             )
         }
+        if not files and known:
+            # Removing every track would lose final marks, analyses and the history's links.
+            raise EmptyLibraryError(
+                f"No audio files in {music_dir}, but {len(known)} tracks in the library. Is the "
+                "music share mounted, and is the Music Library path right? Nothing was changed."
+            )
         seen: set[str] = set()
+        # Paths that are gone, by (size, modification time): a new path with the very same
+        # size and time is the same file, moved. Two gone files alike: no guessing.
+        found = {path.relative_to(music_dir).as_posix() for path in files}
+        vanished: dict[tuple[int, float], Any] = {}
+        for old_path, row in known.items():
+            if old_path not in found:
+                key = (row.size, row.mtime)
+                vanished[key] = None if key in vanished else row
+        moved_from: set[str] = set()
 
         for i, path in enumerate(files, 1):
             rel = path.relative_to(music_dir).as_posix()
@@ -98,6 +124,11 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
 
             has_lrc = path.with_suffix("") in lrc_files
             existing = known.get(rel)
+            if existing is None and (moved := vanished.pop((stat.st_size, stat.st_mtime), None)):
+                existing = moved  # the same file under a new path: its row moves along
+                session.get(Track, moved.id).path = rel
+                moved_from.add(moved.path)
+                progress.moved += 1
             up_to_date = (
                 existing is not None
                 and existing.mtime == stat.st_mtime
@@ -124,7 +155,7 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
             if i % COMMIT_EVERY == 0:
                 session.commit()
 
-        gone = [path for path in known if path not in seen]
+        gone = [path for path in known if path not in seen and path not in moved_from]
         for start in range(0, len(gone), 500):  # SQLite limits the number of query parameters
             session.exec(delete(Track).where(Track.path.in_(gone[start : start + 500])))
         progress.removed = len(gone)

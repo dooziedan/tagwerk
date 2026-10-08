@@ -22,8 +22,8 @@
   <a class="kpi-link" href="/tracks"><article class="kpi"><span class="kpi-value">{{ stats.tracks | number }}</span><span class="kpi-label">Tracks</span></article></a>
   <a class="kpi-link" href="/artists"><article class="kpi" title="Album artist, or track artist where no album artist is set"><span class="kpi-value">{{ stats.artists | number }}</span><span class="kpi-label">Artists</span></article></a>
   {% if dj %}
-  <a class="kpi-link" href="/tracks?flag=bpm_and_key"><article class="kpi" title="Tracks with both BPM and a recognized key"><span class="kpi-value">{{ (100 * stats.with_bpm_and_key / stats.tracks) | round | int }}%</span><span class="kpi-label">BPM &amp; key set</span></article></a>
-  <a class="kpi-link" href="/tracks?flag=lossless"><article class="kpi" title="FLAC, WAV and AIFF"><span class="kpi-value">{{ (100 * stats.lossless / stats.tracks) | round | int }}%</span><span class="kpi-label">Lossless</span></article></a>
+  <a class="kpi-link" href="/tracks?flag=bpm_and_key"><article class="kpi" title="Tracks with both BPM and a recognized key"><span class="kpi-value">{{ stats.with_bpm_and_key | percent_of(stats.tracks) }}%</span><span class="kpi-label">BPM &amp; key set</span></article></a>
+  <a class="kpi-link" href="/tracks?flag=lossless"><article class="kpi" title="FLAC, WAV and AIFF"><span class="kpi-value">{{ stats.lossless | percent_of(stats.tracks) }}%</span><span class="kpi-label">Lossless</span></article></a>
   {% else %}
   <a class="kpi-link" href="/albums"><article class="kpi"><span class="kpi-value">{{ stats.albums | number }}</span><span class="kpi-label">Albums</span></article></a>
   <article class="kpi">{{ kpi_value(stats.total_duration | duration) }}<span class="kpi-label">Playing time</span></article>
@@ -215,7 +215,7 @@
     <li title="{{ b.label }}: {{ b.count | number }} of {{ b.total | number }} set-ready">
       <span class="bar-label"><a href="{{ b.url }}">{{ b.label }}</a></span>
       <span class="bar-track"><span class="bar-fill" style="width: {{ b.percent }}%"></span></span>
-      <span class="bar-value">{{ b.percent | round | int }}% <small>· {{ b.count | number }} of {{ b.total | number }}</small></span>
+      <span class="bar-value">{{ b.percent | whole_percent }}% <small>· {{ b.count | number }} of {{ b.total | number }}</small></span>
     </li>
     {% endfor %}
   </ul>
@@ -279,7 +279,7 @@
           <li title="{{ label }}, {{ when }}: {{ n | number }} of {{ r.tracks | number }} set-ready">
             <span class="bar-label">{% if loop.first %}<a href="{{ r.url }}">{{ label }}</a> {% endif %}<small class="muted">{{ "before" if loop.first else "now" }}</small></span>
             <span class="bar-track"><span class="bar-fill" style="width: {{ (100 * n / r.tracks) | round(1) }}%"></span></span>
-            <span class="bar-value">{{ (100 * n / r.tracks) | round | int }}% <small>· {{ n | number }} of {{ r.tracks | number }}</small></span>
+            <span class="bar-value">{{ n | percent_of(r.tracks) }}% <small>· {{ n | number }} of {{ r.tracks | number }}</small></span>
           </li>
           {% endfor %}
           {% endfor %}

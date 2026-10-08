@@ -18,6 +18,7 @@ from app.changes import SOURCES
 from app.keys import to_camelot
 from app.library import FLAGS, TrackFilter, count
 from app.models import ChangeEntry, ChangeSet, Track
+from app.percent import percent
 
 # Rows of the "per field" table that stand for several fields.
 IDS_ROW = "MusicBrainz & Discogs IDs"
@@ -168,7 +169,7 @@ def work_stats(session: Session) -> WorkStats:
     stats.fields = sorted(per_field.values(), key=lambda w: order.index(w.label))
     total_known = sum(sources.values())
     stats.sources = [
-        SourceBar(SOURCES.get(s, s), n, round(100 * n / total_known, 1))
+        SourceBar(SOURCES.get(s, s), n, float(percent(n, total_known, 1)))
         for s, n in sources.most_common()
     ]
     stats.activity = _activity(months)

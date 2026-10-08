@@ -158,3 +158,22 @@ def test_keep_in_unsorted_from_the_changes_page(client, engine, settings, unsort
     assert "New folder" not in page and "Kept in <code>_Unsorted</code>" in page
     client.post("/changes/folders/propose-again")
     assert "New folder <code>Electronic/</code>" in client.get("/changes").text
+
+
+def test_a_failed_lyrics_move_leaves_the_track_where_it_was(tmp_path, monkeypatch):
+    """All or nothing: if the .lrc can't move, the track goes back (no half-moved pair)."""
+    (tmp_path / "_Unsorted").mkdir()
+    (tmp_path / "_Unsorted" / "a.mp3").write_bytes(b"audio")
+    (tmp_path / "_Unsorted" / "a.lrc").write_text("[00:01] la")
+    real_rename = folders.os.rename
+
+    def failing_rename(src, dst):
+        if str(src).endswith(".lrc"):
+            raise OSError("disk full")
+        real_rename(src, dst)
+
+    monkeypatch.setattr(folders.os, "rename", failing_rename)
+    with pytest.raises(OSError):
+        folders._move(tmp_path, "_Unsorted/a.mp3", "Rock/a.mp3")
+    assert (tmp_path / "_Unsorted" / "a.mp3").read_bytes() == b"audio"
+    assert not (tmp_path / "Rock" / "a.mp3").exists()
