@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 from app.duplicates import group_count
 from app.library import FLAGS, TrackFilter, count
 from app.models import RawTag, Track
+from app.percent import percent
 from app.preferences import Preferences
 
 
@@ -38,7 +39,7 @@ class HomeData:
 
     @property
     def set_ready_percent(self) -> int:
-        return round(100 * self.set_ready / self.tracks) if self.tracks else 0
+        return percent(self.set_ready, self.tracks)  # 100 only when every track is
 
 
 # Shown in this order, only when there is something. (flag, noun, text, hint, warn, DJ only)

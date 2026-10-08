@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-08
+
+### Added
+- **Which copy to keep**: every group on the Duplicates page suggests the copy to keep, the one with the best sound (lossless before lossy, then sample rate, bit depth and bitrate; with the same sound, the most tags), and says why. Its column comes first. Because the best-sounding file isn't always the best-tagged one, you verify it: **Use** takes a tag or a different cover from another copy over to it, and **Take over missing tags** fills every tag it lacks where the other copies agree. Both become pending changes ("From another copy") you review and apply as usual. *Keep this one instead* picks another copy. Then delete the other copies in your file manager.
+
+### Changed
+- **Apply** now ends in stardust: the golden burst's sparks set the ticked changes alight, and the list burns away from the bottom up, sparkling, before the page moves on.
+- The track page shows a little planet when a track has no cover (like Home's cards); the edit form and the setup wizard sit on glass, so no stars shine through the text.
+- The **Play** button on the track and inbox pages matches the buttons next to it: as tall and bold, with the ▶ in a gold disc.
+- The README shows the night-sky look (screenshots from a made-up library) and has a short **First steps** guide.
+
+### Fixed
+- **Percentages no longer round to 100 % while something is missing** (or to 0 % while something is there): 3 of 1,500 tracks without a tag shows 99 %, not 100 %. Applies to Statistics, Home's set-ready planet, Tagwerk's work and the Tag fields page.
+- **A scan never empties the library** when the music folder has no audio files at all (a share that isn't mounted, a wrong path): it stops with a message and changes nothing. Before, every track was removed, with its final mark, analysis and history links.
+- **Files moved or renamed outside Tagwerk keep their history**: a file that turns up under a new path with the same size and date is recognised as moved, so its added date (Library growth), final mark, analysis and history stay. The scan says how many files moved.
+- Moving tracks into a new genre folder is all or nothing: if a track's `.lrc` lyrics file can't move, the track stays where it was too.
+
 ## [0.13.0] - 2026-10-08
 
 ### Added

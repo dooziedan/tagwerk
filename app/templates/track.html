@@ -28,7 +28,7 @@
       {% endif %}
     </div>
   </details>
-  {% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" aria-label="No cover art">♪</div>{% endif %}
+  {% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" role="img" aria-label="No cover art">{# a little planet, like on Home #}<span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((t.artist or t.path) | length) % 8] }}"><i></i><b></b><em></em></span></div>{% endif %}
   <div>
     <h1>{{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>
     <p class="track-sub">
@@ -49,7 +49,7 @@
     {% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
     {% if job.running or (unmarking and job.progress.action == "unfinal") %}{% include "partials/write_status.html" %}{% endif %}
     {% if final %}
-    {% if not t.error %}<p>{{ play_button(t, "/tracks/" ~ t.id, "Play") }}</p>{% endif %}
+    {% if not t.error %}<p class="track-actions">{{ play_button(t, "/tracks/" ~ t.id, "Play") }}</p>{% endif %}
     <p><span class="status status-final">✓ Final</span> <small class="muted">since <time data-local datetime="{{ final.marked_at | isoutc }}">{{ final.marked_at | isoutc }}</time></small>
       {% if changed_outside %}<span class="status status-warn" title="Another program changed the file after it was marked final">changed outside Tagwerk</span>{% endif %}</p>
     {% if locked %}<p class="notice">🔒 Final tracks are locked. Remove the final mark to edit the tags.</p>{% endif %}
@@ -71,7 +71,7 @@
       </form>
     </details>
     {% else %}
-    <p>{% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id, "Play") }} {% endif %}<a href="/tracks/{{ t.id }}/edit?{{ {'back': back} | urlencode }}" role="button">Edit tags</a>
+    <p class="track-actions">{% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id, "Play") }} {% endif %}<a href="/tracks/{{ t.id }}/edit?{{ {'back': back} | urlencode }}" role="button">Edit tags</a>
     {% if can_mark and not pending %} <a href="/final?id={{ t.id }}" role="button" class="outline">Mark as final…</a>{% endif %}
     {% if t.format in ("flac", "wav", "m4a") and not t.error %} <a href="/convert?ids={{ t.id }}" role="button" class="outline secondary">Convert to AIFF…</a>{% endif %}
     {% if pending %} <a href="/changes" class="secondary"><small>{{ pending | length | plural('pending change') }} →</small></a>{% endif %}</p>

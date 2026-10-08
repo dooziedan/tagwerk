@@ -44,8 +44,13 @@ map is one indigo from dark (few) to light (many), with light ink on levels 1–
   change only the new page's cards and sections come in, one after another (280 ms each, 28 ms
   apart); big effects only for big moments: **Convert to AIFF** jumps through hyperspace
   (streaks on a canvas behind the page, about 0.65 s) and **Apply** sends a golden shock wave
-  with sparks out of the button (above the page, 0.7 s). Buttons opt in with `data-fx="warp"` or
-  `data-fx="burst"`; the effect starts only when the form is really sent. Ambient motion is
+  with sparks out of the button; the sparks set the ticked changes alight and they burn away
+  from the bottom up into stardust: a wavy, flickering edge (a clip-path polygon that follows
+  the wave) climbs slowly at first and a little faster going up, the cards glow hot just above it,
+  and dust and a few embers rise from it (canvas above the page; 1.2 to 2.2 s by the list's
+  height); then the form is sent. Buttons opt in with
+  `data-fx="warp"` or `data-fx="burst"`; a form names what burns with `form.twBurnTargets()`.
+  Effects start only when the form is really sent. Ambient motion is
   limited to the slow drift, breathing stars and the orbits in Home's header.
 - **3D drawn in 2D**: Home's orbits are flat SVG ellipses; each moon is a round dot moved by two
   plain translations (x and y, sine waves a quarter turn apart) that trace the ellipse, growing

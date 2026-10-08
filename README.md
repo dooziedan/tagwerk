@@ -2,7 +2,22 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.13, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
+> **Status: v0.14, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
+
+![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/statistics.jpg" alt="Statistics: missing tags as rings, the Camelot key wheel"></td>
+    <td><img src="docs/screenshots/duplicates.jpg" alt="Duplicates: copies side by side, the one to keep first"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/inbox.jpg" alt="Import inbox: new tracks with Tagwerk's suggestions"></td>
+    <td><img src="docs/screenshots/track.jpg" alt="A track page with its deck readout"></td>
+  </tr>
+</table>
+
+<sub>Screenshots from a made-up showcase library (`scripts/showcase_library.py`): invented artists, generated covers.</sub>
 
 ## Features
 
@@ -15,7 +30,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Tagwerk's work:** what Tagwerk has done for your library: tag values filled in, corrected or removed per field, where they came from (you, the audio, online, the filename …), imports, conversions, and how many tracks were set-ready before and are now.
 - **Two modes**, chosen in the setup wizard or Settings: **DJ** (BPM, keys in Camelot, Open Key or musical notation, set-readiness, audio quality) and **Collector** (albums, decades, lyrics, ReplayGain). Modes only change what is shown, never what is stored.
 - **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover, and a **play bar** that keeps playing while you browse.
-- **Duplicates:** tracks that are in your library more than once (identical files, the same recording, or the same artist and title at the same length), with their copies side by side and the best-sounding one marked. Tagwerk only points them out; it never deletes library files.
+- **Duplicates:** tracks that are in your library more than once (identical files, the same recording, or the same artist and title at the same length), with their copies side by side. Tagwerk suggests keeping the one with the best sound and lets you take tags and covers over from the others before you delete them yourself; it never deletes library files.
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
 
 **Tagging**
@@ -33,7 +48,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 
 **Look:** the night sky: a dark, space-inspired design with glass panels and slowly drifting stars, plus a Lighter effects switch for weak devices.
 
-Planned (see the [roadmap](docs/roadmap.md)): finding duplicates inside the library, a new look for 1.0, Navidrome stats.
+Next (see the [roadmap](docs/roadmap.md)): checks on a real library before 1.0, then Navidrome numbers on Home.
 
 ## Install on Unraid
 
@@ -61,6 +76,15 @@ Planned (see the [roadmap](docs/roadmap.md)): finding duplicates inside the libr
 
 > **Back up your music before the first tag write.** Tagwerk keeps the old tags for undo, but a backup is the real safety net.
 
+## First steps
+
+1. **The setup wizard** asks how you work (DJ or Collector, key notation), where imported tracks go (genre folders by default, filenames never change) and how independently Tagwerk may import. Everything can be changed later in **Settings**.
+2. **Scan your library** on Home. Scanning only reads your files. Home then shows what needs you, and **Statistics** shows your library in numbers; every number opens its tracks.
+3. **Fix tags**: open a track and choose **Edit tags**, or tick tracks in the list and edit them together. Nothing is written yet: changes wait on the **Changes** page, shown as *old → new*. Tick what you want and **Apply**; **History** undoes any apply.
+4. **New music** goes into the import folder. The **Inbox** shows what Tagwerk found (from the filename, online sources and the audio); check a track, then **Import** it into the library.
+5. **Duplicates** lists tracks you have more than once. Keep the suggested copy, take over what the others have, then delete the others in your file manager.
+6. **Final check**: mark finished tracks as final; they're locked against changes (and renamed, if you switch that on).
+
 ## Configuration
 
 All settings are environment variables (the fields in the Unraid template):
@@ -75,6 +99,7 @@ All settings are environment variables (the fields in the Unraid template):
 | `ORIGINALS_DIR` | `/originals` | Where originals go after converting to AIFF (optional) |
 | `ACOUSTID_KEY` / `DISCOGS_TOKEN` | empty | Free keys for online identification (optional) |
 | `CPU_CORES` | `0` | CPU cores Tagwerk may use for heavy work (BPM and key analysis: one track per core). `0` = as many as the container may use (limit with `cpus:` in docker-compose, `--cpus` or Unraid's CPU pinning), fewer if memory is short. Before v0.13 this was `ANALYSIS_WORKERS`, which still works |
+| `LOG_LEVEL` | `info` | How much goes to the container log: `debug`, `info`, `warning`, `error` |
 | `PUID` / `PGID` | `99` / `100` | User and group the app runs as |
 | `UMASK` | `022` | Permission mask for new files |
 

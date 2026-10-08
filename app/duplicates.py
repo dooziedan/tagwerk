@@ -25,8 +25,9 @@ from functools import lru_cache
 from pathlib import Path, PurePosixPath
 
 from sqlalchemy import Engine, delete, distinct, func
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
+from app import writer
 from app.models import DuplicateTrack, FinalTrack, InboxTrack, NotDuplicate, Track
 
 # Two versions of a track whose lengths differ more than this are different edits.
@@ -252,9 +253,14 @@ def show_again(session: Session) -> int:
     return len(pairs)
 
 
-# Fields compared side by side on the Duplicates page, and counted for "most tags".
-TAG_FIELDS = ["title", "artist", "album", "genre", "bpm", "key", "year", "label", "catalognumber"]
+# --- Which copy to keep ----------------------------------------------------------------------
+# Tagwerk suggests keeping the copy with the best sound: lossless before lossy, then the higher
+# sample rate, bit depth and bitrate. Its tags may be the poorer ones, so the page compares them
+# with the other copies, and the owner takes over what's missing or better (pending changes).
+
 LOSSLESS = {"flac", "wav", "aiff"}
+# Compared side by side and counted for "most tags": the edit form's fields, then the cover.
+COMPARED = list(writer.EDITABLE)
 
 
 @dataclass
@@ -262,32 +268,83 @@ class Copy:
     track: Track
     final: bool
     reason: str
-    best_sound: bool = False  # strictly the best audio of its group
-    most_tags: bool = False  # strictly the most tags filled in
+    most_tags: bool = False  # clearly the most tags of its group
+
+    def value(self, field: str) -> str | None:
+        """A tag as the edit form shows it ("3/12" for the track number, "Am" for the key)."""
+        return writer.current_value(self.track, field)
 
     @property
     def tags(self) -> int:
-        return sum(1 for f in TAG_FIELDS if getattr(self.track, f) not in (None, "")) + int(
-            self.track.has_cover
-        )
+        filled = sum(1 for f in COMPARED if self.value(f) not in (None, ""))
+        return filled + int(self.track.has_cover)
+
+    @property
+    def lossless(self) -> bool:
+        t = self.track
+        return t.format in LOSSLESS or (t.format == "m4a" and (t.bits_per_sample or 0) > 0)
 
     @property
     def sound(self) -> tuple:
+        """For comparing audio quality: bigger is better."""
         t = self.track
-        lossless = t.format in LOSSLESS or (t.format == "m4a" and (t.bits_per_sample or 0) > 0)
-        return (lossless, t.sample_rate or 0, t.bits_per_sample or 0, t.bitrate or 0)
+        return (self.lossless, t.sample_rate or 0, t.bits_per_sample or 0, t.bitrate or 0)
+
+    @property
+    def quality(self) -> str:
+        """The audio in words: "FLAC · 44.1 kHz · 16 bit", "MP3 · 320 kbps"."""
+        t = self.track
+        parts = [t.format.upper()]
+        if self.lossless:
+            if t.sample_rate:
+                parts.append(f"{t.sample_rate / 1000:g} kHz")
+            if t.bits_per_sample:
+                parts.append(f"{t.bits_per_sample} bit")
+        elif t.bitrate:
+            parts.append(f"{round(t.bitrate / 1000)} kbps")
+        return " · ".join(parts)
 
 
 @dataclass
 class Group:
     id: int
     copies: list[Copy]
+    chosen: int | None = None  # track id of a copy the owner picks instead of the suggestion
 
     @property
     def reasons(self) -> list[str]:
         """Why they are grouped, strongest first."""
         found = {c.reason for c in self.copies}
         return sorted(found, key=lambda r: -STRENGTH[r])
+
+    @property
+    def suggested(self) -> Copy:
+        """The copy to keep: the best sound; with the same sound, the most tags."""
+        return max(self.copies, key=lambda c: (c.sound, c.tags, c.final, -c.track.id))
+
+    @property
+    def keeper(self) -> Copy:
+        picked = [c for c in self.copies if c.track.id == self.chosen]
+        return picked[0] if picked else self.suggested
+
+    @property
+    def ordered(self) -> list[Copy]:
+        """The copy to keep first, then the others, best sound first."""
+        others = [c for c in self.copies if c is not self.keeper]
+        return [self.keeper, *sorted(others, key=lambda c: c.sound, reverse=True)]
+
+    @property
+    def why(self) -> str:
+        """Why this copy is suggested, in plain words."""
+        keeper = self.keeper
+        if keeper is not self.suggested:
+            return "Your choice."
+        others = [c for c in self.copies if c is not keeper]
+        if all(keeper.sound > c.sound for c in others):
+            return f"The best sound: {keeper.quality}."
+        if all(keeper.tags > c.tags for c in others):
+            return "They sound the same; this one has the most tags."
+        return "They sound the same and are tagged alike: any of them will do."
 
     @property
     def name(self) -> str:
@@ -306,7 +363,31 @@ class Group:
         """Do the copies have different values (lengths: to the second)?"""
         if field == "duration":
             return len({round(c.track.duration or 0) for c in self.copies}) > 1
-        return len({_shown(getattr(c.track, field)) for c in self.copies}) > 1
+        return len({_shown(c.value(field)) for c in self.copies}) > 1
+
+    def has(self, field: str) -> bool:
+        """Does any copy have this tag?"""
+        return any(c.value(field) not in (None, "") for c in self.copies)
+
+    def offers(self, copy: Copy, field: str) -> bool:
+        """Can the keeper take this copy's value? It has one, and the keeper's is different."""
+        value = copy.value(field)
+        return (
+            copy is not self.keeper
+            and value not in (None, "")
+            and (_shown(value) != _shown(self.keeper.value(field)))
+        )
+
+    @property
+    def missing(self) -> dict[str, str]:
+        """Tags the keeper lacks where the other copies agree on one value: taken in one go."""
+        found = {}
+        for field in COMPARED:
+            if self.keeper.value(field) in (None, ""):
+                values = {c.value(field) for c in self.copies if c is not self.keeper} - {None, ""}
+                if len(values) == 1:
+                    found[field] = values.pop()
+        return found
 
 
 def _shown(value) -> str:
@@ -329,13 +410,23 @@ def load_groups(session: Session, reason: str = "") -> list[Group]:
             continue
         if reason and reason not in group.reasons:
             continue
-        group.copies.sort(key=lambda c: c.track.path)
-        for attr, key in (("best_sound", lambda c: c.sound), ("most_tags", lambda c: c.tags)):
-            values = sorted((key(c) for c in group.copies), reverse=True)
-            if values[0] != values[1]:  # only a clear winner gets the badge
-                setattr(max(group.copies, key=key), attr, True)
+        tags = sorted((c.tags for c in group.copies), reverse=True)
+        if tags[0] != tags[1]:  # only a clear winner gets the badge
+            max(group.copies, key=lambda c: c.tags).most_tags = True
         result.append(group)
     return sorted(result, key=lambda g: g.name.casefold())
+
+
+def same_group(session: Session, *track_ids: int) -> bool:
+    """Are these tracks copies of each other (in one stored group)?"""
+    rows = session.exec(select(DuplicateTrack).where(col(DuplicateTrack.track_id).in_(track_ids)))
+    groups = {r.group_id for r in rows}
+    found = session.exec(
+        select(func.count())
+        .select_from(DuplicateTrack)
+        .where(col(DuplicateTrack.track_id).in_(track_ids))
+    ).one()
+    return len(groups) == 1 and found == len(set(track_ids))
 
 
 def group_count(session: Session) -> int:

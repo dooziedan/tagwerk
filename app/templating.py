@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from app import __version__, writer
 from app.charts import camelot_colour, key_wheel
 from app.keys import NOTATIONS, display, to_camelot
+from app.percent import percent, shown
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -155,6 +156,9 @@ templates.env.globals.update(
     source_label=source_label,
 )
 templates.env.filters.update(
+    # 3 | percent_of(1500) -> 1; 99.8 | whole_percent -> 99 (never 100 while one is missing)
+    percent_of=lambda part, whole: percent(part, whole),
+    whole_percent=shown,
     filesize=filesize,
     duration=duration,
     number=number,

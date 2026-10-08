@@ -7,6 +7,7 @@ from sqlmodel import Session, col, select
 
 from app.library import ZERO_VALUES
 from app.models import RawTag, Track
+from app.percent import percent
 from app.rawtags import used_as
 
 
@@ -106,7 +107,7 @@ def _summary(row, tracks: int, samples: list[tuple[str, int]]) -> FieldSummary:
         name=name,
         used_as=used_as(system, name),
         files=files,
-        percent=round(100 * files / tracks, 1) if tracks else 0.0,
+        percent=float(percent(files, tracks, 1)),
         empty=empty or 0,
         zero=zero or 0,
         distinct=distinct_values,

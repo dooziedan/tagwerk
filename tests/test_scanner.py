@@ -185,3 +185,47 @@ def test_empty_bpm_ranges_are_merged(engine, music_dir):
     scan(engine, music_dir)
     bars = [(bar.label, bar.count) for bar in stats_for(engine, mode="dj").bpm]
     assert bars == [("120–124", 1), ("125–169", 0), ("170–174", 1)]
+
+
+def test_a_file_moved_outside_tagwerk_keeps_its_row(engine, music_dir):
+    """Same size and date under a new path: the same track (added date, final mark kept)."""
+    from datetime import UTC, datetime
+
+    from app.models import FinalTrack
+
+    scan(engine, music_dir)
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("tagged.flac"))).one()
+        track.added_at = datetime(2020, 5, 1, tzinfo=UTC)
+        session.add(FinalTrack(track_id=track.id, mtime=track.mtime))
+        session.add(track)
+        session.commit()
+        track_id = track.id
+    (music_dir / "Moved").mkdir()
+    old = next(music_dir.rglob("tagged.flac"))
+    old.rename(music_dir / "Moved" / "renamed.flac")  # a rename keeps size and date
+
+    progress = scan(engine, music_dir)
+    assert progress.moved == 1 and progress.removed == 0 and progress.added == 0
+    with Session(engine) as session:
+        track = session.get(Track, track_id)
+        assert track.path == "Moved/renamed.flac"
+        assert track.added_at.year == 2020
+        assert session.get(FinalTrack, track_id) is not None
+
+
+def test_an_empty_music_folder_never_empties_the_library(engine, music_dir):
+    """A share that isn't mounted looks empty: the scan stops and changes nothing."""
+    import pytest
+
+    from app.scanner import EmptyLibraryError
+
+    scan(engine, music_dir)
+    with Session(engine) as session:
+        before = len(session.exec(select(Track)).all())
+    for path in list(music_dir.rglob("*.*")):
+        path.unlink()
+    with pytest.raises(EmptyLibraryError):
+        scan(engine, music_dir)
+    with Session(engine) as session:
+        assert len(session.exec(select(Track)).all()) == before

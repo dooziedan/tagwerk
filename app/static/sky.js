@@ -82,15 +82,27 @@
   // --- Big moments ----------------------------------------------------------------------------
   // Buttons with data-fx play a short effect when their form is really sent (after any "are you
   // sure?" question): data-fx="warp" (Convert to AIFF) jumps through hyperspace, data-fx="burst"
-  // (Apply changes) sends a golden shock wave with sparks out of the button.
+  // (Apply changes) sends a golden shock wave with sparks out of the button. If the form names
+  // what burns (form.twBurnTargets(), the Changes page: the ticked changes), the sparks set it
+  // alight: it burns away from the bottom up into stardust, and only then is the form sent.
   document.addEventListener("submit", (e) => {
-    const button = e.submitter;
+    const button = e.submitter, form = e.target;
     const fx = button && button.dataset.fx;
-    if (!fx || still()) return;
+    if (!fx || still() || form.dataset.burnt) return;
     const r = button.getBoundingClientRect();
     if (fx === "warp") window.twWarp();
-    if (fx === "burst") window.twBurst(r.left + r.width / 2, r.top + r.height / 2);
-  });
+    if (fx !== "burst") return;
+    window.twBurst(r.left + r.width / 2, r.top + r.height / 2);
+    const burning = typeof form.twBurnTargets === "function" ? form.twBurnTargets() : [];
+    if (!burning.length) return;
+    e.preventDefault(); // send it once the list has burnt
+    e.stopImmediatePropagation();
+    setTimeout(() => window.twDissolve(burning, () => {
+      form.dataset.burnt = "yes";
+      form.requestSubmit(button);
+      delete form.dataset.burnt;
+    }), 220); // the sparks reach the list first
+  }, true);
 
   // A canvas, made on first use and hidden in between. ``front``: above the page (the burst),
   // else inside the sky, behind the page (the warp).
@@ -256,6 +268,123 @@
       burstFrame = requestAnimationFrame(draw);
     }
     burstFrame = requestAnimationFrame(draw);
+  };
+
+  // Dissolve: the elements burn away from the bottom up. A wavy, flickering edge climbs them,
+  // slowly at first and a little faster as it goes up; just above it they glow hot, below it they
+  // are gone (a clip-path that follows the wave), and stardust and a few embers rise from it,
+  // swaying and twinkling. Calls done() when the edge reached the top; the dust drifts on over
+  // the next page a moment longer.
+  let dustCanvas = null, dustFrame = 0;
+  const DUST = ["253, 230, 138", "255, 255, 255", "165, 180, 252"];
+  // The edge's wave at x: two slow sines, moving, so it flickers like a flame front.
+  const wave = (x, now) => Math.sin(x * 0.045 + now * 0.006) * 3 + Math.sin(x * 0.12 - now * 0.011) * 1.6;
+  window.twDissolve = function (elements, done) {
+    // Table rows aren't clipped in every browser: their cells are.
+    const parts = elements.flatMap((el) => (el.tagName === "TR" ? [...el.cells] : [el]))
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .filter((b) => b.r.height > 0 && b.r.bottom > 0 && b.r.top < innerHeight);
+    if (still() || !parts.length) return done();
+    dustCanvas = dustCanvas || canvasFor(true);
+    const ctx = begin(dustCanvas);
+    const top = Math.max(0, Math.min(...parts.map((b) => b.r.top))) - 8;
+    const bottom = Math.min(innerHeight, Math.max(...parts.map((b) => b.r.bottom))) + 8;
+    const ms = Math.max(1200, Math.min(2200, 900 + (bottom - top) * 0.9)); // taller lists burn longer
+    const dust = [];
+    const start = performance.now();
+    let last = start, sent = false;
+    cancelAnimationFrame(dustFrame);
+
+    function clip(b, edge, now) {
+      // Keep what is above the wavy edge: a polygon along the element's top and the wave.
+      const { left, top: y0, width, height } = b.r;
+      if (edge - 6 > y0 + height) { b.el.style.clipPath = ""; return; } // not reached yet
+      if (edge + 6 < y0) { b.el.style.clipPath = "inset(0 0 100% 0)"; return; } // burnt
+      const points = ["0 0", `${width}px 0`];
+      for (let k = 12; k >= 0; k--) {
+        const x = (width * k) / 12;
+        const y = Math.max(0, Math.min(height, edge + wave(left + x, now) - y0));
+        points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
+      }
+      b.el.style.clipPath = `polygon(${points.join(", ")})`;
+    }
+
+    function draw(now) {
+      const t = Math.min(1, (now - start) / ms);
+      const dt = Math.min(48, now - last);
+      last = now;
+      // Semi-slow at the start, a little faster going up (speed from 0.5 to 1.5).
+      const edge = bottom - (bottom - top) * (0.5 * t + 0.5 * t * t);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      ctx.globalCompositeOperation = "lighter";
+      const flicker = 0.85 + 0.15 * Math.sin(now * 0.05);
+      for (const b of parts) {
+        clip(b, edge, now);
+        if (t >= 1 || edge < b.r.top - 6 || edge > b.r.bottom + 6) continue;
+        const { left, width } = b.r;
+        // Heat just above the edge: the cards glow before they go.
+        const heat = ctx.createLinearGradient(0, edge - 34, 0, edge);
+        heat.addColorStop(0, "rgba(245, 158, 11, 0)");
+        heat.addColorStop(1, `rgba(251, 146, 60, ${(0.3 * flicker).toFixed(3)})`);
+        ctx.fillStyle = heat;
+        ctx.fillRect(left, Math.max(b.r.top, edge - 34), width, Math.min(34, edge - b.r.top + 4));
+        // The edge itself: a wide warm glow and a thin bright line, both following the wave.
+        for (const [lineWidth, colour] of [[6, `rgba(245, 158, 11, ${(0.35 * flicker).toFixed(3)})`],
+                                           [1.6, `rgba(255, 240, 190, ${(0.95 * flicker).toFixed(3)})`]]) {
+          ctx.lineWidth = lineWidth;
+          ctx.strokeStyle = colour;
+          ctx.beginPath();
+          for (let x = 0; x <= width; x += 6) {
+            const y = edge + wave(left + x, now);
+            if (x === 0) ctx.moveTo(left + x, y);
+            else ctx.lineTo(left + x, y);
+          }
+          ctx.stroke();
+        }
+        // New dust along the edge; now and then an ember.
+        for (let i = 0, n = (width / 170) * dt; i < n; i++) {
+          const x = left + Math.random() * width;
+          const ember = Math.random() < 0.12;
+          dust.push({
+            x, y: edge + wave(x, now), ember,
+            vy: -(ember ? 0.08 + Math.random() * 0.14 : 0.03 + Math.random() * 0.1),
+            life: 0, span: (ember ? 700 : 900) + Math.random() * 1100,
+            size: ember ? 1.8 + Math.random() * 1.4 : 0.6 + Math.random() * 1.2,
+            c: ember ? "251, 176, 80" : DUST[Math.random() < 0.6 ? 0 : Math.random() < 0.6 ? 1 : 2],
+            phase: Math.random() * 6.3, sway: 0.01 + Math.random() * 0.025,
+          });
+        }
+      }
+      for (let i = dust.length - 1; i >= 0; i--) {
+        const p = dust[i];
+        p.life += dt;
+        if (p.life > p.span) { dust.splice(i, 1); continue; }
+        p.x += Math.sin(p.phase + p.life / 260) * p.sway * dt; // swaying
+        p.y += p.vy * dt;
+        p.vy *= Math.pow(0.9985, dt); // rising slower and slower
+        const fade = 1 - p.life / p.span;
+        const twinkle = 0.55 + 0.45 * Math.sin(p.phase + p.life / (p.ember ? 45 : 70));
+        const alpha = fade * twinkle;
+        if (p.ember) { // a soft halo around the glowing core
+          ctx.fillStyle = `rgba(${p.c}, ${(alpha * 0.22).toFixed(3)})`;
+          ctx.fillRect(p.x - p.size, p.y - p.size, p.size * 3, p.size * 3);
+        }
+        ctx.fillStyle = `rgba(${p.c}, ${alpha.toFixed(3)})`;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+      if (t >= 1 && !sent) {
+        sent = true;
+        parts.forEach((b) => (b.el.style.visibility = "hidden"));
+        done();
+      }
+      if (t >= 1 && !dust.length) {
+        dustCanvas.hidden = true;
+        return;
+      }
+      dustFrame = requestAnimationFrame(draw);
+    }
+    dustFrame = requestAnimationFrame(draw);
   };
 
   // Spotlight under the pointer on lifting tiles

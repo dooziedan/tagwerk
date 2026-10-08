@@ -32,6 +32,7 @@ from app.library import (
     is_missing,
 )
 from app.models import Track
+from app.percent import percent
 from app.preferences import Preferences
 
 BPM_BUCKET = 5  # BPM histogram bar width
@@ -302,7 +303,7 @@ def _album_count(session: Session) -> int:
 
 
 def _pct(part: int, whole: int) -> float:
-    return round(100 * part / whole, 1) if whole else 0.0
+    return float(percent(part, whole, 1))  # never 100.0 while one is missing
 
 
 # --- Growth, lengths, labels, artists, set-ready ---------------------------------------------

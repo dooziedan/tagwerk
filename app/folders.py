@@ -181,4 +181,8 @@ def _move(music_dir: Path, old: str, new: str) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     os.rename(source, target)
     if lyrics.exists():
-        os.rename(lyrics, lyrics_target)
+        try:
+            os.rename(lyrics, lyrics_target)
+        except OSError:
+            os.rename(target, source)  # all or nothing: the track goes back to its lyrics
+            raise

@@ -127,6 +127,20 @@
     </div>
     <small class="muted">Only ticked changes are written or discarded; the others stay pending. The old tags are saved first; you can undo from the History page.</small>
   </form>
+  <script>
+    // Apply: the button's sparks set the ticked changes alight (sky.js). A track whose changes
+    // are all ticked burns as a whole card, otherwise only its ticked rows do.
+    document.getElementById("apply-form").twBurnTargets = function () {
+      const burning = [];
+      document.querySelectorAll(".change-card").forEach((card) => {
+        const boxes = [...card.querySelectorAll("input[name=change]")];
+        const ticked = boxes.filter((box) => box.checked);
+        if (ticked.length && ticked.length === boxes.length) burning.push(card);
+        else ticked.forEach((box) => burning.push(box.closest("tr")));
+      });
+      return burning;
+    };
+  </script>
 </article>
 {% endif %}
 {% endblock %}
