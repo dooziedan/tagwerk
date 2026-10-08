@@ -9,11 +9,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import get_settings
-from app.db import migrate
+from app.db import get_engine, migrate
 from app.routes import (
     analysis,
     changes,
     convert,
+    duplicates,
     fields,
     final,
     home,
@@ -47,8 +48,13 @@ async def lifespan(app: FastAPI):
         log.exception("Database setup failed")
         app.state.db_error = f"{type(exc).__name__}: {exc}"
     if not app.state.db_error:
+        from app.duplicates import refresh_library
         from app.jobs import check_inbox_regularly
 
+        try:  # quick: one query, file contents only for files of the very same size
+            refresh_library(get_engine(settings.database_url), settings.music_dir)
+        except Exception:
+            log.exception("Finding duplicates failed")
         check_inbox_regularly(settings)
     yield
 
@@ -65,6 +71,7 @@ app.include_router(fields.router)
 app.include_router(inbox.router)
 app.include_router(changes.router)
 app.include_router(final.router)
+app.include_router(duplicates.router)
 app.include_router(convert.router)
 app.include_router(lookup.router)
 app.include_router(ids.router)

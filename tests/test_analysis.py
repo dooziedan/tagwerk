@@ -362,14 +362,14 @@ def test_a_half_time_tag_doesnt_confirm_the_genres_tempo():
         (0, 12, 4, 32, 4),  # docker-compose cpus: 4
         (0, 12, None, 2, 2),  # 2 GB: two long mixes at most
         (0, 1, None, None, 1),
-        (3, 12, None, 32, 3),  # ANALYSIS_WORKERS=3
+        (3, 12, None, 32, 3),  # CPU_CORES=3
     ],
 )
 def test_worker_count(monkeypatch, settings, setting, cores, limit, memory_gb, expected):
     monkeypatch.setattr(analysis.os, "sched_getaffinity", lambda pid: set(range(cores)))
     monkeypatch.setattr(analysis, "_cgroup_cpu_limit", lambda: limit)
     monkeypatch.setattr(analysis, "available_memory", lambda: memory_gb and memory_gb * 1024**3)
-    monkeypatch.setattr(settings, "analysis_workers", setting)
+    monkeypatch.setattr(settings, "cpu_cores", setting)
     assert analysis.worker_count(settings) == expected
 
 
@@ -393,7 +393,7 @@ def test_several_tracks_are_analysed_at_once(engine, settings, monkeypatch):
         return FAKE_ANALYSIS | {"version": ANALYSIS_VERSION}
 
     monkeypatch.setattr(analysis, "run_analysis", slow)
-    monkeypatch.setattr(settings, "analysis_workers", 4)
+    monkeypatch.setattr(settings, "cpu_cores", 4)
     job = AnalysisJob()
     job.start(settings, track_ids, library=True)
     job.wait(30)
@@ -444,3 +444,13 @@ def test_ticked_tracks_are_analysed_again_and_the_list_says_what_happened(
     analysis_job.wait(30)
     assert len(asked) == 3
     assert "✓ Last analysis: 3 tracks analysed." in client.get("/tracks").text
+
+
+def test_the_old_name_analysis_workers_still_works(monkeypatch):
+    """Containers set up before v0.13 have ANALYSIS_WORKERS; it means CPU_CORES now."""
+    from app.config import Settings
+
+    monkeypatch.setenv("ANALYSIS_WORKERS", "3")
+    assert Settings().cpu_cores == 3
+    monkeypatch.setenv("CPU_CORES", "5")
+    assert Settings().cpu_cores == 5

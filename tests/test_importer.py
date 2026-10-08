@@ -108,7 +108,7 @@ def test_import_from_the_inbox_page(client, settings, inbox):
     assert "On import goes to" in page
     client.post("/inbox/import", data={"ids": [str(i) for i in [track_id]]})
     write_job.wait(30)
-    assert "Imported" in client.get("/inbox").text
+    assert "Imported" in client.get("/inbox", params={"done": 1}).text  # once, after the job
 
 
 def test_cover_chosen_on_the_review_page_is_written_on_import(client, engine, settings):

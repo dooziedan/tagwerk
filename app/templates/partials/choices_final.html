@@ -2,7 +2,9 @@
 <fieldset class="live-preview" data-kind="file" data-target="file-preview">
   <legend><strong>Rename tracks when you mark them as final?</strong></legend>
   <p class="muted"><small>"Final" is a seal for tracks you've checked completely. Until then, Tagwerk never renames a file: writing tags and importing keep the name it arrived with. You mark tracks on the <a href="/final">Final check</a> page.</small></p>
-  <label><input type="checkbox" role="switch" name="rename_on_final" {% if prefs.rename_on_final %}checked{% endif %}> Yes, give final tracks a name built from their tags</label>
+  <label><input type="checkbox" role="switch" name="rename_on_final" data-shows="rename-details" {% if prefs.rename_on_final %}checked{% endif %}> Yes, give final tracks a name built from their tags</label>
+  {# The pattern only matters when renaming is on (an error in it is always shown). #}
+  <div id="rename-details"{% if not prefs.rename_on_final and not errors.filename_pattern %} hidden{% endif %}>
   <label>Filename pattern
     <input type="text" name="filename_pattern" value="{{ prefs.filename_pattern }}" autocomplete="off"
            {% if errors.filename_pattern %}aria-invalid="true"{% endif %}>
@@ -12,6 +14,9 @@
   </div>
   <small class="muted">A part in [ ] or ( ) disappears when its tags are empty: <code>{artist} - {title} [{bpm} {key}]</code> becomes "Artist - Title" for a track without BPM and key. The file extension always stays.</small>
   {% if errors.filename_pattern %}<small class="form-error">{{ errors.filename_pattern }}</small>{% endif %}
-  <p class="preview-title"><small class="muted">Examples from your tracks:</small></p>
-  <div id="file-preview">{% with rows = file_preview, error = none %}{% include "partials/pattern_preview.html" %}{% endwith %}</div>
+  <div class="preview-box">
+    <p class="preview-title"><small class="muted">Examples from your tracks</small></p>
+    <div id="file-preview">{% with rows = file_preview, error = none %}{% include "partials/pattern_preview.html" %}{% endwith %}</div>
+  </div>
+  </div>
 </fieldset>

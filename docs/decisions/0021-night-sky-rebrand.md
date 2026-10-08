@@ -35,6 +35,11 @@ Research, mood board and mock-ups came first; the owner chose every option below
 - **Logo**: the luggage tag with level bars stays, now in the indigo planet gradient.
 - **Key wheel**: standard Camelot colours stay; empty keys are dark instead of grey.
 
+**Update (v0.13):** the warp on every page change was too big and too slow for daily use. Page
+changes now only bring the new cards in; the hyperspace jump plays when converting to AIFF, and
+applying changes gets a golden burst (see [design.md](../design.md)). Home's orbits are drawn in
+2D with round moons instead of CSS 3D transforms, which flattened the moons.
+
 ## Consequences
 - More GPU work than before (blur over a slowly moving sky). The Lighter effects switch is the
   answer when a device struggles.

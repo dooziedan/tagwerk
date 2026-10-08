@@ -16,6 +16,6 @@ services:
       - "${IMPORT_PATH:-./dev/import}:/import" # new music waiting in the inbox
       - "${ORIGINALS_PATH:-./dev/originals}:/originals" # originals after converting to AIFF
     # BPM and key analysis uses as many CPU cores as the container may use. Limit it here
-    # (e.g. 4 cores), or set ANALYSIS_WORKERS above to a fixed number of parallel analyses.
+    # (e.g. 4 cores), or set CPU_CORES above to the number of cores Tagwerk may use.
     # cpus: 4
     restart: unless-stopped

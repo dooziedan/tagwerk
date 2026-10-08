@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,10 +42,11 @@ class Settings(BaseSettings):
     acoustid_key: str = ""
     discogs_token: str = ""
 
-    # BPM and key from the audio: how many tracks are analysed at the same time. 0 = as many
-    # as the container may use CPU cores (its limit from docker-compose `cpus:`, `--cpus`,
-    # `--cpuset-cpus` or Unraid's CPU pinning), fewer if memory is short (app/analysis.py).
-    analysis_workers: int = 0
+    # CPU cores Tagwerk may use for heavy work: BPM and key from the audio analyse one track
+    # per core. 0 = as many as the container may use (its limit from docker-compose `cpus:`,
+    # `--cpus`, `--cpuset-cpus` or Unraid's CPU pinning), fewer if memory is short
+    # (app/analysis.py). ANALYSIS_WORKERS, its name before v0.13, still works.
+    cpu_cores: int = Field(0, validation_alias=AliasChoices("cpu_cores", "analysis_workers"))
 
     @property
     def database_url(self) -> str:

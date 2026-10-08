@@ -40,10 +40,18 @@
     <div class="hero-actions">{% include "partials/scan_status.html" %}</div>
   </div>
   {% if home and home.tracks %}
+  {# Orbits drawn flat (2D) but read as 3D: tilted ellipses, round moons that grow and brighten
+     in front and shrink and dim behind. Each tilted moon exists twice: one behind the planet
+     (hidden by it on the far side) and one in front, shown only on the near half. #}
   <div class="orbits">
-    <div class="o o3" aria-hidden="true"><i></i></div>
-    <div class="o o2" aria-hidden="true"><i></i></div>
-    <div class="o o1" aria-hidden="true"><i></i></div>
+    <svg class="orbit-rings" width="300" height="260" viewBox="-150 -130 300 260" aria-hidden="true">
+      <circle r="98" fill="none" stroke="#818cf8" stroke-opacity="0.32"/>
+      <ellipse rx="136" ry="42" transform="rotate(-14)" fill="none" stroke="#818cf8" stroke-opacity="0.3"/>
+      <ellipse rx="150" ry="33" transform="rotate(21)" fill="none" stroke="#f5c542" stroke-opacity="0.22"/>
+    </svg>
+    <span class="moon m1" aria-hidden="true"><b><i></i></b></span>
+    <span class="moon m2" aria-hidden="true"><b><i></i></b></span>
+    <span class="moon m3" aria-hidden="true"><b><i></i></b></span>
     {% if dj %}
     <a class="core gauge-planet" href="/tracks?flag=set_ready" title="Title, artist, genre, BPM, key and cover tagged">
       {{ ring(home.set_ready_percent, "genres", 168, 7, "") }}
@@ -52,6 +60,12 @@
     {% else %}
     <span class="core gauge-planet" aria-hidden="true">{{ brand_mark(84, "home") }}</span>
     {% endif %}
+    <svg class="orbit-rings" width="300" height="260" viewBox="-150 -130 300 260" aria-hidden="true">
+      <path d="M -136 0 A 136 42 0 0 0 136 0" transform="rotate(-14)" fill="none" stroke="#818cf8" stroke-opacity="0.3"/>
+      <path d="M -150 0 A 150 33 0 0 0 150 0" transform="rotate(21)" fill="none" stroke="#f5c542" stroke-opacity="0.22"/>
+    </svg>
+    <span class="moon m2 front" aria-hidden="true"><b><i></i></b></span>
+    <span class="moon m3 front" aria-hidden="true"><b><i></i></b></span>
   </div>
   {% endif %}
 </div>

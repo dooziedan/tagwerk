@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import toast %}
 {% block title %}History · Tagwerk{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -6,7 +7,7 @@
   <a href="/changes" class="secondary">← Pending changes</a>
 </div>
 <p class="muted">Every “Apply”, newest first, 50 per page. Undo writes the saved old tags back. Files changed again afterwards (by Tagwerk or another tool) are skipped, so newer edits aren't lost.</p>
-{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
 {% if job.running or job.status in ("done", "failed") %}{% include "partials/write_status.html" %}{% endif %}
 
 {% if not changesets %}

@@ -6,6 +6,10 @@
         cards.querySelectorAll(".choice-card").forEach((c) => c.classList.toggle("selected", c.querySelector("input").checked));
       });
     });
+    // A switch that shows its details only while it's on (data-shows: the id of the details).
+    document.querySelectorAll("[data-shows]").forEach(function (box) {
+      box.addEventListener("change", function () { document.getElementById(box.dataset.shows).hidden = !box.checked; });
+    });
     document.querySelectorAll(".live-preview").forEach(function (box) {
       let timer;
       function refresh() {

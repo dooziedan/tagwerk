@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlmodel import Session, select
 
-from app import trash
+from app import duplicates, trash
 from app.duplicates import LibraryIndex, main_artist, normalized
 from app.inbox import save_values, scan_inbox
 from app.models import InboxTrack, Track
@@ -218,3 +218,87 @@ def test_automatic_import_leaves_duplicates_for_the_owner(client, settings, libr
     client.post("/api/inbox/scan")
     inbox_job.wait(30)
     assert [t["path"] for t in client.get("/api/inbox").json()] == ["complete but known.mp3"]
+
+
+# --- Duplicates inside the library (ADR 0022) ----------------------------------------------
+
+
+def _library_track(id, title="Losing It", artist="Fisher", duration=300.0, size=None, mbid=None):
+    return Track(id=id, path=f"x/{id}.mp3", format="mp3", size=size or 1000 + id, mtime=0,
+                 duration=duration, title=title, artist=artist, mb_trackid=mbid)  # fmt: skip
+
+
+def test_library_links_follow_the_inbox_rules(tmp_path):
+    tracks = [
+        _library_track(1),
+        _library_track(2, artist="FISHER & Kita Alexander", duration=301.5),  # same track
+        _library_track(3, duration=180.0),  # radio edit: a different length
+        _library_track(4, title="Losing It (Extended Mix)"),  # another mix
+        _library_track(5, title="Other", artist="Someone", mbid="ABC"),
+        _library_track(6, title="Different", artist="Else", mbid="abc"),  # ID copied onto an EP
+    ]
+    links = duplicates.library_links(tracks, tmp_path, apart=set())
+    assert links == [(1, 2, "name")]
+    assert duplicates.library_links(tracks, tmp_path, apart={(1, 2)}) == []
+
+
+def test_a_trusted_musicbrainz_id_links_tracks_without_names(tmp_path):
+    tracks = [_library_track(1, None, None, mbid="ID"), _library_track(2, None, None, mbid="id")]
+    assert duplicates.library_links(tracks, tmp_path, set()) == [(1, 2, "mbid")]
+
+
+def test_groups_join_copies_linked_through_another_copy():
+    groups = duplicates.library_groups([(1, 2, "name"), (2, 3, "file"), (7, 8, "mbid")])
+    assert groups == {1: (1, "name"), 2: (1, "file"), 3: (1, "file"), 7: (7, "mbid"),
+                      8: (7, "mbid")}  # fmt: skip
+
+
+def scan_job_run(client):
+    from app.jobs import scan_job
+
+    client.post("/api/scan")
+    scan_job.wait(30)
+
+
+def test_library_duplicates_after_a_scan(client, music_dir):
+    # An identical copy of an untagged file in another folder: found by its content.
+    shutil.copy(music_dir / "Unsorted" / "untagged.mp3", music_dir / "Info Artist" / "copy.mp3")
+    scan_job_run(client)
+    groups = {tuple(sorted(t["path"] for t in g["tracks"])): g for g in client.get(
+        "/api/duplicates").json()}  # fmt: skip
+    identical = groups[("Info Artist/copy.mp3", "Unsorted/untagged.mp3")]
+    assert identical["reasons"] == ["file"]
+    # The test library's "Silent Track" in seven formats: the same recording (one MBID).
+    formats = next(g for g in groups.values() if len(g["tracks"]) == 7)
+    assert formats["reasons"] == ["mbid"]
+    assert sum(t["best_sound"] for t in formats["tracks"]) <= 1
+
+    # Every number points at the same tracks.
+    listed = client.get("/api/tracks", params={"flag": "duplicate"}).json()["total"]
+    assert listed == 9
+    page = client.get("/duplicates").text
+    assert "Tracks with copies" in page and "Silent Track" in page
+    assert "2 tracks in the library more than once" in client.get("/").text
+    assert "9 files</a> are copies of 2 tracks" in client.get("/stats").text
+
+    # The track page links to its group.
+    track = identical["tracks"][0]["id"]
+    assert f"/duplicates?group={identical['group']}" in client.get(f"/tracks/{track}").text
+
+    # Keep them all: the group is gone, and comes back on request.
+    ids = [t["id"] for t in identical["tracks"]]
+    client.post("/duplicates/keep", data={"track_ids": ids})
+    assert len(client.get("/api/duplicates").json()) == 1
+    assert client.get("/api/tracks", params={"flag": "duplicate"}).json()["total"] == 7
+    scan_job_run(client)  # a scan doesn't bring it back
+    assert len(client.get("/api/duplicates").json()) == 1
+    assert client.post("/api/duplicates/show-again").json() == {"forgotten_pairs": 1, "groups": 2}
+
+    # Deleting a copy in the file manager: the next scan notices.
+    (music_dir / "Info Artist" / "copy.mp3").unlink()
+    scan_job_run(client)
+    assert len(client.get("/api/duplicates").json()) == 1
+
+
+def test_no_duplicates_page(client):
+    assert "No duplicates." in client.get("/duplicates").text

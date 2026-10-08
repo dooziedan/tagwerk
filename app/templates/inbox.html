@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button %}
+{% from "macros.html" import play_button, toast %}
 {% block title %}Inbox · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -9,11 +9,13 @@
 </div>
 
 {% if configured %}
-{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
-{% if error == "delete" %}<p class="form-error" role="alert">Some files couldn't be moved to the trash; they may have been moved or renamed. Check the folder and try again.</p>{% endif %}
-{% if error == "restore" %}<p class="form-error" role="alert">That file couldn't be restored: it's no longer in the trash, or a file with the same name is in the inbox again.</p>{% endif %}
-{% if deleted and deleted != "0" %}<p role="status" class="notice">🗑️ Moved {{ deleted | int | plural('file') }} to the trash. You can restore {{ "it" if deleted == "1" else "them" }} under <a href="#trash">Recently deleted</a> for {{ keep_days }} days.</p>{% endif %}
-{% if restored %}<p role="status" class="notice">↩️ Restored. The file is back in the inbox.</p>{% endif %}
+<div class="toasts">
+{% if error == "busy" %}{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}{% endif %}
+{% if error == "delete" %}{% call toast("warn") %}Some files couldn't be moved to the trash; they may have been moved or renamed. Check the folder and try again.{% endcall %}{% endif %}
+{% if error == "restore" %}{% call toast("warn") %}That file couldn't be restored: it's no longer in the trash, or a file with the same name is in the inbox again.{% endcall %}{% endif %}
+{% if deleted and deleted != "0" %}{% call toast() %}🗑️ Moved {{ deleted | int | plural('file') }} to the trash. You can restore {{ "it" if deleted == "1" else "them" }} under <a href="#trash">Recently deleted</a> for {{ keep_days }} days.{% endcall %}{% endif %}
+{% if restored %}{% call toast() %}↩️ Restored. The file is back in the inbox.{% endcall %}{% endif %}
+</div>
 {% endif %}
 
 {% if not configured %}

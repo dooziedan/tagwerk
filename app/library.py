@@ -12,7 +12,15 @@ from sqlmodel import Session, col, select
 
 from app.audio_analysis import ANALYSIS_VERSION
 from app.keys import display
-from app.models import ChangeEntry, ChangeSet, FinalTrack, LibraryAnalysis, RawTag, Track
+from app.models import (
+    ChangeEntry,
+    ChangeSet,
+    DuplicateTrack,
+    FinalTrack,
+    LibraryAnalysis,
+    RawTag,
+    Track,
+)
 from app.tags import LOSSLESS_FORMATS
 
 PER_PAGE = 50
@@ -181,6 +189,11 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     "tagwerk_imported": ("Imported through the inbox", by_tagwerk("import")),
     "tagwerk_converted": ("Converted to AIFF by Tagwerk", by_tagwerk("convert")),
     "final_changed": ("Final, changed outside Tagwerk", CHANGED_OUTSIDE),
+    # Worked out after scans and writes (app/duplicates.py, ADR 0022)
+    "duplicate": (
+        "In the library more than once",
+        exists().where(DuplicateTrack.track_id == Track.id),
+    ),
 }
 
 

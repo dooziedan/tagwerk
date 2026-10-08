@@ -61,6 +61,12 @@ class GenreMap:
         return result
 
     @staticmethod
+    def rule_count(text: str) -> int:
+        """How many rules the text has (lines that aren't empty or a # comment)."""
+        lines = (line.strip() for line in text.splitlines())
+        return sum(1 for line in lines if line and not line.startswith("#"))
+
+    @staticmethod
     def problems(text: str) -> list[int]:
         """Line numbers that are neither a spelling rule (=) nor a subgenre rule (>)."""
         bad = []

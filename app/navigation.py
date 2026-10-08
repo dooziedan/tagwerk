@@ -36,20 +36,24 @@ def with_saved_note(url: str, count: int) -> str:
     return url + ("&" if "?" in url else "?") + f"saved={count}"
 
 
-def reload_page(request: Request, response, drop: tuple[str, ...] = ()) -> None:
+def reload_page(request: Request, response, drop: tuple[str, ...] = (), done: bool = False) -> None:
     """Show the current page again after a job finished (polling partials).
 
     Swaps only #page (like a boosted link), so the play bar keeps playing; without htmx's
     current URL, falls back to a full reload. ``drop``: query parameters to leave out (e.g. a
-    "looking up…" note). The address is replaced, not added to the history, so Back doesn't
-    step through the same page.
+    "looking up…" note). ``done``: adds ``done=1``, so the page shows a job's result once (as a
+    notification; base.html drops the marker from the address right away). The address is
+    replaced, not added to the history, so Back doesn't step through the same page.
     """
     current = request.headers.get("HX-Current-URL")
     if not current:
         response.headers["HX-Refresh"] = "true"
         return
     url = urlsplit(current)
-    query = urlencode([(k, v) for k, v in parse_qsl(url.query) if k not in drop])
+    query = urlencode(
+        [(k, v) for k, v in parse_qsl(url.query) if k not in drop and k != "done"]
+        + ([("done", "1")] if done else [])
+    )
     path = url.path + (f"?{query}" if query else "")
     response.headers["HX-Location"] = json.dumps(
         {

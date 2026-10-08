@@ -80,6 +80,7 @@ def test_flags_match_dashboard_counts(engine, music_dir):
             "audio_bpm_differs": stats.audio_bpm_differs,
             "audio_key_differs": stats.audio_key_differs,
             "not_analysed": stats.not_analysed,
+            "duplicate": stats.duplicates,
         }.items():
             assert find_tracks(session, TrackFilter(flag=flag)).total == expected, flag
     assert stats.bpm_zero == 1

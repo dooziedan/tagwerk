@@ -53,7 +53,7 @@ def pages(client, engine, settings):
     return [
         "/", "/tracks", f"/tracks/{one}", f"/tracks/{one}/edit",
         f"/tracks/edit?ids={ids[0]}&ids={ids[1]}", "/albums", "/artists", "/fields", "/final",
-        "/inbox", f"/inbox/{inbox_id}", "/changes", "/changes/history", "/settings",
+        "/inbox", f"/inbox/{inbox_id}", "/changes", "/changes/history", "/settings", "/duplicates",
     ]  # fmt: skip
 
 

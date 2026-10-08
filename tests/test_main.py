@@ -143,3 +143,19 @@ def test_heat_map_axes(client):
     assert "/tracks?genre=Electronic&amp;year=2021" in page
     grid = client.get("/api/stats/heatmap", params={"rows": "key", "cols": "key"}).json()
     assert (grid["rows"], grid["cols"]) == ("key", "tempo")  # the same axis twice isn't useful
+
+
+def test_the_unraid_template_has_every_setting():
+    """A new setting in app/config.py needs its field in the Unraid template too."""
+    import xml.etree.ElementTree as ET
+    from pathlib import Path
+
+    from app.config import Settings
+
+    template = Path(__file__).parent.parent / "unraid" / "tagwerk.xml"
+    targets = {c.get("Target") for c in ET.parse(template).getroot().iter("Config")}
+    for name in Settings.model_fields:
+        if name.endswith("_dir"):  # folders are paths: /music, /import, /originals, /config
+            assert "/" + name.removesuffix("_dir") in targets, name
+        else:
+            assert name.upper() in targets, name

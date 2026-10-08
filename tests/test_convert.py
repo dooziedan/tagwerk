@@ -182,5 +182,14 @@ def test_review_page_and_convert(client, engine, settings):
     assert "Convert 1 track to AIFF" in page and "Skipped: lossy (MP3)" in page
     client.post("/convert", data={"ids": [str(i) for i in ids]})
     write_job.wait(60)
-    assert "Converted 1 track to AIFF" in client.get("/convert", params={"ids": ids}).text
+    # The result is a notification on the reload right after the job (done=1), only then.
+    reload = client.get(
+        "/partials/write?was_running=true",
+        headers={"HX-Current-URL": "http://testserver/convert?ids=1"},
+    )
+    assert '"path": "/convert?ids=1&done=1"' in reload.headers["HX-Location"]
+    assert (
+        "Converted 1 track to AIFF" in client.get("/convert", params={"ids": ids, "done": 1}).text
+    )
+    assert "Converted 1 track" not in client.get("/convert", params={"ids": ids}).text
     assert any(settings.music_dir.rglob("tagged.aiff"))
