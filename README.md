@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.12, working towards 1.0.** A new night-sky look. Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio and final tracks all work. What's next is on the [roadmap](docs/roadmap.md).
+> **Status: v0.13, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
 
 ## Features
 
@@ -15,6 +15,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Tagwerk's work:** what Tagwerk has done for your library: tag values filled in, corrected or removed per field, where they came from (you, the audio, online, the filename …), imports, conversions, and how many tracks were set-ready before and are now.
 - **Two modes**, chosen in the setup wizard or Settings: **DJ** (BPM, keys in Camelot, Open Key or musical notation, set-readiness, audio quality) and **Collector** (albums, decades, lyrics, ReplayGain). Modes only change what is shown, never what is stored.
 - **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover, and a **play bar** that keeps playing while you browse.
+- **Duplicates:** tracks that are in your library more than once (identical files, the same recording, or the same artist and title at the same length), with their copies side by side and the best-sounding one marked. Tagwerk only points them out; it never deletes library files.
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
 
 **Tagging**
@@ -52,7 +53,7 @@ Planned (see the [roadmap](docs/roadmap.md)): finding duplicates inside the libr
    | Navidrome Library (optional) | If Navidrome has several libraries: the name of the one using your music folder, e.g. `Music Library`. |
    | Original Files (optional) | Where originals go after converting to AIFF, e.g. `/mnt/user/music-originals`, outside your music share. |
    | AcoustID Key / Discogs Token (optional) | Free keys for online identification; the template explains where to get them. |
-   | Analysis Workers (advanced) | Leave `0`: BPM and key are analysed on as many CPU cores as the container may use. |
+   | CPU Cores | `0` (automatic) uses every core the container may use for BPM and key analysis; e.g. `4` leaves the rest for other containers. |
    | WebUI Port | `8000`, or any free port |
    | PUID / PGID (advanced) | Leave Unraid's defaults `99` / `100` |
 
@@ -73,7 +74,7 @@ All settings are environment variables (the fields in the Unraid template):
 | `NAVIDROME_LIBRARY` | empty | With several Navidrome libraries: the name of the one using your music folder; only it is rescanned |
 | `ORIGINALS_DIR` | `/originals` | Where originals go after converting to AIFF (optional) |
 | `ACOUSTID_KEY` / `DISCOGS_TOKEN` | empty | Free keys for online identification (optional) |
-| `ANALYSIS_WORKERS` | `0` | Tracks analysed for BPM and key at the same time. `0` = as many as the container may use CPU cores (limit with `cpus:` in docker-compose, `--cpus` or Unraid's CPU pinning), fewer if memory is short |
+| `CPU_CORES` | `0` | CPU cores Tagwerk may use for heavy work (BPM and key analysis: one track per core). `0` = as many as the container may use (limit with `cpus:` in docker-compose, `--cpus` or Unraid's CPU pinning), fewer if memory is short. Before v0.13 this was `ANALYSIS_WORKERS`, which still works |
 | `PUID` / `PGID` | `99` / `100` | User and group the app runs as |
 | `UMASK` | `022` | Permission mask for new files |
 

@@ -224,7 +224,6 @@ button.small, .small[role="button"] { padding: 0.2rem 0.6rem; font-size: 0.8rem;
 .count-badge { display: inline-block; min-width: 1.4rem; padding: 0 0.4rem; border-radius: 999px; font-size: 0.75rem; text-align: center; background: var(--pico-primary-background); color: var(--pico-primary-inverse); }
 
 /* Description under a settings option */
-.option-hint { margin: -0.5rem 0 0.75rem 2.25rem; font-size: 0.875rem; }
 
 /* Header: below 800px, Inbox, Changes and Settings move into the menu. */
 @media (max-width: 800px) {
@@ -331,8 +330,6 @@ body.with-action-bar { padding-bottom: calc(6rem + var(--player-height, 0px)); }
 .review-form input.origin-you { border-color: var(--pico-primary); border-width: 2px; }
 .edit-actions button + button { margin-left: 0; }
 
-/* Short confirmation at the bottom of the window (e.g. "Saved 3 pending changes"). */
-.toast { position: fixed; z-index: 10; left: 50%; bottom: calc(1.25rem + var(--player-height, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 0.9rem; max-width: calc(100vw - 2rem); padding: 0.7rem 0.6rem 0.7rem 1.1rem; border-radius: 8px; background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); font-size: 0.95rem; }
 .toast a { white-space: nowrap; font-weight: 600; }
 .toast-close { margin: 0; padding: 0 0.5rem; width: auto; border: 0; background: none; color: var(--pico-muted-color); font-size: 1.3rem; line-height: 1; }
 
@@ -368,10 +365,7 @@ body.with-action-bar { padding-bottom: calc(6rem + var(--player-height, 0px)); }
 .choice-card input { grid-row: span 2; margin-top: 0.2rem; }
 .choice-card small { grid-column: 2; }
 .choice-card.selected { border-color: var(--pico-primary); box-shadow: 0 0 0 1px var(--pico-primary); }  /* no :has(), see design.md */
-.layout-option { display: grid; grid-template-columns: auto 1fr; gap: 0 0.6rem; margin-bottom: 0.6rem; }
-.layout-option input { grid-row: span 2; margin-top: 0.2rem; }
-.layout-option small { grid-column: 2; }
-.layout-detail { margin: 0.25rem 0 1rem 1.9rem; }
+.layout-detail { margin: 0.25rem 0 1rem; }
 .layout-detail[hidden] { display: none; }
 .genre-picks { display: flex; flex-wrap: wrap; gap: 0.2rem 1.1rem; margin-bottom: 0.6rem; }
 .genre-picks label { margin: 0; }
@@ -398,9 +392,6 @@ body.with-action-bar { padding-bottom: calc(6rem + var(--player-height, 0px)); }
 .online-candidate button { width: auto; white-space: nowrap; }
 .form-error-inline { color: var(--pico-del-color); }
 @media (max-width: 600px) { .online-candidate { flex-wrap: wrap; } }
-.online-setting { display: block; margin-bottom: 0.75rem; }
-.online-setting small { display: block; margin-left: 2.75rem; }
-.online-setting small.status, .online-setting small.ok { display: inline-block; margin-left: 0.5rem; }
 
 /* The play bar (app/static/player.js) */
 .player-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--pico-card-background-color); border-top: 1px solid var(--pico-muted-border-color); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.12); }
@@ -844,9 +835,27 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
 .notice.check { border-color: rgba(253, 186, 116, 0.35); background: var(--tw-check-soft); }
 .notice.check strong { color: var(--tw-check); }
 .notice button { margin: 0; width: auto; }
-.toast { position: fixed; z-index: 30; left: 50%; bottom: calc(1.25rem + var(--player-height, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 0.9rem;
-  max-width: calc(100vw - 2rem); padding: 0.7rem 0.6rem 0.7rem 1.1rem; border-radius: 16px; border: 1px solid var(--tw-line-strong);
-  box-shadow: var(--tw-glass-edge), 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.2); font-size: 0.92rem; }
+/* Notifications ("Wrote 3 files", "Saved."): a stack at the top right (phones: across the top).
+   They slide in; "ok" fades out after 6 s (paused while the pointer is on it), "warn" stays until
+   closed. They belong to the page: a page change removes them. CSS only. */
+.toasts { position: fixed; z-index: 45; top: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;
+  width: min(27rem, calc(100vw - 2rem)); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 0.75rem; width: 100%; padding: 0.75rem 0.55rem 0.75rem 1rem; border-radius: 14px;
+  border: 1px solid var(--tw-line-strong); border-left: 3px solid var(--tw-ok); font-size: 0.9rem; line-height: 1.45;
+  box-shadow: var(--tw-glass-edge), 0 18px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.18);
+  animation: tw-toast-in 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both, tw-toast-out 300ms ease-in 6s forwards; }
+.toast-warn { border-left-color: var(--tw-check); animation: tw-toast-in 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.toast:hover { animation-play-state: paused; }
+.toast-text { flex: 1; min-width: 0; }
+.toast-text details { margin: 0.4rem 0 0; }
+.toast-close { flex: none; }
+@keyframes tw-toast-in { from { opacity: 0; transform: translateY(-18px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes tw-toast-out { to { opacity: 0; transform: translateY(-10px); visibility: hidden; } }
+@media (max-width: 640px) { .toasts { top: 0.75rem; left: 0.75rem; right: 0.75rem; width: auto; align-items: stretch; } }
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: tw-toast-out 1ms linear 6s forwards; }
+  .toast-warn { animation: none; }
+}
 .toast .ok { color: var(--tw-ok); font-weight: 700; }
 .toast a { white-space: nowrap; font-weight: 600; }
 
@@ -866,20 +875,10 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
 .orbit-deco { position: absolute; pointer-events: none; }
 .orbit-deco svg { display: block; overflow: visible; }
 
-/* --- Page load: cards rise gently into place (transform/opacity only, no layout shift) -------- */
-@keyframes tw-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.rise > * { animation: tw-rise 520ms var(--tw-ease) both; }
-.rise > :nth-child(2) { animation-delay: 50ms; }
-.rise > :nth-child(3) { animation-delay: 100ms; }
-.rise > :nth-child(4) { animation-delay: 150ms; }
-.rise > :nth-child(5) { animation-delay: 200ms; }
-.rise > :nth-child(n+6) { animation-delay: 250ms; }
 @media (prefers-reduced-motion: reduce) {
-  .rise > * { animation: none; }
   .lift, .lift:hover, a:hover > .lift { transition: none; transform: none; }
   button:hover, [role="button"]:hover { transform: none !important; }
 }
-:root[data-effects="light"] .rise > * { animation: none; }
 
 /* --- Windows high contrast / forced colours: drop the effects, keep borders ----------------- */
 @media (forced-colors: active) {
@@ -936,22 +935,33 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
 .cover-card .a { display: block; font-size: 0.8rem; color: var(--tw-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.05rem; }
 .cover-card .m { display: block; font-size: 0.74rem; color: var(--tw-ink-3); font-variant-numeric: tabular-nums; margin-top: 0.15rem; }
 .cover-planet.fill { position: absolute; inset: 0; }
-/* 3D orbit rings with moons (Orbit Stage's hero), reused around big gauges and empty states */
-.orbits { position: relative; width: 280px; height: 260px; perspective: 900px; flex: none; }
-.orbits .o { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1px solid rgba(129, 140, 248, 0.38); transform-style: preserve-3d; pointer-events: none; }
-.orbits .o i { position: absolute; left: 50%; top: -4px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 26px rgba(245, 197, 66, 0.5); }
-.orbits .o2 i { width: 6px; height: 6px; top: -3px; background: #a5b4fc; box-shadow: 0 0 10px #818cf8; }
-.orbits .o1 { width: 196px; height: 196px; margin: -98px; transform: rotate(40deg); }
-.orbits .o2 { width: 270px; height: 270px; margin: -135px; border-color: rgba(129, 140, 248, 0.26); transform: rotateX(68deg) rotateY(14deg) rotate(120deg); }
-.orbits .o3 { width: 300px; height: 300px; margin: -150px; border-color: rgba(245, 197, 66, 0.18); transform: rotateX(75deg) rotateY(-20deg) rotate(250deg); }
+/* Orbits around Home's planet (Orbit Stage's hero): 3D to the eye, drawn in 2D. The rings are
+   flat SVG ellipses; each moon is a round dot moved by two plain translations (x and y, each a
+   sine wave, a quarter turn apart), which together trace the ellipse. Only transform and opacity
+   change, so the browser's compositor animates them without repainting. Depth: the moon grows
+   and brightens on the near half and shrinks and dims on the far half; the planet hides it there. */
+.orbits { position: relative; width: 280px; height: 260px; flex: none; }
+.orbits .orbit-rings { position: absolute; left: 50%; top: 50%; margin: -130px 0 0 -150px; overflow: visible; pointer-events: none; }
 .orbits .core { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-@keyframes tw-o1 { from { transform: rotate(40deg); } to { transform: rotate(400deg); } }
-@keyframes tw-o2 { from { transform: rotateX(68deg) rotateY(14deg) rotate(120deg); } to { transform: rotateX(68deg) rotateY(14deg) rotate(480deg); } }
-@keyframes tw-o3 { from { transform: rotateX(75deg) rotateY(-20deg) rotate(250deg); } to { transform: rotateX(75deg) rotateY(-20deg) rotate(610deg); } }
-:root:not([data-motion="still"]):not([data-effects="light"]) .orbits .o1 { animation: tw-o1 120s linear infinite; }
-:root:not([data-motion="still"]):not([data-effects="light"]) .orbits .o2 { animation: tw-o2 200s linear infinite reverse; }
-:root:not([data-motion="still"]):not([data-effects="light"]) .orbits .o3 { animation: tw-o3 320s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .orbits .o { animation: none !important; } }
+.orbits .moon { --half: 50s; --start: 0s; position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; transform: rotate(var(--tilt, 0deg)); }
+.orbits .moon b { position: absolute; left: 0; top: 0; animation: tw-moon-x var(--half) cubic-bezier(0.37, 0, 0.63, 1) var(--start) infinite alternate; }
+.orbits .moon i { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: #f5c542;
+  box-shadow: 0 0 10px #f5c542, 0 0 22px rgba(245, 197, 66, 0.5);
+  animation: tw-moon-y var(--half) cubic-bezier(0.37, 0, 0.63, 1) calc(var(--start) - var(--half) / 2) infinite alternate; }
+/* The copy in front of the planet is only visible on the near half of the orbit. */
+.orbits .moon.front { animation: tw-moon-near var(--half) linear calc(var(--start) - var(--half) / 2) infinite alternate; }
+.orbits .m1 { --rx: 98px; --ry: 98px; --far: 1; --dim: 1; --half: 60s; --start: -21s; }
+.orbits .m2 { --rx: 136px; --ry: 42px; --far: 0.5; --dim: 0.4; --tilt: -14deg; --half: 45s; --start: -8s; }
+.orbits .m2 i { left: -3.5px; top: -3.5px; width: 7px; height: 7px; background: #c7d2fe; box-shadow: 0 0 9px #818cf8, 0 0 18px rgba(129, 140, 248, 0.55); }
+/* Mirrored, so this moon travels the other way round. */
+.orbits .m3 { --rx: 150px; --ry: 33px; --far: 0.45; --dim: 0.35; --tilt: 21deg; --half: 70s; --start: -52s; transform: rotate(var(--tilt)) scaleX(-1); }
+@keyframes tw-moon-x { from { transform: translateX(calc(-1 * var(--rx))); } to { transform: translateX(var(--rx)); } }
+@keyframes tw-moon-y { from { transform: translateY(calc(-1 * var(--ry))) scale(var(--far)); opacity: var(--dim); } to { transform: translateY(var(--ry)) scale(1); opacity: 1; } }
+@keyframes tw-moon-near { 0%, 42% { opacity: 0; } 58%, 100% { opacity: 1; } }
+/* Still: the moons stay where they are (paused, not removed, so they keep their place). */
+:root[data-motion="still"] .orbits .moon, :root[data-motion="still"] .orbits .moon *,
+:root[data-effects="light"] .orbits .moon, :root[data-effects="light"] .orbits .moon * { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .orbits .moon, .orbits .moon * { animation-play-state: paused !important; } }
 /* The big gauge in Home's hero: set-ready share as a planet */
 .gauge-planet { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 150px; height: 150px; border-radius: 50%; text-decoration: none; color: inherit;
   background: radial-gradient(circle at 35% 30%, #2a2670, #0b0b22 70%); box-shadow: inset -12px -16px 30px rgba(0, 0, 0, 0.55), 0 0 40px rgba(99, 102, 241, 0.35); }
@@ -1159,3 +1169,106 @@ article table thead th, table.kv thead th { background: none; }
   :root:not([data-effects="light"]) .settings-section { background: var(--tw-glass); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur); }
 }
 .settings-section { margin-top: var(--pico-spacing); }
+
+/* --- Settings: a section index with each section's current state, tidy rows, pill choices -- */
+.page-head .head-action { position: relative; margin: 0; align-self: center; }
+.page-head .head-action button { width: auto; margin: 0; }
+.settings-nav { display: flex; gap: 0.5rem; overflow-x: auto; margin: 0 0 var(--pico-spacing); padding-bottom: 0.3rem; }
+.settings-nav a { flex: none; display: flex; align-items: center; gap: 0.55rem; padding: 0.5rem 0.85rem; border-radius: 12px; border: 1px solid var(--tw-line);
+  background: var(--tw-glass-solid); color: var(--tw-ink); font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+.settings-nav a:hover { border-color: var(--tw-line-strong); text-decoration: none; }
+.settings-nav .icon { flex: none; color: var(--tw-indigo-300); }
+.settings-nav small { display: none; }
+@media (min-width: 1200px) {
+  .settings-layout { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  .settings-nav { position: sticky; top: 1.25rem; flex-direction: column; gap: 0.15rem; overflow: visible; margin: 0; padding: 0.5rem;
+    border: 1px solid var(--tw-line); border-radius: var(--tw-radius-card); background: var(--tw-glass-solid); box-shadow: var(--tw-glass-edge); }
+  .settings-nav a { align-items: flex-start; padding: 0.6rem 0.75rem; border: 0; background: none; }
+  .settings-nav a:hover { background: rgba(129, 140, 248, 0.1); }
+  .settings-nav .icon { margin-top: 0.15rem; }
+  .settings-nav small { display: block; margin-top: 0.1rem; font-size: 0.76rem; font-weight: 400; color: var(--tw-ink-3); }
+  .settings-body > .settings-section:first-child { margin-top: 0; }
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root:not([data-effects="light"]) .settings-nav a, :root:not([data-effects="light"]) .settings-nav { background: var(--tw-glass); -webkit-backdrop-filter: var(--tw-glass-blur); backdrop-filter: var(--tw-glass-blur); }
+}
+@media (min-width: 1200px) { :root:not([data-effects="light"]) .settings-nav a { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.settings-section { scroll-margin-top: 1.25rem; }
+.set-head { display: flex; align-items: flex-start; gap: 0.9rem; margin-bottom: 1.15rem; }
+.section-ic { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 2.3rem; height: 2.3rem; border-radius: 11px;
+  border: 1px solid var(--tw-line); background: rgba(129, 140, 248, 0.14); color: var(--tw-indigo-200); }
+.set-head h2 { margin: 0.1rem 0 0; font-size: 1.2rem; }
+.set-head p { margin: 0.2rem 0 0; font-size: 0.88rem; }
+.section-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem; margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--tw-line-soft); }
+.section-foot form { margin: 0; }
+.section-foot button { width: auto; margin: 0; }
+.settings-section fieldset { margin: 0; }
+.settings-section fieldset + fieldset { margin-top: 1.3rem; padding-top: 1.3rem; border-top: 1px solid var(--tw-line-soft); }
+.settings-section legend { margin-bottom: 0.7rem; font-size: 0.98rem; }
+/* One setting per row: what it is on the left, the control on the right. */
+.setting { display: grid; gap: 0.55rem 1.5rem; padding: 0.95rem 0; border-top: 1px solid var(--tw-line-soft); }
+.setting:first-child { padding-top: 0.15rem; border-top: 0; }
+.setting-text strong { display: block; }
+.setting-text small { display: block; margin-top: 0.15rem; font-size: 0.8rem; line-height: 1.4; }
+.setting-control .switch-line { margin: 0.3rem 0 0; }
+@media (min-width: 720px) { .setting { grid-template-columns: 11rem minmax(0, 1fr); align-items: start; } }
+/* Pills: radio buttons drawn as one rounded group; the chosen one is gold (the current choice). */
+.seg { position: relative; display: inline-flex; flex-wrap: wrap; gap: 0.2rem; padding: 0.22rem; border-radius: 999px; border: 1px solid var(--tw-line); background: rgba(3, 3, 8, 0.5); }
+.seg input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.seg label { margin: 0; padding: 0.36rem 0.85rem; border-radius: 999px; font-size: 0.88rem; font-weight: 600; color: var(--tw-ink-2); cursor: pointer;
+  transition: background-color var(--tw-fast), color var(--tw-fast); }
+.seg label:hover { color: var(--tw-ink); background: rgba(129, 140, 248, 0.13); }
+.seg input:checked + label { color: var(--tw-ink-dark); background: var(--tw-gold); box-shadow: 0 0 14px rgba(245, 197, 66, 0.35); }
+.seg input:focus-visible + label { outline: 2px solid var(--tw-indigo-300); outline-offset: 2px; }
+.seg-hint { display: block; margin-top: 0.5rem; font-size: 0.82rem; line-height: 1.45; }
+.choice-card { align-content: start; } /* cards stretch to the tallest; the text stays on top */
+.choice-cards.layouts { grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); }
+.preview-box { margin-top: 0.9rem; padding: 0.7rem 0.95rem 0.5rem; border: 1px dashed var(--tw-line); border-radius: var(--tw-radius-control); background: rgba(3, 3, 8, 0.35); }
+.preview-box .preview-title { margin: 0 0 0.4rem; }
+/* The genre map is long: folded, with its size in the summary. */
+.genre-map-box { margin: 0; border: 1px solid var(--tw-line); border-radius: var(--tw-radius-control); background: rgba(3, 3, 8, 0.35); }
+.genre-map-box > summary { padding: 0.75rem 1rem; font-weight: 600; }
+.genre-map-box[open] > summary { margin-bottom: 0.6rem; border-bottom: 1px solid var(--tw-line-soft); }
+.genre-map-box > :not(summary) { margin-left: 1rem; margin-right: 1rem; }
+.genre-map-box form { margin-bottom: 1rem; }
+.source-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); gap: 0.75rem; }
+.source-card { display: block; margin: 0; padding: 0.85rem 1rem; border: 1px solid var(--tw-line); border-radius: var(--tw-radius-control); background: rgba(3, 3, 8, 0.35); cursor: pointer; }
+.source-card:hover { border-color: var(--tw-line-strong); }
+.source-top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin-bottom: 0.35rem; }
+.source-top input { margin: 0; }
+.source-card > small { display: block; font-size: 0.8rem; line-height: 1.45; }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.45rem 1.25rem; margin: 0 0 0.8rem; }
+.facts dt { font-size: 0.85rem; color: var(--tw-ink-3); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* --- Duplicates: the copies of a track side by side (ADR 0022) ------------------------------- */
+.dup-filter .chip small { margin-left: 0.15rem; opacity: 0.75; }
+.dup-filter .small-link { margin-left: auto; }
+.dup-group .card-head { flex-wrap: wrap; gap: 0.4rem 1rem; }
+.dup-reasons { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; }
+.dup-scroll { overflow-x: auto; margin: 0 -0.25rem; }
+.dup-table { width: 100%; margin: 0; font-size: 0.86rem; }
+.dup-table th, .dup-table td { padding: 0.45rem 0.6rem; vertical-align: top; border-bottom: 1px solid var(--tw-line-soft); background: none; }
+.dup-table thead th { min-width: 13rem; border-bottom: 1px solid var(--tw-line); }
+.dup-table thead th:first-child, .dup-table tbody th { width: 7.5rem; min-width: 6.5rem; color: var(--tw-ink-3); font-weight: 500; font-size: 0.8rem; }
+.dup-table tbody tr:last-child > * { border-bottom: 0; }
+/* Rows where the copies agree are quiet; rows where they differ stand out. */
+.dup-table tbody td { color: var(--tw-ink-3); overflow-wrap: anywhere; }
+.dup-table tbody tr.differs td { color: var(--tw-ink); }
+.dup-table tbody tr.differs th { color: var(--tw-check); }
+.dup-file { display: flex; align-items: flex-start; gap: 0.55rem; }
+.dup-file > span { min-width: 0; }
+.dup-file a { display: block; font-weight: 650; color: var(--tw-ink); overflow-wrap: anywhere; }
+.dup-file small { display: block; font-weight: 400; overflow-wrap: anywhere; }
+.dup-file .play-button { flex: none; margin: 0; }
+.dup-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.4rem; }
+.dup-badges .status { margin: 0; }
+.dup-cover { display: block; width: 44px; height: 44px; border-radius: 6px; object-fit: cover; }
+.dup-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; }
+.dup-foot form { margin: 0; }
+.dup-foot button { width: auto; margin: 0; }
+.dup-rules summary { font-weight: 600; }
+.dup-rules ul { margin: 0.75rem 0 0.5rem; font-size: 0.9rem; }
+.dup-rules .inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin: 0.5rem 0 0; }
+.dup-rules .inline-form button { width: auto; margin: 0; }
+.dup-table thead th { text-transform: none; letter-spacing: 0; font-size: 0.86rem; }

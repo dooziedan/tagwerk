@@ -1,4 +1,9 @@
-"""Preferences: mode (DJ / Collector), key notation, MusicBrainz visibility."""
+"""The Settings page and the preferences API.
+
+Sections: Display (mode, key notation, effects, MusicBrainz), Import, Genre map, Final tracks,
+Online lookups, Navidrome. Each section is its own form; after saving, the page comes back with
+``?saved=<section>`` and scrolls to it.
+"""
 
 from dataclasses import fields, replace
 from urllib.parse import parse_qs
@@ -42,22 +47,22 @@ def settings_page(
     prefs: PreferencesDep,
     settings: SettingsDep,
     session: SessionDep,
-    saved: bool = False,
+    saved: str = "",
 ):
     return _settings_page(request, prefs, settings, session, saved=saved)
 
 
-def _settings_page(request, prefs, settings, session, saved=False, errors=None, genre_text=None,
+def _settings_page(request, prefs, settings, session, saved="", errors=None, genre_text=None,
                    status_code=200):  # fmt: skip
+    genre_text = genre_text if genre_text is not None else (prefs.genre_map or DEFAULT_MAP)
     return templates.TemplateResponse(
         request,
         "settings.html",
         {
             **choices_context(session, prefs),
             "errors": errors or {},
-            "genre_text": genre_text
-            if genre_text is not None
-            else (prefs.genre_map or DEFAULT_MAP),
+            "genre_text": genre_text,
+            "genre_rules": GenreMap.rule_count(genre_text),
             "genre_map_custom": bool(prefs.genre_map),
             "prefs": prefs,
             "modes": MODES,
@@ -97,7 +102,7 @@ async def save_choices(request: Request, section: str, session: SessionDep, sett
     if errors:
         return _settings_page(request, prefs, settings, session, errors=errors, status_code=422)
     preferences.save(session, prefs)
-    return RedirectResponse(f"/settings?saved=true#{section}", status_code=303)
+    return RedirectResponse(f"/settings?saved={section}", status_code=303)
 
 
 @router.post("/settings/genres", include_in_schema=False)
@@ -115,7 +120,7 @@ async def save_genre_map(request: Request, session: SessionDep, settings: Settin
     if text.strip() == DEFAULT_MAP.strip():
         text = ""  # the built-in map: stored as empty, so it keeps up with updates
     preferences.save(session, replace(prefs, genre_map=text))
-    return RedirectResponse("/settings?saved=true#genres", status_code=303)
+    return RedirectResponse("/settings?saved=genres", status_code=303)
 
 
 @router.post("/settings/online", include_in_schema=False)
@@ -125,7 +130,7 @@ async def save_online(request: Request, session: SessionDep):
     names = {cls.name for cls in identify.SOURCES}
     chosen = [str(n) for n in form.getlist("online_sources") if n in names]
     preferences.save(session, replace(preferences.load(session), online_sources=chosen))
-    return RedirectResponse("/settings?saved=true#online", status_code=303)
+    return RedirectResponse("/settings?saved=online", status_code=303)
 
 
 @router.post("/settings/setup-again", include_in_schema=False)
@@ -162,7 +167,7 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
         effects=form.get("effects", prefs.effects),
     )
     preferences.save(session, updated)
-    return RedirectResponse("/settings?saved=true", status_code=303)
+    return RedirectResponse("/settings?saved=display", status_code=303)
 
 
 async def _form(request: Request) -> dict[str, str]:

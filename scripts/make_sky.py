@@ -102,9 +102,18 @@ def main():
 
 /* Parallax wrappers: sky.js moves them a little with the pointer and the scroll position. */
 .tw-depth {{ position: absolute; inset: 0; transition: transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1); will-change: transform; }}
-/* Warp: stars stretch into streaks for a moment when you change page (sky.js adds .warp). */
-.tw-warp {{ position: absolute; inset: 0; transform-origin: 50% 40%; transition: transform 650ms cubic-bezier(0.2, 0.7, 0.2, 1); }}
-.tw-sky.warp .tw-warp {{ transform: scaleY(5); transition-duration: 220ms; transition-timing-function: cubic-bezier(0.6, 0, 0.9, 0.4); }}
+/* Warp (Convert to AIFF, sky.js): the star layers rush towards you and fade while streaks on a
+   canvas take over, then settle back. --wx/--wy: the vanishing point. */
+.tw-warp {{ position: absolute; inset: 0; transform-origin: var(--wx, 50%) var(--wy, 42%);
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 520ms ease-out; }}
+.tw-sky.warp .tw-warp {{ opacity: 0.25; transform: scale(1.3); transition-duration: 160ms; transition-timing-function: cubic-bezier(0.6, 0, 0.9, 0.4); }}
+.tw-warp-canvas {{ position: absolute; inset: 0; width: 100%; height: 100%; }}
+/* Burst (Apply changes, sky.js): drawn above the page, never in the way of the pointer. */
+.tw-fx-canvas {{ position: fixed; inset: 0; z-index: 60; width: 100%; height: 100%; pointer-events: none; }}
+/* Changing page: the new page's cards and sections come in one after another (sky.js sets the
+   delays). Opacity and transform only; "backwards" leaves nothing behind once it ends. */
+@keyframes tw-in {{ from {{ opacity: 0; transform: translateY(14px); }} to {{ opacity: 1; transform: none; }} }}
+.tw-in {{ animation: tw-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }}
 
 .tw-stars {{ position: absolute; left: 50%; top: 0; width: 1px; height: 1px; border-radius: 50%; background: transparent;
   animation: tw-drift var(--tw-drift, 800s) linear infinite; will-change: transform; }}
@@ -149,7 +158,9 @@ def main():
 :root[data-effects="light"] .tw-stars.near, :root[data-effects="light"] .tw-twinkle {{ display: none; }}
 @media (prefers-reduced-motion: reduce) {{
   .tw-stars, .tw-twinkle i, .tw-meteor {{ animation: none !important; }}
-  .tw-depth, .tw-warp {{ transition: none !important; transform: none !important; }}
+  .tw-depth, .tw-warp {{ transition: none !important; transform: none !important; opacity: 1 !important; }}
+  .tw-warp-canvas, .tw-fx-canvas {{ display: none; }}
+  .tw-in {{ animation: none !important; }}
 }}
 """
     OUT.parent.mkdir(parents=True, exist_ok=True)

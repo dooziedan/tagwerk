@@ -17,7 +17,17 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app import analysis, convert, final, folders, identify, navidrome, preferences, trash
+from app import (
+    analysis,
+    convert,
+    duplicates,
+    final,
+    folders,
+    identify,
+    navidrome,
+    preferences,
+    trash,
+)
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
 from app.db import get_engine
@@ -32,6 +42,13 @@ log = logging.getLogger(__name__)
 
 # Held while any job runs. Shared by all jobs on purpose.
 _library_lock = threading.Lock()
+
+
+def after_library_change(engine, settings: Settings) -> None:
+    """After a scan or write: tags may have changed, so compare with the audio again and find
+    duplicates again."""
+    analysis.refresh_all(engine)
+    duplicates.refresh_library(engine, settings.music_dir)
 
 
 @dataclass
@@ -90,7 +107,7 @@ class ScanJob(Job):
                 raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
             engine = get_engine(settings.database_url)
             scan_library(engine, settings.music_dir, progress)
-            analysis.refresh_all(engine)  # tags may have changed: compare with the audio again
+            after_library_change(engine, settings)
 
         return self._start(work, progress)
 
@@ -136,6 +153,7 @@ class InboxJob(Job):
         import_tracks(
             engine, settings.import_dir, settings.music_dir, ids, progress, image_store(settings)
         )
+        after_library_change(engine, settings)
         self.auto_import = progress
         log.info("Imported %d complete inbox tracks automatically", progress.written)
         navidrome.rescan_after_write(settings, progress.written)
@@ -155,7 +173,7 @@ class WriteJob(Job):
 
         def work() -> None:
             apply_pending(engine, settings.music_dir, progress, images, change_ids)
-            analysis.refresh_all(engine)
+            after_library_change(engine, settings)
             navidrome.rescan_after_write(settings, progress.written)
 
         return self._start(work, progress)
@@ -175,7 +193,7 @@ class WriteJob(Job):
                 settings.import_dir,
                 settings,
             )
-            analysis.refresh_all(engine)
+            after_library_change(engine, settings)
             navidrome.rescan_after_write(settings, progress.written)
 
         return self._start(work, progress)
@@ -190,7 +208,7 @@ class WriteJob(Job):
             import_tracks(
                 engine, settings.import_dir, settings.music_dir, track_ids, progress, images
             )
-            analysis.refresh_all(engine)
+            after_library_change(engine, settings)
             navidrome.rescan_after_write(settings, progress.written)
 
         return self._start(work, progress)
@@ -223,7 +241,11 @@ class WriteJob(Job):
         """Convert library tracks to AIFF (see app/convert.py)."""
         progress = WriteProgress(action="convert")
         engine = get_engine(settings.database_url)
-        work = lambda: convert.convert(engine, settings, track_ids, progress)  # noqa: E731
+
+        def work() -> None:
+            convert.convert(engine, settings, track_ids, progress)
+            duplicates.refresh_library(engine, settings.music_dir)  # a copy may have gone
+
         return self._start(work, progress)
 
 

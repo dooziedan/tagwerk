@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "macros.html" import kpi_value, nav_icon, play_button %}
+{% block title %}Duplicates · Tagwerk{% endblock %}
+{% block content %}
+{% set n = prefs.key_notation %}
+<div class="page-head">
+  <div>
+    <h1>Duplicates</h1>
+    <p class="muted page-sub">Tracks that are in your library more than once, with their copies side by side. Tagwerk only points them out: it never deletes library files.</p>
+  </div>
+</div>
+
+{% if total_groups == 0 %}
+<article class="empty-state">
+  <p class="empty-note">{{ nav_icon("check") }} <strong>No duplicates.</strong> Every track is in your library once.</p>
+  <p class="muted"><small>Checked after every scan, import and apply.{% if kept_apart %} You kept {{ kept_apart | plural('pair') }} of tracks apart with <em>Keep them all</em>.{% endif %}</small></p>
+  {% if kept_apart %}<form method="post" action="/duplicates/show-again"><button class="outline secondary small">Show those again</button></form>{% endif %}
+</article>
+{% else %}
+
+<section class="kpis" aria-label="Duplicates in numbers">
+  <article class="kpi"><span class="kpi-value">{{ total_groups | number }}</span><span class="kpi-label">Tracks with copies</span></article>
+  <a class="kpi-link" href="/tracks?flag=duplicate"><article class="kpi" title="Every copy, in the track list"><span class="kpi-value">{{ total_tracks | number }}</span><span class="kpi-label">Files in all</span></article></a>
+  <article class="kpi" title="What deleting every copy but the largest would free">{{ kpi_value(extra_size | filesize) }}<span class="kpi-label">In extra copies</span></article>
+</section>
+
+<nav class="chips dup-filter" aria-label="Why they look like copies">
+  <a class="chip{% if not reason %} on{% endif %}" href="/duplicates">All <small>{{ total_groups }}</small></a>
+  {% for key, label in reasons.items() %}{% if counts[key] %}
+  <a class="chip{% if reason == key %} on{% endif %}" href="/duplicates?reason={{ key }}">{{ label | capitalize }} <small>{{ counts[key] }}</small></a>
+  {% endif %}{% endfor %}
+  <a class="small-link" href="/tracks?flag=duplicate">As a track list →</a>
+</nav>
+{% if group and not groups %}<p class="muted">This group is gone: a copy was deleted, or you kept them all.</p>{% endif %}
+
+{% for g in groups %}
+<article class="dup-group" id="group-{{ g.id }}">
+  <header class="card-head">
+    <span><strong>{{ g.name }}</strong> <small>{{ g.copies | length }} copies{% if g.extra_size %} · {{ g.extra_size | filesize }} extra{% endif %}</small></span>
+    <span class="dup-reasons">{% for r in g.reasons %}<span class="status{% if r == 'file' %} status-sure{% endif %}">{{ reasons[r] }}</span>{% endfor %}</span>
+  </header>
+  <div class="dup-scroll">
+    <table class="dup-table">
+      <thead>
+        <tr>
+          <th scope="col"><span class="visually-hidden">Field</span></th>
+          {% for c in g.copies %}{% set t = c.track %}
+          <th scope="col">
+            <span class="dup-file">
+              {% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}
+              <span><a href="/tracks/{{ t.id }}">{{ t.path.rsplit("/", 1)[-1] }}</a>
+              <small class="muted">{{ t.path.rsplit("/", 1)[0] if "/" in t.path else "(top folder)" }}</small></span>
+            </span>
+            <span class="dup-badges">
+              {% if c.best_sound %}<span class="status status-sure">Best sound</span>{% endif %}
+              {% if c.most_tags %}<span class="status">Most tags</span>{% endif %}
+              {% if c.final %}<span class="status status-final">Final</span>{% endif %}
+            </span>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% macro quality(t) %}{{ t.format | upper }}{% if t.format in ("flac", "wav", "aiff") or (t.bits_per_sample or 0) > 0 %}{% if t.sample_rate %} · {{ (t.sample_rate / 1000) | round(1) }} kHz{% endif %}{% if t.bits_per_sample %} · {{ t.bits_per_sample }} bit{% endif %}{% elif t.bitrate %} · {{ (t.bitrate / 1000) | round | int }} kbps{% endif %}{% endmacro %}
+        <tr{% if g.differs("format") or g.differs("bitrate") or g.differs("sample_rate") %} class="differs"{% endif %}><th scope="row">Audio</th>{% for c in g.copies %}<td>{{ quality(c.track) }}</td>{% endfor %}</tr>
+        <tr{% if g.differs("duration") %} class="differs"{% endif %}><th scope="row">Length</th>{% for c in g.copies %}<td>{{ c.track.duration | mmss }}</td>{% endfor %}</tr>
+        {# Sizes as shown: copies a few bytes apart (other tags) read the same, so they aren't marked. #}
+        <tr{% if g.copies | map(attribute="track.size") | map("filesize") | unique | list | length > 1 %} class="differs"{% endif %}><th scope="row">Size</th>{% for c in g.copies %}<td>{{ c.track.size | filesize }}</td>{% endfor %}</tr>
+        {% for label, field in fields %}
+        <tr{% if g.differs(field) %} class="differs"{% endif %}><th scope="row">{{ label }}</th>
+          {% for c in g.copies %}{% set v = c.track[field] %}
+          <td>{% if v in (None, "") %}<span class="muted">–</span>{% elif field == "key_camelot" %}{{ key_label(v, n) }}{% elif field == "bpm" %}{{ v | bpm }}{% else %}{{ v }}{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        <tr{% if g.differs("has_cover") %} class="differs"{% endif %}><th scope="row">Cover</th>{% for c in g.copies %}<td>{% if c.track.has_cover %}<img class="dup-cover" src="/tracks/{{ c.track.id }}/cover?v={{ c.track.mtime }}" alt="Cover" width="44" height="44" loading="lazy">{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}</tr>
+        <tr><th scope="row">Added</th>{% for c in g.copies %}<td>{% if c.track.added_at %}<time data-local data-date-only datetime="{{ c.track.added_at | isoutc }}">{{ c.track.added_at | isoutc }}</time>{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}</tr>
+      </tbody>
+    </table>
+  </div>
+  <footer class="dup-foot">
+    <small class="muted">To remove a copy, delete its file in your file manager; the next scan notices.</small>
+    <form method="post" action="/duplicates/keep">
+      {% for c in g.copies %}<input type="hidden" name="track_ids" value="{{ c.track.id }}">{% endfor %}
+      <input type="hidden" name="back" value="/duplicates?reason={{ reason }}&page={{ page }}">
+      <button class="outline secondary small" title="They're different tracks, or you want every copy: this group isn't shown again (unless another copy turns up)">Keep them all</button>
+    </form>
+  </footer>
+</article>
+{% endfor %}
+
+{% if pages > 1 %}
+<nav class="pagination" aria-label="Pages">
+  {% if page > 1 %}<a href="/duplicates?reason={{ reason }}&page={{ page - 1 }}" role="button" class="outline secondary">← Previous</a>{% endif %}
+  <span>Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a href="/duplicates?reason={{ reason }}&page={{ page + 1 }}" role="button" class="outline secondary">Next →</a>{% endif %}
+</nav>
+{% endif %}
+
+<details class="glass panel dup-rules">
+  <summary>How Tagwerk finds copies</summary>
+  <ul>
+    <li><strong>Identical file:</strong> the same size and the very same content.</li>
+    <li><strong>Same MusicBrainz recording:</strong> the same recording ID, trusted only when every track with that ID has the same artist and title (some taggers copy one ID onto a whole EP), and about the same length.</li>
+    <li><strong>Same artist and title:</strong> the first artist and the full title, mix name included (an Extended Mix is not the Radio Edit), with lengths within 3 seconds. Spelling is evened out: case, accents, “&amp;”/“and”, “feat.” parts.</li>
+  </ul>
+  {% if kept_apart %}
+  <form method="post" action="/duplicates/show-again" class="inline-form"><small class="muted">You kept {{ kept_apart | plural('pair') }} of tracks apart with <em>Keep them all</em>.</small> <button class="outline secondary small">Show those again</button></form>
+  {% endif %}
+</details>
+{% endif %}
+{% endblock %}

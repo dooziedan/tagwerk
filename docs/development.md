@@ -69,7 +69,18 @@ docker run --rm --network host -v "$PWD:/work" -w /work \
     sh -c "pip install -q --user playwright==1.63.0 && python scripts/screenshots.py http://localhost:8000 dev/shots"
 ```
 
-It saves 120 screenshots to `dev/shots/` (Chromium, Firefox, WebKit × Calm/Pop × light/dark × desktop/phone) and fails on browser errors. See [design.md](design.md) for the rules.
+It saves screenshots of every main page to `dev/shots/` (Chromium, Firefox, WebKit × desktop/phone) and fails on browser errors. See [design.md](design.md) for the rules.
+
+## Speed with a big library
+
+```sh
+.venv/bin/python scripts/benchmark.py            # 20,000 made-up tracks
+.venv/bin/python scripts/benchmark.py --tracks 50000
+```
+
+Builds a made-up library database (no audio files) in a temporary folder and prints how long
+every main page takes, plus the time to find duplicates and to rework BPM/key decisions after a
+scan. Run it after changing queries on Home, Statistics or the track list.
 
 ## Workflow
 

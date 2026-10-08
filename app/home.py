@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import distinct, func
 from sqlmodel import Session, select
 
+from app.duplicates import group_count
 from app.library import FLAGS, TrackFilter, count
 from app.models import RawTag, Track
 from app.preferences import Preferences
@@ -80,6 +81,18 @@ def home_data(session: Session, prefs: Preferences) -> HomeData:
         n = count(session, FLAGS[flag][1])
         if n:
             data.problems.append(Problem(n, noun, text, TrackFilter(flag=flag).url(), hint, warn))
+    copies = group_count(session)
+    if copies:
+        data.problems.append(
+            Problem(
+                copies,
+                "track",
+                "in the library more than once",
+                "/duplicates",
+                "Compare the copies side by side.",
+                False,
+            )
+        )
     private = session.exec(
         select(func.count(distinct(RawTag.track_id))).where(
             RawTag.system == "id3", RawTag.name.startswith("PRIV:")

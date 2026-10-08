@@ -1,8 +1,7 @@
 """Screenshot Tagwerk's main pages in Chromium, Firefox and WebKit (Safari's engine).
 
-Checks every page in both themes, light and dark (via the browser's prefers-color-scheme,
-so the "follow system" path is tested), on desktop and phone width. Browser errors from
-the pages are listed at the end; the script fails if there are any.
+Checks every page in the night-sky look (ADR 0021) at desktop and phone width. Browser errors
+from the pages are listed at the end; the script fails if there are any.
 
 Runs in Playwright's official Docker image, so no browsers or libraries are needed on the
 host (WebKit doesn't run natively on every Linux):
@@ -16,8 +15,6 @@ host (WebKit doesn't run natively on every Linux):
 (--user makes the screenshots belong to you instead of root.)
 
 Point it at a Tagwerk instance with a scanned library (e.g. `docker compose up`).
-Note: it changes the instance's Theme and Appearance settings while it runs and sets them
-back to "calm" / "follow system" at the end.
 """
 
 import json
@@ -71,6 +68,7 @@ def main(base: str, out: Path) -> int:
         "changes": "/changes",
         "setup": "/setup",
         "final": "/final",
+        "duplicates": "/duplicates",
     }
     if track:
         pages["track"] = f"/tracks/{track}"

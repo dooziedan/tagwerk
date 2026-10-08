@@ -29,7 +29,14 @@ from sqlmodel import Session, select
 from app.audio_analysis import ANALYSIS_VERSION
 from app.config import Settings
 from app.keys import display, to_camelot
-from app.models import InboxAnalysis, InboxTrack, LibraryAnalysis, PendingChange, Track
+from app.models import (
+    InboxAnalysis,
+    InboxTrack,
+    LibraryAnalysis,
+    LibraryLookup,
+    PendingChange,
+    Track,
+)
 
 log = logging.getLogger(__name__)
 
@@ -46,11 +53,11 @@ MEMORY_PER_WORKER = 800 * 1024 * 1024
 def worker_count(settings: Settings) -> int:
     """How many tracks to analyse at the same time.
 
-    ANALYSIS_WORKERS if set; otherwise the CPU cores the container may use, but never more
-    than its memory allows for long mixes.
+    CPU_CORES if set (one track per core); otherwise the CPU cores the container may use, but
+    never more than its memory allows for long mixes.
     """
-    if settings.analysis_workers > 0:
-        return settings.analysis_workers
+    if settings.cpu_cores > 0:
+        return settings.cpu_cores
     by_memory = max(1, (available_memory() or 1 << 62) // MEMORY_PER_WORKER)
     return max(1, min(available_cpus(), by_memory))
 
@@ -353,8 +360,11 @@ def _decide_key(result: Decision, row, alternatives, hints) -> None:
     result.key, result.key_sure = chosen, sure
 
 
-def hints(session: Session, track, library: bool) -> tuple[list, list]:
-    """BPM and key hints for a track: filename, online sources, and the tag itself."""
+def hints(session: Session, track, library: bool, online: bool = True) -> tuple[list, list]:
+    """BPM and key hints for a track: filename, online sources, and the tag itself.
+
+    ``online`` False: the track was never looked up, so don't ask the database (refresh_all).
+    """
     from app import identify  # identify -> changes -> ... imports would go in a circle
     from app.proposals import parse_filename
 
@@ -365,7 +375,7 @@ def hints(session: Session, track, library: bool) -> tuple[list, list]:
         bpm_hints.append((float(name.bpm), "The filename"))
     if name.key and (code := to_camelot(name.key)):
         key_hints.append((code, "The filename"))
-    for found in identify.results(session, track.id, library):
+    for found in identify.results(session, track.id, library) if online else []:
         best = found.best
         if best and best.values.get("bpm"):
             bpm_hints.append((float(best.values["bpm"]), found.label))
@@ -376,19 +386,21 @@ def hints(session: Session, track, library: bool) -> tuple[list, list]:
     return bpm_hints, key_hints
 
 
-def decide_for(session: Session, track, library: bool, genre: str | None = None) -> Decision:
+def decide_for(
+    session: Session, track, library: bool, genre: str | None = None, online: bool = True
+) -> Decision:
     """The decision for one track (``genre``: the review page's genre for inbox tracks)."""
-    bpm_hints, key_hints = hints(session, track, library)
+    bpm_hints, key_hints = hints(session, track, library, online)
     genre = genre if genre is not None else track.genre
     return decide(result(session, track.id, library), genre, bpm_hints, key_hints)
 
 
-def refresh(session: Session, track: Track) -> Decision | None:
+def refresh(session: Session, track: Track, online: bool = True) -> Decision | None:
     """Work out a library track's decision again and keep it (for the filters)."""
     row = session.get(LibraryAnalysis, track.id)
     if row is None:
         return None
-    found = decide_for(session, track, library=True)
+    found = decide_for(session, track, library=True, online=online)
     row.decided_bpm, row.decided_bpm_sure = found.bpm, found.bpm_sure
     row.decided_key, row.decided_key_sure = found.key, found.key_sure
     row.decided_notes = json.dumps(found.notes)
@@ -397,13 +409,17 @@ def refresh(session: Session, track: Track) -> Decision | None:
 
 
 def refresh_all(engine: Engine) -> None:
-    """After a scan or apply: tags may have changed, so decisions are worked out again."""
+    """After a scan or apply: tags may have changed, so decisions are worked out again.
+
+    Online results are only read for tracks that were looked up (one query for all of them
+    instead of one per track: 7 s → about 2 s at 20,000 tracks)."""
     with Session(engine) as session:
+        looked_up = set(session.exec(select(LibraryLookup.track_id)).all())
         pairs = session.exec(
             select(Track, LibraryAnalysis).where(Track.id == LibraryAnalysis.track_id)
         )
         for track, _ in pairs.all():
-            refresh(session, track)
+            refresh(session, track, online=track.id in looked_up)
         session.commit()
 
 

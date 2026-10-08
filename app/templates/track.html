@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button %}
+{% from "macros.html" import play_button, toast %}
 {% block title %}{{ t.title or t.path }} · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -35,7 +35,7 @@
       {% if t.artist %}<a href="/tracks?{{ {'albumartist': artist} | urlencode }}">{{ t.artist }}</a>{% else %}<span class="muted">Unknown artist</span>{% endif %}
       {% if t.album %} · <a href="/tracks?{{ {'albumartist': artist, 'album': t.album, 'sort': 'album'} | urlencode }}">{{ t.album }}</a>{% endif %}
     </p>
-    <p><span class="path-chip">{{ t.path }}</span></p>
+    <p><span class="path-chip">{{ t.path }}</span>{% if dup_group %} <a class="status status-dup" href="/duplicates?group={{ dup_group }}">In the library more than once: compare the copies →</a>{% endif %}</p>
     {% if not t.error %}
     {# At a glance, like a deck's display. #}
     <div class="deck" aria-label="At a glance">
@@ -46,7 +46,7 @@
     </div>
     {% endif %}
     {% if t.error %}<p>⚠️ Could not be read: <code>{{ t.error }}</code></p>{% endif %}
-    {% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+    {% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
     {% if job.running or (unmarking and job.progress.action == "unfinal") %}{% include "partials/write_status.html" %}{% endif %}
     {% if final %}
     {% if not t.error %}<p>{{ play_button(t, "/tracks/" ~ t.id, "Play") }}</p>{% endif %}

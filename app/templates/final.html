@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import toast %}
 {% block title %}Final check · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -9,7 +10,7 @@
 <p class="muted">Complete tracks (title, artist, genre, BPM, key and cover), one at a time. A final track is locked against edits until you remove the mark. The mark is kept in Tagwerk only: nothing is written into the file for it.</p>
 <p><strong>{{ ready | number }}</strong> to check · <a href="/tracks?flag=final">{{ finals | number }} final</a>{% if changed %} · <a href="/tracks?flag=final_changed" class="status status-warn">{{ changed | plural('final track') }} changed outside Tagwerk</a>{% endif %}</p>
 
-{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
 {% if job.running or (job.status in ("done", "failed") and job.progress.action == "final") %}
 {% include "partials/write_status.html" %}
 {% endif %}

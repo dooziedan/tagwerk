@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button %}
+{% from "macros.html" import play_button, toast %}
 {% block title %}{{ t.title or t.path }} · Inbox · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -24,8 +24,10 @@
   </div>
 </div>
 
-{% if deleted %}<p role="status" class="notice">🗑️ The previous track was moved to the trash. <a href="/inbox#trash">Recently deleted</a></p>{% endif %}
-{% if request.query_params.get("error") == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+<div class="toasts">
+{% if deleted %}{% call toast() %}🗑️ The previous track was moved to the trash. <a href="/inbox#trash">Recently deleted</a>{% endcall %}{% endif %}
+{% if request.query_params.get("error") == "busy" %}{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}{% endif %}
+</div>
 
 {% if summary.duplicates %}
 <article class="duplicate-box">

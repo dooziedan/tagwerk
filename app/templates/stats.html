@@ -44,6 +44,7 @@
         {% if dj and stats.bpm_zero %}<li><a href="/tracks?flag=bpm_zero">{{ stats.bpm_zero | plural('file') }}</a> store BPM as 0 ("unknown"), counted as missing.</li>{% endif %}
         {% if prefs.show_musicbrainz %}<li><a href="/tracks?flag=invalid_mbid">{{ stats.invalid_mbids | plural('file') }}</a> with something other than a MusicBrainz ID in their MusicBrainz fields (often Discogs IDs){% if stats.invalid_mbids %}: <a href="/tracks?flag=invalid_mbid">fix them</a>{% endif %}.</li>{% endif %}
         {% if not dj %}<li><a href="/tracks?flag=has_lyrics">{{ stats.with_lyrics | plural('track') }}</a> with lyrics (embedded or .lrc file).</li>{% endif %}
+        {% if stats.duplicates %}<li><a href="/tracks?flag=duplicate">{{ stats.duplicates | plural('file') }}</a> are copies of {{ stats.duplicate_groups | plural('track') }}: <a href="/duplicates">compare them</a>.</li>{% endif %}
         {% if stats.unreadable %}<li>⚠️ <a href="/tracks?flag=unreadable">{{ stats.unreadable | plural('file') }}</a> could not be read.</li>{% endif %}
         <li><a href="/fields">See every tag field in your files →</a></li>
       </ul>

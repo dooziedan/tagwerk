@@ -98,9 +98,10 @@ def _row(name: str) -> str:
 
 
 def _counted(session: Session):
-    """Every change entry still in place, oldest first, with its change set."""
+    """Every change entry still in place, oldest first, with its change set. Only the columns
+    needed here: the undo snapshots can be big."""
     return session.exec(
-        select(ChangeEntry, ChangeSet)
+        select(ChangeEntry.track_id, ChangeEntry.changes, ChangeEntry.sources, ChangeSet)
         .join(ChangeSet, col(ChangeSet.id) == ChangeEntry.changeset_id)
         .where(
             ChangeEntry.error.is_(None),
@@ -116,7 +117,7 @@ def work_stats(session: Session) -> WorkStats:
     rows = _counted(session)
     if not rows:
         return stats
-    stats.since = rows[0][1].applied_at
+    stats.since = rows[0][3].applied_at
 
     per_field: dict[str, FieldWork] = {}
     sources: Counter[str] = Counter()
@@ -126,7 +127,7 @@ def work_stats(session: Session) -> WorkStats:
     imported_ids: set[int] = set()
     folders: set[int] = set()
 
-    for entry, changeset in rows:
+    for track_id, entry_changes, entry_sources, changeset in rows:
         month = changeset.applied_at.strftime("%Y-%m")
         m = months.setdefault(month, Month(month, 0))
         m.count += 1
@@ -141,8 +142,8 @@ def work_stats(session: Session) -> WorkStats:
         if changeset.kind not in ("edit", "import"):
             continue  # moved, converted or marked final: no tag values
 
-        changes = json.loads(entry.changes)
-        known = json.loads(entry.sources or "{}")
+        changes = json.loads(entry_changes)
+        known = json.loads(entry_sources or "{}")
         for name, (old, new) in changes.items():
             work = per_field.setdefault(_row(name), FieldWork(_row(name)))
             if new is None:
@@ -156,11 +157,11 @@ def work_stats(session: Session) -> WorkStats:
                 sources[known[name]] += 1
             else:
                 stats.unknown_source += 1
-            if entry.track_id is not None:
-                before[entry.track_id].setdefault(name, old)
-        if changeset.kind == "import" and entry.track_id is not None:
-            imported_ids.add(entry.track_id)
-            before[entry.track_id]  # counts for set-ready even without tag changes
+            if track_id is not None:
+                before[track_id].setdefault(name, old)
+        if changeset.kind == "import" and track_id is not None:
+            imported_ids.add(track_id)
+            before[track_id]  # counts for set-ready even without tag changes
 
     order = [writer.label(f) for f in writer.LABELS if f not in writer.IDS]
     order += [IDS_ROW, PRIVATE_ROW]
@@ -239,9 +240,9 @@ def _set_ready(
 def home_line(session: Session) -> tuple[int, int] | None:
     """For Home: (tag values written, tracks), or None before Tagwerk changed anything."""
     values = 0
-    for entry, changeset in _counted(session):
+    for _, changes, _, changeset in _counted(session):
         if changeset.kind in ("edit", "import"):
-            values += len(json.loads(entry.changes))
+            values += len(json.loads(changes))
     if not values:
         return None
     return values, count(session, FLAGS["tagwerk_tags"][1])

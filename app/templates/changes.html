@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import toast %}
 {% block title %}Changes · Tagwerk{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -6,10 +7,12 @@
   <a href="/changes/history" class="secondary">History &amp; undo →</a>
 </div>
 
-{% if staged is not none %}<p role="status" class="notice">✅ Saved {{ staged | plural('pending change') }}. Review below, then apply.</p>{% endif %}
-{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
-{% if error == "none" %}<p class="form-error" role="alert">Tick at least one change.</p>{% endif %}
-{% if error == "backup" %}<p class="form-error" role="alert">Please confirm you have a backup before the first write.</p>{% endif %}
+<div class="toasts">
+{% if staged is not none %}{% call toast() %}✅ Saved {{ staged | plural('pending change') }}. Review below, then apply.{% endcall %}{% endif %}
+{% if error == "busy" %}{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}{% endif %}
+{% if error == "none" %}{% call toast("warn") %}Tick at least one change.{% endcall %}{% endif %}
+{% if error == "backup" %}{% call toast("warn") %}Please confirm you have a backup before the first write.{% endcall %}{% endif %}
+</div>
 
 {% if job.running or (job.status in ("done", "failed") and job.progress.action) %}
 {% include "partials/write_status.html" %}
@@ -119,7 +122,7 @@
     <label><input type="checkbox" name="backup" required> I have a backup of my music</label>
     {% endif %}
     <div class="apply-actions">
-      <button type="submit" id="apply-ticked" data-busy="{{ 1 if busy else 0 }}" {% if busy %}disabled{% endif %}>Apply {{ total | plural('change') }} to {{ items | length | plural('file') }}</button>
+      <button type="submit" id="apply-ticked" data-fx="burst" data-busy="{{ 1 if busy else 0 }}" {% if busy %}disabled{% endif %}>Apply {{ total | plural('change') }} to {{ items | length | plural('file') }}</button>
       <button type="submit" id="discard-ticked" formaction="/changes/discard" class="outline secondary" data-confirm="Discard {{ total | plural('change') }}? Nothing is written; you'd have to make them again." data-confirm-ok="Discard" {% if busy %}disabled{% endif %}>Discard {{ total | plural('change') }}</button>
     </div>
     <small class="muted">Only ticked changes are written or discarded; the others stay pending. The old tags are saved first; you can undo from the History page.</small>

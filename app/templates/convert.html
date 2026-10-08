@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "macros.html" import toast %}
 {% block title %}Convert to AIFF · Tagwerk{% endblock %}
 {% block content %}
 <p><a href="/tracks">← Tracks</a></p>
 <h1>Convert to AIFF</h1>
 <p class="muted">Lossless files (FLAC, WAV, ALAC) become AIFF with all their tags and cover art. The new file goes into the folder your <a href="/settings#import">import folders</a> setting picks, with the same name and the extension <code>.aiff</code>. The original moves to <code>{{ originals_dir }}</code> under the same path and waits there for you to decide.</p>
 
-{% if error == "busy" %}<p class="form-error" role="alert">A scan or another write is running. Try again when it's finished.</p>{% endif %}
+{% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
 {% if job.running or (job.status in ("done", "failed") and job.progress.action == "convert") %}
 {% include "partials/write_status.html" %}
 {% endif %}
@@ -30,7 +31,7 @@
 {% if ready %}
 <form method="post" action="/convert" class="apply-actions">
   {% for p in ready %}<input type="hidden" name="ids" value="{{ p.track.id }}">{% endfor %}
-  <button type="submit" {% if busy or unavailable %}disabled{% endif %}>Convert {{ ready | length | plural('track') }} to AIFF</button>
+  <button type="submit" data-fx="warp" {% if busy or unavailable %}disabled{% endif %}>Convert {{ ready | length | plural('track') }} to AIFF</button>
 </form>
 <small class="muted">Each new file is checked before anything moves: same length, same tags, same cover. Before converting, Tagwerk makes sure Navidrome has read the current tags, so play counts and ratings stay with the track. You can undo from the History page: the original comes back, the AIFF goes.</small>
 {% endif %}

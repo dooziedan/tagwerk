@@ -17,6 +17,7 @@ from datetime import datetime
 from sqlalchemy import Integer, and_, cast, distinct, func
 from sqlmodel import Session, select
 
+from app.duplicates import group_count
 from app.keys import CAMELOT_CODES, display
 from app.library import (
     ALBUM_ARTIST,
@@ -90,6 +91,8 @@ class LibraryStats:
     invalid_mbids: int  # MusicBrainz fields holding something else, e.g. Discogs IDs
     unreadable: int
     last_scan: datetime | None
+    duplicates: int = 0  # files that are copies of another library track (ADR 0022)
+    duplicate_groups: int = 0  # how many tracks have copies
     # Both modes
     growth: list[Bar] = field(default_factory=list)  # tracks added per month (recent months)
     growth_years: list[Bar] = field(default_factory=list)  # tracks added per year
@@ -153,6 +156,8 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
         unreadable=tracks - readable_count,
         last_scan=last_scan,
     )
+    stats.duplicates = _flag(session, "duplicate")
+    stats.duplicate_groups = group_count(session)
     stats.growth, stats.growth_years = _growth(session)
     stats.lengths = _lengths(session)
     stats.labels = _top(session, Track.label, "label")

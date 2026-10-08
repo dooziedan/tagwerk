@@ -1,4 +1,5 @@
 {# Progress of an apply/undo job. Polls itself while running, reloads the page when done. #}
+{% from "macros.html" import toast %}
 {% set p = job.progress %}
 {% set verb = {"undo": "Undoing", "import": "Importing", "folder": "Moving", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting to AIFF"}.get(p.action, "Writing") %}
 {% if job.running %}
@@ -7,19 +8,23 @@
   <small>{{ verb }}… {{ p.processed | number }} / {{ p.total | number }} files
     {% if p.current %}<br><span class="muted current-file">{{ p.current }}</span>{% endif %}</small>
 </article>
-{% elif job.status in ("done", "failed") %}
-<article id="write" class="{% if p.failed or job.error %}result-warn{% else %}result-ok{% endif %}">
+{% elif job.status in ("done", "failed") and request.query_params.get("done") %}
+{# Done: the result slides in as a notification, once: on the reload right after the job
+   (done=1, see app/navigation.py), not when you come back later. #}
+<div class="toasts">
+{% call toast("warn" if p.failed or job.error else "ok") %}
   {% if job.error %}
-  <p>❌ {{ {"undo": "Undo", "import": "Import", "folder": "Moving", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting"}.get(p.action, "Apply") }} failed: {{ job.error }}</p>
+  ❌ {{ {"undo": "Undo", "import": "Import", "folder": "Moving", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting"}.get(p.action, "Apply") }} failed: {{ job.error }}
   {% else %}
-  <p>{% if p.failed %}⚠️{% else %}✅{% endif %}
+  {% if p.failed %}⚠️{% else %}✅{% endif %}
     {% if p.action == "import" %}Imported {{ p.written | plural('track') }} into the library{% if p.failed %}; {{ p.failed | plural('track') }} stayed in the inbox{% endif %}.
     {% elif p.action in ("final", "unfinal") %}{% if p.written %}{{ "Marked as final" if p.action == "final" else "Final mark removed" }}{% else %}Not done{% endif %}{% if p.errors %}: {{ p.errors[0].split(": ", 1)[-1] }}{% endif %}.
     {% elif p.action == "convert" %}Converted {{ p.written | plural('track') }} to AIFF{% if p.failed %}; {{ p.failed | plural('track') }} not converted{% endif %}.
     {% elif p.action == "folder" %}Moved {{ p.written | plural('track') }} out of _Unsorted{% if p.failed %}; {{ p.failed | plural('track') }} stayed in _Unsorted{% endif %}.
     {% else %}{{ "Undid" if p.action == "undo" else "Wrote" }} {{ p.written | plural('file') }}{% if p.failed %}, {{ p.failed | plural('file') }} failed{% endif %}.{% endif %}
-    {% if p.changeset_id %}<a href="/changes/history/{{ p.changeset_id }}">Details</a>{% endif %}</p>
+    {% if p.changeset_id %}<a href="/changes/history/{{ p.changeset_id }}">Details</a>{% endif %}
   {% if p.errors %}<details><summary>What went wrong</summary><ul class="notes">{% for e in p.errors %}<li><code>{{ e }}</code></li>{% endfor %}</ul></details>{% endif %}
   {% endif %}
-</article>
+{% endcall %}
+</div>
 {% endif %}

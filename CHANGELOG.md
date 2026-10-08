@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-08
+
+### Added
+- **Duplicates in the library**: a new **Duplicates** page (in the menu under Work) shows tracks that are in your library more than once, with their copies side by side: file and folder (with ▶ to listen), audio quality, length, size, the main tags, cover, date added and the final mark. Rows where the copies differ stand out. The copy with clearly the best sound and the one with clearly the most tags get a badge. Copies are found with the same rules as in the inbox: identical file, same MusicBrainz recording, or same artist and title (mix name included) at about the same length. Home and Statistics show how many tracks have copies, the track list has an *In the library more than once* filter, and a track page links to its copies. Tagwerk never deletes library files: delete a copy in your file manager and the next scan notices, or press **Keep them all** so that group isn't shown again.
+- **CPU Cores** in the Unraid template (and `CPU_CORES`): how many CPU cores Tagwerk may use for BPM and key analysis; `0` is automatic. It replaces *Analysis Workers*; `ANALYSIS_WORKERS` still works.
+
+### Changed
+- **Settings is tidier**: a section index on the left shows how each section is set right now (e.g. "DJ · Camelot · full effects"); mode, key notation and effects are pill buttons; every section has one small Save button at its end; folder layouts are cards; the genre map is folded; the filename pattern only shows while renaming is on; online sources are cards; Navidrome shows its connection at a glance. Changing **Effects** shows the difference right away. *Run setup again* sits in the page header.
+- **Notifications slide in** at the top right (across the top on phones): "Wrote 3 files", "Saved.", "A scan is running" and the like. Confirmations fade out after a few seconds, warnings stay until you close them; they go with the page, and a job's result is shown once, right after it finished.
+- **New motion**: changing page no longer warps the sky; instead the new page's cards come in quickly, one after another. **Convert to AIFF** now jumps through hyperspace (shorter and snappier than before), and **Apply** sends a golden shock wave with sparks out of the button. Lighter effects and "reduce motion" turn all of it off.
+- **Home's orbits** are drawn in 2D but look 3D: the moons stay round, grow and brighten in front of the planet and shrink, dim and pass behind it. Lighter on the browser than the old CSS 3D.
+- The Unraid template describes what Tagwerk does today and has a **Log Level** field.
+
+### Fixed
+- **Home and Statistics were slow in big libraries**: with 20,000 tracks Home took 3.5 s and Statistics 10.7 s (a missing index on the History); now 0.2 s and 0.9 s. Working out BPM and key decisions after a scan takes 2 s instead of 7 s.
+- The setup wizard no longer says final tracks are "coming in a coming version", and no longer mentions a DJ / Collector switch at the top.
+- After saving **Effects**, the new look now applies without reloading the page.
+
 ## [0.12.0] - 2026-10-07
 
 ### Changed

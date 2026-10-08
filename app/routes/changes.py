@@ -424,7 +424,7 @@ def discard_one(change_id: int, session: SessionDep):
 def write_partial(request: Request, was_running: bool = False):
     response = templates.TemplateResponse(request, "partials/write_status.html", {"job": write_job})
     if was_running and not write_job.running:
-        reload_page(request, response)  # done: show the result
+        reload_page(request, response, done=True)  # done: show the result once
     return response
 
 

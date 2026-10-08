@@ -1,134 +1,168 @@
 {% extends "base.html" %}
+{% from "macros.html" import nav_icon, toast %}
 {% block title %}Settings · Tagwerk{% endblock %}
+
+{# A row of pill buttons for one choice (radio buttons underneath). The hint below the pills
+   describes the chosen option; a few lines of script at the end swap it on change. #}
+{% macro segmented(name, options, current, label, hints=none) %}
+<div class="seg" role="radiogroup" aria-label="{{ label }}">
+  {% for value, text in options.items() %}
+  <input type="radio" id="{{ name }}-{{ value }}" name="{{ name }}" value="{{ value }}"{% if current == value %} checked{% endif %}{% if hints %} data-hint="{{ hints[value] }}"{% endif %}>
+  <label for="{{ name }}-{{ value }}">{{ text }}</label>
+  {% endfor %}
+</div>
+{% if hints %}<small class="seg-hint muted">{{ hints[current] }}</small>{% endif %}
+{% endmacro %}
+
+{% macro section_head(id, icon, title, text) %}
+<header class="set-head">
+  <span class="section-ic">{{ nav_icon(icon) }}</span>
+  <div><h2>{{ title }}</h2>{% if text %}<p class="muted">{{ text }}</p>{% endif %}</div>
+</header>
+{% endmacro %}
+
 {% block content %}
-<div class="page-head"><div><h1>Settings</h1><p class="muted page-sub">How Tagwerk looks and works.</p></div></div>
-{% if saved %}<p role="status">✅ Saved.</p>{% endif %}
-
-<form method="post" action="/settings" class="glass panel">
-  <fieldset>
-    <legend><strong>Effects</strong></legend>
-    {% for value, label in effects.items() %}
-    <label>
-      <input type="radio" name="effects" value="{{ value }}" {% if prefs.effects == value %}checked{% endif %}>
-      {{ label }}
-    </label>
-    <p class="option-hint muted">
-      {% if value == "full" %}The night sky with slowly drifting stars, glass and glow.{% else %}No blur, no drifting stars, no glow: for weak devices, or if scrolling stutters.{% endif %}
-    </p>
-    {% endfor %}
-  </fieldset>
-
-  <fieldset>
-    <legend><strong>Mode</strong></legend>
-    {% for value, label in modes.items() %}
-    <label>
-      <input type="radio" name="mode" value="{{ value }}" {% if prefs.mode == value %}checked{% endif %}>
-      {{ label }}
-    </label>
-    <p class="option-hint muted">
-      {% if value == "dj" %}Tempo, keys, label, comment and audio quality for preparing sets.
-      {% else %}Albums, years, cover art and lyrics for a well-kept collection.{% endif %}
-    </p>
-    {% endfor %}
-  </fieldset>
-
-  <fieldset>
-    <legend><strong>Key notation</strong> <small class="muted">how keys are shown; your files are not changed</small></legend>
-    {% for value, label in notations.items() %}
-    <label>
-      <input type="radio" name="key_notation" value="{{ value }}" {% if prefs.key_notation == value %}checked{% endif %}>
-      {{ label }}
-    </label>
-    {% endfor %}
-  </fieldset>
-
-  <fieldset>
-    <legend><strong>MusicBrainz</strong></legend>
-    <label>
-      <input type="checkbox" role="switch" name="show_musicbrainz" {% if prefs.show_musicbrainz %}checked{% endif %}>
-      Show MusicBrainz IDs in the missing-tags overview
-    </label>
-    <p class="option-hint muted">Useful for officially released music. Edits, bootlegs and promos usually aren't on MusicBrainz.</p>
-  </fieldset>
-
-  <button type="submit">Save</button>
-</form>
-
-<section id="import" class="settings-section">
-  <h2>Import</h2>
-  <form method="post" action="/settings/choices/import">
-    {% include "partials/choices_folders.html" %}
-    {% include "partials/choices_automation.html" %}
-    <button type="submit">Save import settings</button>
+<div class="page-head">
+  <div><h1>Settings</h1><p class="muted page-sub">How Tagwerk looks and works. Your music files never change from anything on this page.</p></div>
+  <form id="setup" method="post" action="/settings/setup-again" class="head-action">
+    <button class="outline secondary" title="Go through the first-start questions again, with your current choices filled in">Run setup again</button>
   </form>
-</section>
+</div>
 
-<section id="genres" class="settings-section">
-  <h2>Genre map</h2>
-  <p class="muted">How Tagwerk tidies genres and picks the main genre: one rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines.</p>
-  <form method="post" action="/settings/genres">
-    <textarea name="genre_map" rows="14" spellcheck="false" class="genre-map"{% if errors.genre_map %} aria-invalid="true"{% endif %}>{{ genre_text }}</textarea>
-    {% if errors.genre_map %}<small class="form-error">{{ errors.genre_map }}</small>{% endif %}
-    <div class="button-row">
-      <button type="submit">Save genre map</button>
-      {% if genre_map_custom %}<button type="submit" name="reset" value="1" class="outline secondary" formnovalidate>Back to the built-in map</button>{% endif %}
-    </div>
-  </form>
-</section>
+{% set saved_text = {"display": "Display saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "final": "Final tracks saved.", "online": "Online lookups saved."} %}
+{% if saved in saved_text %}<div class="toasts">{% call toast() %}✅ {{ saved_text[saved] }}{% endcall %}</div>{% endif %}
 
-<section id="final" class="settings-section">
-  <h2>Final tracks &amp; filenames</h2>
-  <form method="post" action="/settings/choices/final">
-    {% include "partials/choices_final.html" %}
-    <button type="submit">Save</button>
-  </form>
-</section>
+<div class="settings-layout">
+  {# Where everything is, and how it's set right now. #}
+  <nav class="settings-nav" aria-label="Settings sections">
+    <a href="#display">{{ nav_icon("eye") }}<span>Display<small>{{ modes[prefs.mode] }} · {{ notations[prefs.key_notation].split(" ")[0] }} · {{ "full effects" if prefs.effects == "full" else "lighter effects" }}</small></span></a>
+    <a href="#import">{{ nav_icon("inbox") }}<span>Import<small>{{ layouts[prefs.folder_layout] }} · {{ "always ask" if prefs.automation == "ask" else "automatic" }}</small></span></a>
+    <a href="#genres">{{ nav_icon("fields") }}<span>Genre map<small>{{ genre_rules | plural('rule') }} · {{ "your own" if genre_map_custom else "built-in" }}</small></span></a>
+    <a href="#final">{{ nav_icon("final") }}<span>Final tracks<small>{{ "renamed on marking" if prefs.rename_on_final else "names stay" }}</small></span></a>
+    <a href="#online">{{ nav_icon("globe") }}<span>Online lookups<small>{{ online | selectattr("on") | list | length }} of {{ online | length }} sources on</small></span></a>
+    <a href="#navidrome">{{ nav_icon("link") }}<span>Navidrome<small>{% if not navidrome.configured %}not set up{% elif navidrome.last and not navidrome.last.ok %}last try failed{% else %}connected{% endif %}</small></span></a>
+  </nav>
 
-<section id="online" class="settings-section">
-  <h2>Online lookups</h2>
-  <p class="muted">Tagwerk asks these sources about new inbox tracks and suggests what they find (with a link to each result). Only the artist, the title and, for AcoustID, a fingerprint of the sound are sent; never the file.</p>
-  <form method="post" action="/settings/online">
-    {% for s in online %}
-    <label class="online-setting">
-      <input type="checkbox" role="switch" name="online_sources" value="{{ s.name }}" {% if s.on %}checked{% endif %}>
-      <strong>{{ s.label }}</strong>
-      {% if not s.ready %}<small class="status status-help">needs {{ s.needs or "setup" }}</small>{% elif s.on %}<small class="ok">✓ ready</small>{% endif %}
-      <small class="muted">
-        {%- if s.name == "acoustid" %} Recognises a track by its sound, even untagged. Free key: <a href="https://acoustid.org/new-application" target="_blank" rel="noopener">acoustid.org</a>, then <strong>AcoustID Key</strong> in the container settings.
-        {%- elif s.name == "musicbrainz" %} The open music encyclopedia: official releases, dates, albums.
-        {%- elif s.name == "discogs" %} Labels, catalog numbers, styles; strong for electronic and vinyl. Free token: Discogs → Settings → Developers, then <strong>Discogs Token</strong> in the container settings.
-        {%- elif s.name == "deezer" %} Store catalogue: release date, label, BPM, large covers.
-        {%- else %} Store catalogue: release date, genre, large covers.{% endif %}
-      </small>
-    </label>
-    {% endfor %}
-    <button type="submit">Save</button>
-  </form>
-</section>
+  <div class="settings-body">
+    <section id="display" class="settings-section">
+      {{ section_head("display", "eye", "Display", "What Tagwerk shows first, how keys read, and how much the night sky moves.") }}
+      <form method="post" action="/settings">
+        <div class="setting">
+          <div class="setting-text"><strong>Mode</strong><small class="muted">Only changes what is shown and checked.</small></div>
+          <div class="setting-control">{{ segmented("mode", modes, prefs.mode, "Mode", {"dj": "Tempo, keys, label, comment and audio quality come first: for preparing sets.", "collector": "Albums, years, cover art and lyrics come first: for a well-kept collection."}) }}</div>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><strong>Key notation</strong><small class="muted">Files always keep standard keys (Am, F#).</small></div>
+          <div class="setting-control">{{ segmented("key_notation", notations, prefs.key_notation, "Key notation") }}</div>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><strong>Effects</strong><small class="muted">Try it: the page changes right away.</small></div>
+          <div class="setting-control">{{ segmented("effects", effects, prefs.effects, "Effects", {"full": "The night sky with drifting stars, glass and glow. Pages slide in; converting jumps through hyperspace and applying sends out a golden burst.", "light": "No blur, no moving stars, no glow, no animations: for weak devices, or if scrolling stutters."}) }}</div>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><strong>MusicBrainz IDs</strong><small class="muted">Edits, bootlegs and promos usually aren't on MusicBrainz.</small></div>
+          <div class="setting-control"><label class="switch-line"><input type="checkbox" role="switch" name="show_musicbrainz" {% if prefs.show_musicbrainz %}checked{% endif %}> Check them in missing tags and on Home</label></div>
+        </div>
+        <div class="section-foot"><button type="submit">Save display</button></div>
+      </form>
+    </section>
 
-<section id="setup" class="settings-section">
-  <h2>Setup wizard</h2>
-  <p class="muted">Go through the first-start questions again. Your current choices are filled in.</p>
-  <form method="post" action="/settings/setup-again"><button class="outline secondary">Run setup again</button></form>
-</section>
+    <section id="import" class="settings-section">
+      {{ section_head("import", "inbox", "Import", "Where tracks from the inbox go, and how much Tagwerk does on its own.") }}
+      <form method="post" action="/settings/choices/import">
+        {% include "partials/choices_folders.html" %}
+        {% include "partials/choices_automation.html" %}
+        <div class="section-foot"><button type="submit">Save import</button></div>
+      </form>
+    </section>
 
-<section id="navidrome" class="settings-section">
-  <h2>Navidrome</h2>
-  {% if navidrome.configured %}
-  <p>After every apply, import and undo, Tagwerk asks Navidrome at <code>{{ navidrome.url }}</code> (user <code>{{ navidrome.user }}</code>) to rescan {% if navidrome.library %}the library <strong>{{ navidrome.library }}</strong>{% else %}all its libraries{% endif %}, so changes show up there right away.</p>
-  {% if not navidrome.library %}<p class="muted"><small>If Navidrome has several libraries, set <strong>Navidrome Library</strong> (<code>NAVIDROME_LIBRARY</code>) to the one that uses your music folder, so only that one is rescanned. <em>Test connection</em> lists them.</small></p>{% endif %}
-  {% if navidrome.last %}
-  <p class="{% if navidrome.last.ok %}result-ok{% else %}form-error{% endif %}">{{ "✅" if navidrome.last.ok else "⚠️" }} {{ navidrome.last.message }}
-    <small class="muted">· <time data-local datetime="{{ navidrome.last.at | isoutc }}">{{ navidrome.last.at | isoutc }}</time></small></p>
-  {% endif %}
-  <div class="button-row">
-    <form method="post" action="/settings/navidrome/test"><button class="outline secondary">Test connection</button></form>
-    <form method="post" action="/settings/navidrome/rescan"><button class="outline secondary">Rescan now</button></form>
+    <section id="genres" class="settings-section">
+      {{ section_head("genres", "fields", "Genre map", "How Tagwerk tidies genres and picks the main genre (and with it the genre folder).") }}
+      <details class="genre-map-box"{% if errors.genre_map %} open{% endif %}>
+        <summary>{{ genre_rules | plural('rule') }}, {{ "your own map" if genre_map_custom else "the built-in map" }} <small class="muted">· show and edit</small></summary>
+        <p class="muted"><small>One rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines.</small></p>
+        <form method="post" action="/settings/genres">
+          <textarea name="genre_map" rows="14" spellcheck="false" class="genre-map"{% if errors.genre_map %} aria-invalid="true"{% endif %}>{{ genre_text }}</textarea>
+          {% if errors.genre_map %}<small class="form-error">{{ errors.genre_map }}</small>{% endif %}
+          <div class="section-foot">
+            {% if genre_map_custom %}<button type="submit" name="reset" value="1" class="outline secondary" formnovalidate>Back to the built-in map</button>{% endif %}
+            <button type="submit">Save genre map</button>
+          </div>
+        </form>
+      </details>
+    </section>
+
+    <section id="final" class="settings-section">
+      {{ section_head("final", "final", "Final tracks", "") }}
+      <form method="post" action="/settings/choices/final">
+        {% include "partials/choices_final.html" %}
+        <div class="section-foot"><button type="submit">Save final tracks</button></div>
+      </form>
+    </section>
+
+    <section id="online" class="settings-section">
+      {{ section_head("online", "globe", "Online lookups", "Sources Tagwerk asks about new inbox tracks (and library tracks on request). Only artist, title and, for AcoustID, a fingerprint of the sound are sent; never the file.") }}
+      <form method="post" action="/settings/online">
+        <div class="source-grid">
+          {% for s in online %}
+          <label class="source-card">
+            <span class="source-top">
+              <input type="checkbox" role="switch" name="online_sources" value="{{ s.name }}" {% if s.on %}checked{% endif %}>
+              <strong>{{ s.label }}</strong>
+              {% if not s.ready %}<small class="status status-help">needs {{ s.needs or "setup" }}</small>{% elif s.on %}<small class="ok">✓ ready</small>{% endif %}
+            </span>
+            <small class="muted">
+              {%- if s.name == "acoustid" %}Recognises a track by its sound, even untagged. Free key at <a href="https://acoustid.org/new-application" target="_blank" rel="noopener">acoustid.org</a>, then <strong>AcoustID Key</strong> in the container settings.
+              {%- elif s.name == "musicbrainz" %}The open music encyclopedia: official releases, dates, albums.
+              {%- elif s.name == "discogs" %}Labels, catalog numbers, styles; strong for electronic and vinyl. Free token: Discogs → Settings → Developers, then <strong>Discogs Token</strong> in the container settings.
+              {%- elif s.name == "deezer" %}Store catalogue: release date, label, BPM, large covers.
+              {%- else %}Store catalogue: release date, genre, large covers.{% endif %}
+            </small>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="section-foot"><button type="submit">Save online lookups</button></div>
+      </form>
+    </section>
+
+    <section id="navidrome" class="settings-section">
+      {{ section_head("navidrome", "link", "Navidrome", "Tagwerk asks Navidrome to rescan after every apply, import and undo, so changes show up there right away.") }}
+      {% if navidrome.configured %}
+      <dl class="facts">
+        <dt>Address</dt><dd><code>{{ navidrome.url }}</code></dd>
+        <dt>User</dt><dd><code>{{ navidrome.user }}</code></dd>
+        <dt>Rescans</dt><dd>{% if navidrome.library %}the library <strong>{{ navidrome.library }}</strong>{% else %}all its libraries{% endif %}</dd>
+        {% if navidrome.last %}
+        <dt>Last contact</dt><dd class="{% if navidrome.last.ok %}result-ok{% else %}form-error{% endif %}">{{ "✅" if navidrome.last.ok else "⚠️" }} {{ navidrome.last.message }}
+          <small class="muted">· <time data-local datetime="{{ navidrome.last.at | isoutc }}">{{ navidrome.last.at | isoutc }}</time></small></dd>
+        {% endif %}
+      </dl>
+      {% if not navidrome.library %}<p class="muted"><small>If Navidrome has several libraries, set <strong>Navidrome Library</strong> (<code>NAVIDROME_LIBRARY</code>) to the one that uses your music folder, so only that one is rescanned. <em>Test connection</em> lists them.</small></p>{% endif %}
+      <div class="section-foot">
+        <form method="post" action="/settings/navidrome/test"><button class="outline secondary">Test connection</button></form>
+        <form method="post" action="/settings/navidrome/rescan"><button class="outline secondary">Rescan now</button></form>
+      </div>
+      {% else %}
+      <p class="muted">Optional. To set it up on Unraid, edit the Tagwerk container and fill in <strong>Navidrome URL</strong> (your server's IP and Navidrome's port, e.g. <code>http://192.168.1.10:4533</code>, or <code>http://navidrome:4533</code> if both containers share a custom Docker network; not <code>localhost</code>), <strong>Navidrome User</strong> and <strong>Navidrome Password</strong>. The user needs admin rights in Navidrome.</p>
+      {% endif %}
+    </section>
   </div>
-  {% else %}
-  <p>Optional: Tagwerk can tell Navidrome to rescan after it changed files, so new tags and imported tracks show up there right away.</p>
-  <p class="muted">To set it up on Unraid, edit the Tagwerk container and fill in <strong>Navidrome URL</strong> (your server's IP and Navidrome's port, e.g. <code>http://192.168.1.10:4533</code>, or <code>http://navidrome:4533</code> if both containers share a custom Docker network; not <code>localhost</code>), <strong>Navidrome User</strong> and <strong>Navidrome Password</strong>. The user needs admin rights in Navidrome.</p>
-  {% endif %}
-</section>
+</div>
 {% include "partials/choices_script.html" %}
+<script>
+  (function () {
+    // Pills: show the hint of the chosen option.
+    document.querySelectorAll(".seg").forEach(function (seg) {
+      const hint = seg.nextElementSibling && seg.nextElementSibling.classList.contains("seg-hint") ? seg.nextElementSibling : null;
+      seg.addEventListener("change", function (e) {
+        if (hint && e.target.dataset.hint) hint.textContent = e.target.dataset.hint;
+        // Effects apply at once, so you can see the difference before saving.
+        if (e.target.name === "effects") document.documentElement.dataset.effects = e.target.value;
+      });
+    });
+    // After saving: back to the section (base.html drops "saved" from the address).
+    const saved = document.getElementById(new URL(location.href).searchParams.get("saved") || "-");
+    if (saved) saved.scrollIntoView({ block: "start" });
+  })();
+</script>
 {% endblock %}

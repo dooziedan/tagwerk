@@ -116,7 +116,10 @@ class ChangeEntry(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     changeset_id: int = Field(foreign_key="changeset.id", index=True, ondelete="CASCADE")
-    track_id: int | None = Field(default=None, foreign_key="track.id", ondelete="SET NULL")
+    # Indexed: "what did Tagwerk do to this track" is asked for every track (Statistics, Home)
+    track_id: int | None = Field(
+        default=None, foreign_key="track.id", ondelete="SET NULL", index=True
+    )
     path: str
     changes: str  # JSON: {field: [old, new]}
     # JSON: {field: source}, where each new value came from (app.changes.SOURCES).
@@ -279,3 +282,26 @@ class LibraryAnalysis(_Analysis, table=True):
     decided_key: str | None = None  # Camelot code
     decided_key_sure: bool = False
     decided_notes: str = "[]"  # JSON: why, in plain language
+
+
+class DuplicateTrack(SQLModel, table=True):
+    """A library track that is in the library more than once (app/duplicates.py, ADR 0022).
+
+    Worked out again after every scan, apply, undo, import and conversion, so the Duplicates
+    page and the counts are quick. ``group_id``: the smallest track id of its group.
+    """
+
+    track_id: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+    group_id: int = Field(index=True)
+    reason: str  # the strongest link to the others: "file", "mbid" or "name"
+
+
+class NotDuplicate(SQLModel, table=True):
+    """Two library tracks the owner keeps apart: "not duplicates", or both copies wanted.
+
+    Such a pair is never linked again; ``track_a`` is the smaller id.
+    """
+
+    track_a: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+    track_b: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

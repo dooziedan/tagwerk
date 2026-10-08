@@ -1,129 +1,85 @@
 # Roadmap
 
-Each phase ends with something that can be run and tried. Phases are tracked as GitHub milestones.
+## Goal
+Tagwerk manages the Unraid/Navidrome library, which is the owner's master library. New music
+arrives in a separate **import inbox**; Tagwerk tags it as far as it can on its own, asks the
+owner only where it's unsure, then moves finished tracks into the library. Rekordbox and the DJ
+SSD are out of scope (that would be a separate tool).
 
-## Phase 0: Setup ✅ (v0.1.0)
-Project skeleton, Docker image with PUID/PGID, Unraid template, CI, documentation.
-**Done when:** the container runs on Unraid and the start page shows both folders as OK.
-Verified 2026-10-04 on Unraid 7.3.2.
+**1.0 means:** Tagwerk can be trusted with the real master library, and it is a joy to look at.
 
-## Phase 1: Library scan + dashboard ✅ (v0.2.0)
-- Database with Alembic migrations.
-- Read tags from MP3, FLAC, WAV, AIFF and M4A into one common format (RIFF INFO fallback for WAV).
-- Scan the music folder (skip unchanged files) as a background job with progress.
-- Dashboard: counts of artists, albums and tracks; format chart; size and duration; tracks missing tags.
-
-**Done when:** the dashboard numbers match a test folder. WAV/AIFF tags are checked against Navidrome early.
-Verified 2026-10-04: file count, size and playing time match `ffprobe` on the test folder. Still open: compare WAV/AIFF with Navidrome on the real library.
-
-## v0.3: DJ and Collector modes ✅ (v0.3.0)
-- OGG and Opus support (all formats Navidrome showed in the owner's library).
-- New fields: BPM, key (any notation, shown as Camelot / Open Key / musical), comment, label, catalog number, ReplayGain, lyrics (embedded or `.lrc`).
-- Mode switch with a dashboard per mode; MusicBrainz checks opt-in. Preferences stored in `/config`.
-- Existing databases upgrade automatically, and older rows are re-read once to fill the new fields.
-
-## v0.4: Tag fields page ✅ (v0.4.0)
-- Every raw tag field of every file is stored at scan time (`rawtag` table).
-- Overview with usage, empty/zero counts and sample values; detail page per field.
-- Answered why few tracks show a BPM: many files store `0` ("unknown", written by MusicBrainz Picard).
-
-## Goal (reviewed 2026-10-04)
-Tagwerk manages the Unraid/Navidrome library, which becomes the owner's master library. New music arrives in a separate **import inbox**; Tagwerk tags it as far as it can on its own, asks the owner only where it's unsure, then moves finished tracks into the library. Rekordbox and the DJ SSD are out of scope (that would be a separate tool).
-
-## v0.5: Browse and search (read-only) ✅ (v0.5.0)
-- Track list with search and filters (missing BPM/key/year…, BPM = 0, format, folder); dashboard numbers link to these lists.
-- Artists → albums → tracks.
-- Track page: all tags, audio properties and raw fields.
-
-**Done when:** every number on the dashboard can be clicked to see the tracks behind it.
-
-## v0.5.1: Design foundation ✅ (v0.5.1)
-- Design language with Calm and Pop themes, light and dark; logo and Unraid icon; cross-browser screenshot checks incl. Safari's engine. See [design.md](design.md).
-
-## v0.6: Editing with review, apply and undo (the writing engine) ✅ (v0.6.0)
-- Edit one track or many at once (e.g. a label for a whole album) → pending changes → review *old → new* → apply → undo.
-- Tag writing for all 7 formats, mapped back to the same fields the reader uses (ID3 for WAV/AIFF, Vorbis, MP4).
-- The edit form follows the mode: BPM, key, comment, label first in DJ mode; album fields first in Collector mode.
-- Owner makes a backup before the first real apply.
-
-**Done when:** an edit made in the UI shows up in Navidrome and another tag tool, and can be undone.
-
-## v0.7: Import inbox and first-run setup
-**Status:** steps 1–4 ✅ in v0.7.0 (inbox, suggestions, review and import with cover, Navidrome rescan); v0.7.1 rescans only the chosen Navidrome library. Step 5 ✅ the setup wizard (folder layouts, automatic import, genre map and filename pattern in Settings). New genre folders are proposed on the Changes page instead of created on their own ([ADR 0010](decisions/0010-new-genre-folders.md)). Duplicates are marked in the inbox and inbox files can be moved to a trash ([ADR 0011](decisions/0011-inbox-duplicates-and-trash.md)).
-
-- Optional **Import** path in the Unraid template, separate from the library (Navidrome never sees untagged tracks).
-- **First-run setup wizard:** mode, key notation, inbox, library folder pattern and **how independently Tagwerk may work** (always ask / auto-apply confident results). All changeable later in Settings.
-- Inbox pipeline, local steps: read tags, parse **filenames** (record pools, stores, promos, downloads), clean-up rules (BPM 0 → empty, spacing, "feat.", genre spelling, misplaced Discogs IDs).
-- Inbox page: "done" and "needs your help", with Tagwerk's best guesses to confirm or correct.
-- Finished tracks are **moved into the library** by the owner's folder pattern (copy → verify → delete), then Navidrome rescans. By default **the filename never changes**: only the folder (and the tags) do.
-- Folder patterns offered in the wizard (the owner browses the share in a file explorer, so folders and filenames must be easy to remember):
-  - **Genre buckets** (proposed default): `Genre/<original filename>`, with 10–15 broad buckets the owner picks; genre tags are mapped onto them ("Deep House" → `House`), unknown → `_Unsorted`.
-  - **Subgenres**: the genre tag holds the main genre first, subgenres after it (`Drum & Bass; Liquid`); the first value picks the folder. A small, editable **genre map** (plain text in the settings table, shipped with common electronic genres and spelling variants like `DnB` → `Drum & Bass`) sorts tracks tagged only with a subgenre and proposes adding the main genre. One dictionary lookup per imported track: no extra database or service.
-  - **Artist**: `Artist/<original filename>`.
-  - **Date added**: `2026/2026-10/<original filename>`.
-  - **Custom pattern** with placeholders for the folder (e.g. `{genre}/{year}`); the filename is never part of it.
-  - **Import never renames files**: the file keeps its exact name. Renaming is a separate, optional feature for **final** tracks (see below). The original filename is never written into tags.
-  - Real albums stay together in an album folder.
-  - Only new tracks from the inbox are sorted; reorganising the existing library is a separate, later feature (check Navidrome's handling of moved files first).
-
-## After v0.7: Final tracks
-**Status:** ✅ built (Final check page, lock, renaming after Navidrome scanned, remove mark with name choice; [ADR 0012](decisions/0012-final-tracks.md)). Checked first: Navidrome keeps play counts and ratings of renamed files unless tags changed in the same scan.
-
-- A **Final check** page for library tracks: fully tagged tracks (title, artist, genre, BPM, key, cover) shown one at a time with all tags and the cover; **Mark as final** and go to the next.
-- The mark itself is stored **only in Tagwerk's database**: no tag is written for it.
-- Final tracks are **locked**: they can't be edited in Tagwerk until unlocked (batch edits skip them and say so). If another program changes the file, the mark stays but the track is flagged "changed outside Tagwerk".
-- **Renaming happens only when "Mark as final" is pressed**, and only if the owner enabled it (wizard, changeable in Settings). Before that, tags can be written any number of times without touching the filename. The page shows the new name before confirming. **Removing the final mark asks what to do with the name**: keep the current name, go back to the name before it was marked final, or type a name.
-- **Settings → Filename for final tracks**: which tags make up the name, e.g. `{artist} - {title} [{bpm} {key}]` (empty bracket parts disappear; characters Windows/SMB don't allow are replaced), with a live preview.
-- Before building the renaming: check how Navidrome keeps play counts and ratings for renamed files.
-
-## Before 1.0: Convert to AIFF ✅
-Lossless tracks (FLAC, WAV, ALAC) to AIFF with ffmpeg, all tags and pictures, bit-exact; the AIFF lands by the import folder layout, the original in `/originals` ([ADR 0013](decisions/0013-convert-to-aiff.md)).
-
-## v0.8: Online identification
-**Status:** ✅ for the inbox ([ADR 0014](decisions/0014-online-identification.md)): MusicBrainz, AcoustID, Discogs, Deezer, iTunes; agreement-based confidence; cover suggestions. Library tracks (0.8.1): Look up online; sure values become pending changes.
-
-- Metadata source interface; sources: AcoustID fingerprint (fpcalc in the image), MusicBrainz, Discogs (free token), and public store APIs if their terms allow (iTunes Search, Deezer).
-- Cover art (Cover Art Archive, Discogs, store artwork).
-- Every proposed value has a confidence; the owner's autonomy setting decides what is applied automatically.
-
-## v0.8.2: Play bar
-**Status:** ✅ Listen to library and inbox tracks in a play bar that keeps playing across pages ([ADR 0015](decisions/0015-player.md)).
-
-## v0.9: BPM and key from the audio
-**Status:** ✅ Essentia in the image; BPM (exact to 0.05) and key tuned for bass-heavy music, half/double time settled by genre, filename and online sources; inbox suggestions, pending changes for empty fields, flags for differing tags ([ADR 0017](decisions/0017-audio-analysis.md)). Also: **Fix IDs** for MusicBrainz fields holding Discogs numbers, which move to their own fields ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md)).
-
-- Detect tempo and key inside the container. First step: verify an analysis library that runs in the image and on the current Python version.
-- Flag likely half-/double-time values (e.g. 87 instead of 174).
+## Where we are (v0.13)
+Everything on the original plan is built: scanning and statistics, editing with review and undo,
+the import inbox with automatic mode, online identification, BPM and key from the audio, final
+tracks, converting to AIFF, the play bar, the night-sky look and now duplicates in the library.
+What's left before 1.0 is checking it all on the real library and the README.
 
 ## Road to 1.0
-1.0 means: Tagwerk can be trusted with the real master library, and it is a joy to look at. In this order:
+In this order:
 
-1. **Tagwerk's work** ✅: what Tagwerk did for the library, and where each value came from ([ADR 0020](decisions/0020-tagwerks-work.md)).
-2. **Apply ticked changes** ✅: tick the pending changes to apply or discard; unticked ones stay pending.
-3. **Duplicates in the library**: find tracks that are in the library more than once, with the same rules as the inbox ([ADR 0011](decisions/0011-inbox-duplicates-and-trash.md): identical file, a trusted MusicBrainz recording ID, or the same artist and title with the mix name and about the same length). A list of groups with the copies side by side (path, format, bitrate, length, size, tags, final mark), each linking to its tracks, plus a number on Home/Statistics. Tagwerk only points them out: it never deletes library files, and "not a duplicate" can be remembered so a pair isn't shown again. An ADR.
-4. **Hardening on the real library**: scans, Statistics, Home, Tagwerk's work and analysis at full size (speed, memory, caching where needed); WAV/AIFF tags compared with Navidrome; a test that upgrades an old database through every migration; a complete Unraid template (Analysis Workers, Original Files …).
-5. **Visual rebrand** ✅, the face of 1.0 (see below), done early at the owner's request ([ADR 0021](decisions/0021-night-sky-rebrand.md)).
-6. **README** with screenshots of the new look, a short "first steps" guide; release `v1.0.0`.
+1. **Tagwerk's work** ✅ v0.11: what Tagwerk did for the library, and where each value came
+   from ([ADR 0020](decisions/0020-tagwerks-work.md)).
+2. **Apply ticked changes** ✅ v0.11: tick the pending changes to apply or discard; unticked
+   ones stay pending.
+3. **Visual rebrand** ✅ v0.12, polished in v0.13: the night-sky look
+   ([ADR 0021](decisions/0021-night-sky-rebrand.md)). v0.13: orbits drawn in 2D with round
+   moons, short card entrances instead of the page-change warp, big effects only for Convert
+   (hyperspace jump) and Apply (golden burst), notifications that slide in, a tidier Settings
+   page.
+4. **Duplicates in the library** ✅ v0.13: groups of copies side by side, a number on Home and
+   Statistics, "keep them all"; Tagwerk never deletes library files
+   ([ADR 0022](decisions/0022-library-duplicates.md)).
+5. **Hardening on the real library**, partly done:
+   - ✅ Speed at full size: `scripts/benchmark.py` times every page on a made-up library of
+     20,000 tracks. A missing index made Home take 3.5 s and Statistics 10.7 s; now 0.15 s and
+     0.85 s, every other page under 0.6 s.
+   - ✅ A test upgrades an old database through every migration with data in every table, reads
+     it with today's code and downgrades it again.
+   - ✅ After every scan or write, BPM/key decisions are worked out again: 7 s → 2 s at 20,000
+     tracks (online results are only read for tracks that were looked up).
+   - ✅ The Unraid template has every setting (a test keeps it that way), with a **CPU Cores**
+     field in the main view.
+   - Open: **a run on the real library** by the owner: scan time, memory and the page times
+     on the Unraid server; WAV/AIFF tags compared with what Navidrome shows (open since v0.2).
+6. **Polish**: glass for the remaining forms on the bare page (edit form, wizard, convert,
+   fields), a planet placeholder on the track page when there is no cover, retire unused old
+   rules in `app.css` (`.mode-switch`, old dropdown rules).
+7. **README** with screenshots of the night-sky look and a short "first steps" guide; release
+   `v1.0.0`.
 
+## Released
+Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/README.md).
 
-## v1.0: Visual rebrand
-A new look that replaces the Calm and Pop styles. The owner wants to enjoy the tool visually; rich visuals are welcome even if they ask more of the client's hardware.
-- **Main inspiration: orbit-stage.de**: its colour themes and space-like visuals (depth, night sky, glow).
-- **SoulSync** as light inspiration for page and object design (cards, layout), without its constant movement.
-- A touch of **glassmorphism**: see-through, blurred panels over the space background, always with a solid fallback.
-- Steps: research both → mood board → mock-ups of Home, Statistics and a track page → the owner's OK → ADR and `docs/design.md` → foundation (tokens in `theme.css`, background, glass, cards, type) → every page incl. play bar, key wheel, heat map, charts (colours validated on the new background), wizard, dialogs and phone layout → logo and Unraid icon → screenshot checks in all three engines and on the owner's devices. "Reduce motion" gets a still version; a "lighter effects" switch if some device struggles.
-
-## Navidrome integration (alongside v0.6–v0.8)
-- Connection settings and test button; rescan after apply and after moving inbox tracks.
-- Navidrome stats and most played on the dashboard.
+| Version | What came | Decisions |
+|---|---|---|
+| 0.1 | Docker image with PUID/PGID, Unraid template, CI. Verified on Unraid 7.3.2. | [0001](decisions/0001-tech-stack.md), [0002](decisions/0002-unraid-deployment.md) |
+| 0.2 | Library scan (background job, unchanged files skipped), database with migrations, dashboard. Numbers checked against `ffprobe`. | [0005](decisions/0005-reading-tags.md) |
+| 0.3 | OGG and Opus; BPM, key (any notation), comment, label, catalog number, ReplayGain, lyrics; DJ and Collector modes. | [0006](decisions/0006-modes.md) |
+| 0.4 | Tag fields page: every raw field of every file. Found why few tracks had a BPM (Picard writes `0`). | |
+| 0.5 | Browse and search: track list with filters, artists, albums, track page; every dashboard number opens its tracks. 0.5.1: design language and cross-browser screenshots. | [0008](decisions/0008-design-language.md) |
+| 0.6 | The writing engine: edit one or many tracks → pending changes → review → apply → undo, all 7 formats; covers in 0.6.1. | [0003](decisions/0003-review-before-write.md), [0009](decisions/0009-writing-tags.md) |
+| 0.7 | Import inbox (suggestions, review, import by folder layout with the filename unchanged, Navidrome rescan), setup wizard, new genre folders after review, inbox duplicates and trash, final tracks with optional renaming, convert to AIFF. | [0007](decisions/0007-import-inbox.md), [0010](decisions/0010-new-genre-folders.md), [0011](decisions/0011-inbox-duplicates-and-trash.md), [0012](decisions/0012-final-tracks.md), [0013](decisions/0013-convert-to-aiff.md) |
+| 0.8 | Online identification (MusicBrainz, AcoustID, Discogs, Deezer, iTunes), also for library tracks; the play bar; private ID3 data named and removable. | [0014](decisions/0014-online-identification.md), [0015](decisions/0015-player.md), [0016](decisions/0016-private-data-cleanup.md) |
+| 0.9 | BPM and key from the audio (Essentia), tuned for bass-heavy music; Fix IDs for MusicBrainz fields holding Discogs numbers. | [0017](decisions/0017-audio-analysis.md), [0018](decisions/0018-musicbrainz-and-discogs-ids.md) |
+| 0.10 | Home and Statistics instead of one dashboard, parallel audio analysis, History pages. | [0019](decisions/0019-home-and-statistics.md) |
+| 0.11 | Tagwerk's work, value sources, ticking changes to apply. | [0020](decisions/0020-tagwerks-work.md) |
+| 0.12 | The night-sky look. | [0021](decisions/0021-night-sky-rebrand.md) |
+| 0.13 | Duplicates in the library, speed at full size, tidier Settings, 2D orbits, new motion. | [0022](decisions/0022-library-duplicates.md) |
 
 ## Later / ideas
-- **Most played tracks**: play counts come from the DJ hardware and software, so this depends on reading Rekordbox data (out of scope so far).
-- **Online keys**: an extra source with tempo and key (e.g. GetSongBPM, if its terms allow) to confirm the audio analysis; Deezer only has BPM.
-- **Remove all private data** in one action, and a finder for PRIV data Tagwerk can't see (a second ID3 tag, a tag at the end of an MP3, ID3 in front of a FLAC).
-- Energy or danceability from the audio (Essentia) for statistics and set prep.
-- **Daily library snapshot** for trend lines in Tagwerk's work (set-ready, missing BPM/key/genre/cover over time), one row per day ([ADR 0020](decisions/0020-tagwerks-work.md)).
-- Harmonic mixing helpers (compatible keys), BPM/key filters for set prep.
-- Batch jobs for the existing library (e.g. look up everything without IDs).
+Not planned for 1.0; open for discussion.
+- **Navidrome numbers** on Home: play counts and most played from Navidrome. (Most played *as a
+  DJ* would need Rekordbox data, which is out of scope.)
+- **Online keys**: an extra source with tempo and key (e.g. GetSongBPM, if its terms allow) to
+  confirm the audio analysis; Deezer only has BPM.
+- **Remove all private data** in one action, and a finder for PRIV data Tagwerk can't see (a
+  second ID3 tag, a tag at the end of an MP3, ID3 in front of a FLAC).
+- **Energy or danceability** from the audio (Essentia) for statistics and set prep.
+- **Daily library snapshot** for trend lines in Tagwerk's work (set-ready, missing BPM/key/genre/
+  cover over time), one row per day ([ADR 0020](decisions/0020-tagwerks-work.md)).
+- **Set prep**: harmonic mixing helpers (compatible keys), BPM/key filters.
+- **Batch jobs** for the existing library (e.g. look up everything without IDs).
+- **Reorganising the existing library** by the folder layout (so far only new inbox tracks are
+  sorted; check how Navidrome handles moved files first).
 - Last.fm genres.
 - Login protection (low priority: Tagwerk is a local tool for one user).

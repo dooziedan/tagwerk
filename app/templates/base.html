@@ -1,5 +1,5 @@
 <!doctype html>
-{% from "macros.html" import icon, nav_icon, brand_mark %}
+{% from "macros.html" import icon, nav_icon, brand_mark, toast %}
 {% set ui = prefs or none %}
 {# One dark look (ADR 0021). data-effects="light" turns off blur, drift and glows. #}
 <html lang="en" data-theme="dark" data-motion="calm" data-effects="{{ ui.effects if ui else 'full' }}">
@@ -46,7 +46,7 @@
       <nav class="side-group" aria-label="Work">
         <span class="eyebrow">Work</span>
         {{ nav("/inbox", "Inbox", "inbox", inbox_n, "tracks") }}{{ nav("/changes", "Changes", "changes", pending_n, "pending") }}
-        {{ nav("/final", "Final check", "final") }}{{ nav("/convert", "Convert", "wave") }}
+        {{ nav("/final", "Final check", "final") }}{{ nav("/duplicates", "Duplicates", "copies") }}{{ nav("/convert", "Convert", "wave") }}
       </nav>
       <nav class="side-group" aria-label="System">
         <span class="eyebrow">System</span>
@@ -69,7 +69,7 @@
           <ul dir="rtl">
             <li><a href="/">Home</a></li><li><a href="/stats">Statistics</a></li><li><a href="/tracks">Tracks</a></li>
             <li><a href="/albums">Albums</a></li><li><a href="/artists">Artists</a></li><li><a href="/fields">Tag fields</a></li>
-            <li><a href="/final">Final check</a></li><li><a href="/convert">Convert</a></li><li><a href="/settings">Settings</a></li>
+            <li><a href="/final">Final check</a></li><li><a href="/duplicates">Duplicates</a></li><li><a href="/convert">Convert</a></li><li><a href="/settings">Settings</a></li>
           </ul>
         </details>
       </nav>
@@ -82,23 +82,9 @@
   {% if (saved and saved.isdigit()) or kept %}
   {# Shown after saving: edits become pending changes ("saved"); inbox values wait for the
      import ("kept"). The user stays where they were. #}
-  <div class="toast" role="status" id="toast">
-    {% if kept %}<span>✅ Saved. Written into the file when you import.</span>
-    {% else %}
-    <span>✅ {% if saved == "0" %}Nothing changed: the values were already the same.{% else %}Saved {{ saved | int | plural('pending change') }}.{% endif %}</span>
-    {% if saved != "0" %}<a href="/changes">Review →</a>{% endif %}
-    {% endif %}
-    <button type="button" class="toast-close" aria-label="Close" onclick="this.parentElement.remove()">×</button>
-  </div>
-  <script>
-    (function () {
-      const url = new URL(location.href);
-      url.searchParams.delete("saved");  // a reload shouldn't show the note again
-      url.searchParams.delete("kept");
-      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
-      setTimeout(() => { const t = document.getElementById("toast"); if (t) t.remove(); }, 8000);
-    })();
-  </script>
+  <div class="toasts">{% call toast() %}{% if kept %}✅ Saved. Written into the file when you import.
+    {% elif saved == "0" %}✅ Nothing changed: the values were already the same.
+    {% else %}✅ Saved {{ saved | int | plural('pending change') }}. <a href="/changes">Review →</a>{% endif %}{% endcall %}</div>
   {% endif %}
   <footer>
     <small>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
@@ -153,6 +139,17 @@
     // After a page swap the old part is gone, so format the whole page again (cheap).
     document.addEventListener("htmx:afterSettle", () => localTimes(document));
     document.addEventListener("htmx:historyRestore", () => document.body.classList.remove("with-action-bar"));
+    // Notifications are shown once: drop their one-time markers from the address (a reload
+    // shouldn't show them again), and leave them out of the page kept for the Back button.
+    function dropNotes() {
+      const url = new URL(location.href);
+      if (!["saved", "kept", "done"].some((k) => url.searchParams.has(k))) return;
+      ["saved", "kept", "done"].forEach((k) => url.searchParams.delete(k));
+      history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    }
+    dropNotes();
+    document.addEventListener("htmx:afterSettle", dropNotes);
+    document.addEventListener("htmx:beforeHistorySave", () => document.querySelectorAll(".toasts").forEach((t) => t.remove()));
 
     // data-confirm: stop the submit, ask in the dialog, and submit again after OK. Runs before
     // htmx (capture phase), so a cancelled form sends nothing.
