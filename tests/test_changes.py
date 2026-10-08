@@ -184,3 +184,23 @@ def test_history_has_pages(client, engine):
     assert "Page 1 of 2" in first and "Older →" in first
     older = client.get("/changes/history?page=2").text
     assert older.count("<tr>") == 5 + 1  # 5 rows and the header
+
+
+def test_changes_being_written_are_not_shown_again(client):
+    """While an apply runs, the Changes page leaves its changes out (they burnt away on the page
+    and must not come back); the other pending changes stay."""
+    from app.jobs import scan_job, write_job
+
+    client.post("/api/scan")
+    scan_job.wait(30)
+    ids = [t["id"] for t in client.get("/api/tracks").json()["tracks"][:2]]
+    client.post("/api/changes", json={"track_ids": ids[:1], "values": {"label": "Written Now"}})
+    client.post("/api/changes", json={"track_ids": ids[1:], "values": {"label": "Stays Pending"}})
+    writing = client.get("/api/changes").json()[0]["changes"][0]["id"]
+    saved = write_job.status, write_job.progress
+    write_job.status, write_job.progress = "running", WriteProgress("apply", change_ids=[writing])
+    try:
+        page = client.get("/changes").text
+    finally:
+        write_job.status, write_job.progress = saved
+    assert "Written Now" not in page and "Stays Pending" in page

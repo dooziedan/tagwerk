@@ -8,11 +8,11 @@ SSD are out of scope (that would be a separate tool).
 
 **1.0 means:** Tagwerk can be trusted with the real master library, and it is a joy to look at.
 
-## Where we are (v0.14)
+## Where we are (v0.15)
 Everything on the original plan is built: scanning and statistics, editing with review and undo,
 the import inbox with automatic mode, online identification, BPM and key from the audio, final
 tracks, converting to AIFF, the play bar, the night-sky look, duplicates in the library (with
-the copy to keep) and the README. What's left before 1.0: the owner's run on the real library
+the copy to keep and a trash) and the README. What's left before 1.0: the owner's run on the real library
 and an onboarding tour.
 
 ## Road to 1.0
@@ -28,9 +28,11 @@ In this order:
    (hyperspace jump) and Apply (golden burst), notifications that slide in, a tidier Settings
    page.
 4. **Duplicates in the library** ✅ v0.13: groups of copies side by side, a number on Home and
-   Statistics, "keep them all"; Tagwerk never deletes library files
+   Statistics, "keep them all"
    ([ADR 0022](decisions/0022-library-duplicates.md)). v0.14: suggests the copy to keep (the
-   best sound) and lets the owner take tags and covers over from the other copies.
+   best sound) and lets the owner take tags and covers over from the other copies; v0.15: the
+   other copies can go to a library trash that only the owner empties
+   ([ADR 0023](decisions/0023-library-trash.md)).
 5. **Hardening on the real library**, partly done:
    - ✅ Speed at full size: `scripts/benchmark.py` times every page on a made-up library of
      20,000 tracks. A missing index made Home take 3.5 s and Statistics 10.7 s; now 0.15 s and
@@ -78,6 +80,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.12 | The night-sky look. | [0021](decisions/0021-night-sky-rebrand.md) |
 | 0.13 | Duplicates in the library, speed at full size, tidier Settings, 2D orbits, new motion. | [0022](decisions/0022-library-duplicates.md) |
 | 0.14 | The copy to keep among duplicates, safer scans, honest percentages, the stardust Apply, README screenshots. | [0022](decisions/0022-library-duplicates.md) |
+| 0.15 | A trash for duplicate copies (emptied only by the owner), Apply in a sensible order, long lists. | [0023](decisions/0023-library-trash.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.

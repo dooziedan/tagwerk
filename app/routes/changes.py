@@ -340,12 +340,23 @@ def changes_page(
     error: str = "",
 ):
     prefs = preferences.load(session)
+    items = changes.pending(session)
+    progress = write_job.progress
+    if write_job.running and progress.action == "apply":
+        # Being written right now: not shown (the progress is), so they never come back.
+        writing = progress.change_ids  # None: all of them
+        kept = []
+        for item in items:
+            rest = [c for c in item.changes if writing is not None and c.id not in writing]
+            if rest:
+                kept.append(replace(item, changes=rest))
+        items = kept
     return templates.TemplateResponse(
         request,
         "changes.html",
         {
             "prefs": prefs,
-            "items": changes.pending(session),
+            "items": items,
             "folders": folders.proposals(session, settings.music_dir),
             "labels": writer.LABELS,
             "job": write_job,

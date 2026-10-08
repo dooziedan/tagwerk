@@ -9,7 +9,7 @@ The inbox already marks tracks that are in the library ([ADR 0011](0011-inbox-du
 - Tracks linked directly or through another copy form one **group** (a FLAC, its MP3 and an identical copy of the MP3 are one group). Each track keeps its strongest link (identical file > recording > name) to show why it is there.
 - **Stored, not computed per page**: the groups go into a `duplicatetrack` table, worked out again after every scan, apply, undo, import, conversion and once on start. The track list's *In the library more than once* filter, the number on Home and Statistics, and the Duplicates page all read it, so the numbers agree and pages stay quick.
 - **The Duplicates page** shows each group's copies side by side: file and folder (with ▶), audio quality, length, size, the main tags, cover, date added and the final mark. Rows where the copies differ stand out; rows where they agree are quiet. A copy with clearly the best sound (lossless, then sample rate, bit depth, bitrate) and one with clearly the most tags get a badge. Groups can be filtered by reason; a track page links to its group.
-- **Tagwerk never deletes library files.** To remove a copy, the owner deletes it in the file manager; the next scan notices. **Keep them all** remembers every pair of the group as "not duplicates" (`notduplicate` table, cascades when a track goes), so the group isn't shown again unless another copy turns up. *Show those again* forgets all such choices.
+- **Tagwerk never deletes library files.** To remove a copy, the owner deletes it in the file manager; the next scan notices. *(Since v0.15 the other copies can go to a library trash from this page: [ADR 0023](0023-library-trash.md).)* **Keep them all** remembers every pair of the group as "not duplicates" (`notduplicate` table, cascades when a track goes), so the group isn't shown again unless another copy turns up. *Show those again* forgets all such choices.
 
 **Update (v0.14): the copy to keep.** Each group suggests one copy to keep: the best sound
 (lossless before lossy, then sample rate, bit depth, bitrate); with the same sound, the most tags.
@@ -17,8 +17,8 @@ That copy may be the worse-tagged one, so the owner verifies: its column comes f
 row compares it with the other copies, and **Use** takes another copy's value (or a different
 cover) over as a pending change, source "From another copy"; **Take over missing tags** takes
 every tag it lacks where the others agree. *Keep this one instead* picks another copy for that
-view, without storing anything. Applying and deleting stay as before: review on Changes, delete
-the other copies in the file manager.
+view, without storing anything. Applying stays as before (review on Changes); the other copies
+go to the library trash ([ADR 0023](0023-library-trash.md)).
 
 ## Consequences
 - The groups are as fresh as the last scan or write: a file copied in by hand appears after the next scan.

@@ -27,7 +27,7 @@ from pathlib import Path, PurePosixPath
 from sqlalchemy import Engine, delete, distinct, func
 from sqlmodel import Session, col, select
 
-from app import writer
+from app import trash, writer
 from app.models import DuplicateTrack, FinalTrack, InboxTrack, NotDuplicate, Track
 
 # Two versions of a track whose lengths differ more than this are different edits.
@@ -451,3 +451,39 @@ def _file_hash(path: Path) -> str | None:
         return _sha256(str(path), st.st_mtime, st.st_size)
     except OSError:  # moved or removed in the meantime
         return None
+
+
+# --- The library trash (ADR 0023) ------------------------------------------------------------
+# The owner moves copies they don't want into /music/.tagwerk-trash from the Duplicates page.
+# They stay there, restorable, until the owner empties the trash: Tagwerk never removes a
+# library file on its own.
+
+
+def trash_copy(session: Session, music_dir: Path, track_id: int, keep_id: int) -> str:
+    """Move one copy of a duplicate group into the library trash; its row goes with it.
+
+    Never the copy to keep (so one always stays) and never a final (locked) track. Returns the
+    trash entry's id. The caller refreshes the groups and tells Navidrome.
+    """
+    group = next((g for g in load_groups(session) if track_id in {c.track.id for c in g.copies}),
+                 None)  # fmt: skip
+    if group is None or track_id == keep_id or keep_id not in {c.track.id for c in group.copies}:
+        raise trash.TrashError("Only a copy other than the one you keep can go to the trash")
+    if session.get(FinalTrack, track_id):
+        raise trash.TrashError("It's final (locked): remove the mark on its track page first")
+    track = session.get(Track, track_id)
+    entry = trash.delete(music_dir, track.path)
+    session.delete(track)  # its analysis, pending changes and duplicate rows go with it
+    session.commit()
+    return entry
+
+
+def restore_copy(session: Session, music_dir: Path, entry: str) -> Track:
+    """Move a trashed copy back to where it was and read it into the library again."""
+    from app.scanner import store_file  # the scanner is only needed here
+
+    rel = trash.restore(music_dir, entry)
+    path = music_dir / rel
+    track = store_file(session, path, rel, path.stat(), path.with_suffix(".lrc").exists(), None)
+    session.commit()
+    return track

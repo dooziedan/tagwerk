@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-08
+
+### Added
+- **A trash for duplicate copies**: on the Duplicates page, every copy except the one to keep has **Move to trash** (with a confirmation; final tracks can't be trashed). The copy leaves the library and Navidrome right away and waits in a hidden `.tagwerk-trash` folder in your music share. **Restore** puts it back; **Empty trash** removes the files for good, and only when you press it: Tagwerk never removes a library file on its own.
+
+### Fixed
+- **Apply** in a sensible order: the sparks fly, the changes are written right away while the list burns, and when both are done the page shows the result once ("Wrote 4 files", or the progress if writing takes longer). Before, the list burnt, came back while the files were written, and then disappeared. Changes that are being written are no longer shown on the Changes page at all, also with lighter effects.
+- A **long list of changes** burns only the part on screen (at most about 2 seconds), never off the screen; afterwards the page scrolls back to the top, where the progress and the remaining changes are.
+
 ## [0.14.0] - 2026-10-08
 
 ### Added

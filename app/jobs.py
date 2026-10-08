@@ -167,7 +167,7 @@ class WriteJob(Job):
 
     def apply(self, settings: Settings, change_ids: list[int] | None = None) -> bool:
         """Write the pending changes: all, or only ``change_ids``."""
-        progress = WriteProgress(action="apply")
+        progress = WriteProgress(action="apply", change_ids=change_ids)
         engine = get_engine(settings.database_url)
         images = image_store(settings)
 

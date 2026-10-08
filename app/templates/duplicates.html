@@ -1,13 +1,20 @@
 {% extends "base.html" %}
-{% from "macros.html" import kpi_value, nav_icon, play_button %}
+{% from "macros.html" import kpi_value, nav_icon, play_button, toast %}
 {% block title %}Duplicates · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
 <div class="page-head">
   <div>
     <h1>Duplicates</h1>
-    <p class="muted page-sub">Tracks that are in your library more than once, with their copies side by side. Tagwerk only points them out: it never deletes library files.</p>
+    <p class="muted page-sub">Tracks that are in your library more than once, with their copies side by side. Tagwerk suggests the copy to keep; the others can go to the trash, which only you empty.</p>
   </div>
+</div>
+
+<div class="toasts">
+{% if note.trashed %}{% call toast() %}🗑️ Moved to the trash. It stays there, restorable, until you empty the trash (<a href="#trash">below</a>).{% endcall %}{% endif %}
+{% if note.restored %}{% call toast() %}↩️ Restored: <code>{{ note.restored }}</code> is back in the library.{% endcall %}{% endif %}
+{% if note.emptied %}{% call toast() %}Emptied the trash: {{ note.emptied | int | plural('file') }} removed for good.{% endcall %}{% endif %}
+{% if note.error %}{% call toast("warn") %}{{ note.error }}{% endcall %}{% endif %}
 </div>
 
 {% if total_groups == 0 %}
@@ -56,6 +63,13 @@
             </span>
             <span class="dup-badges">
               {% if c is sameas k %}<span class="status status-final">Keep</span>{% else %}<a class="small-link" href="/duplicates?group={{ g.id }}&keep={{ t.id }}">Keep this one instead</a>{% endif %}
+              {% if c is not sameas k and not c.final %}
+              <form method="post" action="/duplicates/trash" class="dup-trash" data-confirm="Move {{ t.path.rsplit('/', 1)[-1] }} to the trash? It leaves the library (and Navidrome) and can be restored until you empty the trash." data-confirm-ok="Move to trash">
+                <input type="hidden" name="track_id" value="{{ t.id }}"><input type="hidden" name="keep" value="{{ k.track.id }}">
+                <input type="hidden" name="back" value="{{ request.url.path }}?{{ request.url.query }}">
+                <button class="outline secondary small" {% if busy %}disabled{% endif %}>Move to trash</button>
+              </form>
+              {% endif %}
               {% if c.most_tags %}<span class="status">Most tags</span>{% endif %}
               {% if c.final %}<span class="status status-final">Final</span>{% endif %}
             </span>
@@ -98,7 +112,7 @@
     </table>
   </div>
   <footer class="dup-foot">
-    <small class="muted">{% if mine %}<a href="/changes">Review and apply the pending changes →</a> Then delete{% else %}When the tags are right, delete{% endif %} the other copies in your file manager; the next scan notices.</small>
+    <small class="muted">{% if mine %}<a href="/changes">Review and apply the pending changes →</a> Then move{% else %}When the tags are right, move{% endif %} the other copies to the trash.</small>
     <span class="button-row">
       {% set missing = g.missing %}
       {% if missing and not k.final %}
@@ -133,5 +147,28 @@
   <form method="post" action="/duplicates/show-again" class="inline-form"><small class="muted">You kept {{ kept_apart | plural('pair') }} of tracks apart with <em>Keep them all</em>.</small> <button class="outline secondary small">Show those again</button></form>
   {% endif %}
 </details>
+{% endif %}
+
+{# The library trash (ADR 0023): copies moved here wait until the owner empties it. #}
+{% if trash %}
+{% set trash_size = trash | sum(attribute="size") %}
+<details id="trash" class="glass panel trash-list"{% if note.trashed or note.restored %} open{% endif %}>
+  <summary>Trash <span class="view-count">{{ trash | length }}</span> <small class="muted">· {{ trash_size | filesize }}</small></summary>
+  <p class="muted"><small>Copies you moved to the trash wait in the hidden folder <code>.tagwerk-trash</code> in your music folder (Navidrome skips it). They stay until you empty the trash; Tagwerk never removes them on its own.</small></p>
+  <table>
+    <tbody>
+      {% for d in trash %}
+      <tr>
+        <td><code>{{ d.path }}</code><br><small class="muted">{{ d.size | filesize }} · moved to the trash <time data-local datetime="{{ d.deleted_at | isoutc }}">{{ d.deleted_at | isoutc }}</time></small></td>
+        <td class="num"><form method="post" action="/duplicates/trash/{{ d.id }}/restore"><button class="outline secondary small" {% if busy %}disabled{% endif %}>Restore</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="/duplicates/trash/empty" data-confirm="Remove {{ trash | length | plural('file') }} ({{ trash_size | filesize }}) for good? This can't be undone." data-confirm-ok="Empty trash">
+    <button class="outline secondary small" {% if busy %}disabled{% endif %}>Empty trash</button>
+  </form>
+</details>
+<script>if (location.hash === "#trash") document.getElementById("trash").open = true;</script>
 {% endif %}
 {% endblock %}

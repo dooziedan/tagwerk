@@ -82,26 +82,36 @@
   // --- Big moments ----------------------------------------------------------------------------
   // Buttons with data-fx play a short effect when their form is really sent (after any "are you
   // sure?" question): data-fx="warp" (Convert to AIFF) jumps through hyperspace, data-fx="burst"
-  // (Apply changes) sends a golden shock wave with sparks out of the button. If the form names
-  // what burns (form.twBurnTargets(), the Changes page: the ticked changes), the sparks set it
-  // alight: it burns away from the bottom up into stardust, and only then is the form sent.
+  // (Apply changes) sends a golden shock wave with sparks out of the button.
+  // If the form names what burns (form.twBurnTargets(), the Changes page: the ticked changes),
+  // the order is: 1. the sparks fly; 2. the form is sent right away, so the files are written
+  // while 3. the list burns away; 4. when both are done the page shows the result once (done=1:
+  // the notification, or the progress if the writing takes longer). The server leaves changes
+  // that are being written out of the page, so the burnt list never comes back.
   document.addEventListener("submit", (e) => {
     const button = e.submitter, form = e.target;
     const fx = button && button.dataset.fx;
-    if (!fx || still() || form.dataset.burnt) return;
+    if (!fx || still()) return;
     const r = button.getBoundingClientRect();
     if (fx === "warp") window.twWarp();
     if (fx !== "burst") return;
     window.twBurst(r.left + r.width / 2, r.top + r.height / 2);
     const burning = typeof form.twBurnTargets === "function" ? form.twBurnTargets() : [];
-    if (!burning.length) return;
-    e.preventDefault(); // send it once the list has burnt
+    if (!burning.length || !window.htmx) return;
+    e.preventDefault(); // sent here instead, so the page stays while the list burns
     e.stopImmediatePropagation();
-    setTimeout(() => window.twDissolve(burning, () => {
-      form.dataset.burnt = "yes";
-      form.requestSubmit(button);
-      delete form.dataset.burnt;
-    }), 220); // the sparks reach the list first
+    let answer = null, burnt = false;
+    const show = () => {
+      if (!answer || !burnt) return;
+      const url = new URL(answer, location.href);
+      if (!url.searchParams.has("error")) url.searchParams.set("done", "1");
+      // To the top: the progress and what is still pending are there (a long list was scrolled).
+      window.htmx.ajax("GET", url.pathname + url.search, { target: "#page", select: "#page", swap: "outerHTML show:window:top" });
+    };
+    fetch(form.action, { method: "POST", body: new FormData(form) })
+      .then((response) => { answer = response.url || form.action; show(); })
+      .catch(() => location.reload()); // offline or the server is gone: show what is true
+    setTimeout(() => window.twDissolve(burning, () => { burnt = true; show(); }), 220); // the sparks reach the list first
   }, true);
 
   // A canvas, made on first use and hidden in between. ``front``: above the page (the burst),
@@ -274,7 +284,8 @@
   // slowly at first and a little faster as it goes up; just above it they glow hot, below it they
   // are gone (a clip-path that follows the wave), and stardust and a few embers rise from it,
   // swaying and twinkling. Calls done() when the edge reached the top; the dust drifts on over
-  // the next page a moment longer.
+  // the next page a moment longer. Only what is on screen burns (a long list doesn't burn off the
+  // screen or take longer): the rest simply goes when the edge reaches the top.
   let dustCanvas = null, dustFrame = 0;
   const DUST = ["253, 230, 138", "255, 255, 255", "165, 180, 252"];
   // The edge's wave at x: two slow sines, moving, so it flickers like a flame front.
@@ -289,7 +300,9 @@
     const ctx = begin(dustCanvas);
     const top = Math.max(0, Math.min(...parts.map((b) => b.r.top))) - 8;
     const bottom = Math.min(innerHeight, Math.max(...parts.map((b) => b.r.bottom))) + 8;
-    const ms = Math.max(1200, Math.min(2200, 900 + (bottom - top) * 0.9)); // taller lists burn longer
+    // About 0.9 ms per pixel on screen: a full window takes ~1.7 s, never more than 2.2 s; a short
+    // strip (the last card above the button) burns quickly instead of crawling.
+    const ms = Math.max(800, Math.min(2200, 900 + (bottom - top) * 0.9));
     const dust = [];
     const start = performance.now();
     let last = start, sent = false;
@@ -342,8 +355,9 @@
           }
           ctx.stroke();
         }
-        // New dust along the edge; now and then an ember.
-        for (let i = 0, n = (width / 170) * dt; i < n; i++) {
+        // New dust along the edge; now and then an ember. (Capped: a wide screen full of
+        // changes mustn't drown the browser in particles.)
+        for (let i = 0, n = dust.length < 1400 ? (width / 170) * dt : 0; i < n; i++) {
           const x = left + Math.random() * width;
           const ember = Math.random() < 0.12;
           dust.push({
@@ -375,7 +389,7 @@
       }
       if (t >= 1 && !sent) {
         sent = true;
-        parts.forEach((b) => (b.el.style.visibility = "hidden"));
+        elements.forEach((el) => (el.style.visibility = "hidden")); // also those off screen
         done();
       }
       if (t >= 1 && !dust.length) {

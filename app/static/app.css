@@ -1291,3 +1291,7 @@ article table thead th, table.kv thead th { background: none; }
 .play-button.with-label .icon { width: 1.75rem; height: 1.75rem; padding: 0.45rem; border-radius: 50%;
   background: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 14px rgba(245, 197, 66, 0.4); }
 .play-button.with-label:hover, .play-button.with-label.playing { background: var(--tw-gold-soft); border-color: var(--tw-gold-line); color: var(--tw-gold); box-shadow: none; }
+.dup-trash { margin: 0; }
+.dup-trash button { width: auto; margin: 0; padding: 0.08rem 0.6rem; font-size: 0.75rem; }
+#trash.trash-list > form { margin: 0.75rem 0 0; }
+#trash.trash-list > form button { width: auto; margin: 0; }

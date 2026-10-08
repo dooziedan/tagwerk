@@ -143,8 +143,9 @@
     // shouldn't show them again), and leave them out of the page kept for the Back button.
     function dropNotes() {
       const url = new URL(location.href);
-      if (!["saved", "kept", "done"].some((k) => url.searchParams.has(k))) return;
-      ["saved", "kept", "done"].forEach((k) => url.searchParams.delete(k));
+      const notes = ["saved", "kept", "done", "trashed", "restored", "emptied"];
+      if (!notes.some((k) => url.searchParams.has(k))) return;
+      notes.forEach((k) => url.searchParams.delete(k));
       history.replaceState(history.state, "", url.pathname + url.search + url.hash);
     }
     dropNotes();
