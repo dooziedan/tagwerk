@@ -41,3 +41,4 @@ What gets easier, what gets harder.
 | [0020](0020-tagwerks-work.md) | Tagwerk's work, and recording where values came from | Accepted |
 | [0021](0021-night-sky-rebrand.md) | The night-sky look (visual rebrand), replaces Calm and Pop | Accepted |
 | [0022](0022-library-duplicates.md) | Duplicates in the library: stored groups, shown side by side, never deleted | Accepted |
+| [0023](0023-library-trash.md) | A trash for library copies, emptied only by the owner | Accepted |

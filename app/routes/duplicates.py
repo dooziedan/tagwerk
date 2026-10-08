@@ -1,25 +1,26 @@
 """Duplicates in the library: the groups of copies side by side (app/duplicates.py, ADR 0022).
 
 Tagwerk suggests the copy to keep (the best sound) and lets the owner take over tags and the
-cover from the other copies: they become pending changes, reviewed and applied as usual.
-Deleting the other copies is done in the file manager (the next scan notices); Tagwerk never
-deletes library files. "Keep them all" remembers that a group isn't a problem.
+cover from the other copies: they become pending changes, reviewed and applied as usual. The
+other copies can then go to the library trash (ADR 0023), where they wait until the owner
+empties it. "Keep them all" remembers that a group isn't a problem.
 """
 
 import hashlib
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import func
-from sqlmodel import select
+from sqlmodel import Session, select
 
-from app import changes, duplicates, preferences, writer
+from app import changes, duplicates, navidrome, preferences, trash, writer
 from app.config import SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import REASONS, load_groups
-from app.jobs import image_store
+from app.jobs import busy, image_store, run_now
 from app.models import NotDuplicate, PendingChange, Track
 from app.navigation import with_saved_note
 from app.templating import templates
@@ -31,6 +32,11 @@ PER_PAGE = 25  # groups per page
 
 class KeepRequest(BaseModel):
     track_ids: list[int]  # every pair of them is kept apart from now on
+
+
+class TrashRequest(BaseModel):
+    track_id: int  # the copy to move to the library trash
+    keep: int  # the copy that stays (never trashed)
 
 
 class TakeRequest(BaseModel):
@@ -103,6 +109,79 @@ def take_api(body: TakeRequest, session: SessionDep, settings: SettingsDep) -> d
     return {"staged": staged}
 
 
+@router.post("/api/duplicates/trash", tags=["library"])
+def trash_api(body: TrashRequest, settings: SettingsDep) -> dict:
+    """Move a copy into the library trash (``/music/.tagwerk-trash``); restorable until the
+    trash is emptied. Never the copy to keep, never a final track."""
+    ok, result = _trash(settings, body.track_id, body.keep)
+    if not ok:
+        raise HTTPException(409, result)
+    return {"trash_id": result}
+
+
+@router.get("/api/library-trash", tags=["library"])
+def library_trash_api(settings: SettingsDep) -> list[dict]:
+    """Copies in the library trash, newest first."""
+    return [d.__dict__ for d in trash.items(settings.music_dir)]
+
+
+@router.post("/api/library-trash/{entry}/restore", tags=["library"])
+def restore_api(entry: str, settings: SettingsDep) -> dict:
+    """Put a trashed copy back where it was; it is read into the library again."""
+    ok, result = _restore(settings, entry)
+    if not ok:
+        raise HTTPException(409, result)
+    return {"path": result}
+
+
+@router.delete("/api/library-trash", tags=["library"])
+def empty_api(settings: SettingsDep) -> dict:
+    """Remove everything in the library trash for good. This can't be undone."""
+    ran, removed = run_now(lambda: trash.empty(settings.music_dir))
+    if not ran:
+        raise HTTPException(409, "A scan or write is running")
+    return {"removed": removed}
+
+
+def _trash(settings, track_id: int, keep: int) -> tuple[bool, str]:
+    """(True, trash id) or (False, why not). Takes the job lock: never during a scan or write."""
+
+    def work() -> tuple[bool, str]:
+        with Session(get_engine(settings.database_url)) as session:
+            try:
+                entry = duplicates.trash_copy(session, settings.music_dir, track_id, keep)
+            except (trash.TrashError, OSError) as exc:
+                return False, str(exc)
+        duplicates.refresh_library(get_engine(settings.database_url), settings.music_dir)
+        return True, entry
+
+    ran, result = run_now(work)
+    if not ran:
+        return False, "A scan or write is running; try again when it's finished"
+    if result[0]:
+        navidrome.rescan_after_write(settings, 1)  # the file left the library
+    return result
+
+
+def _restore(settings, entry: str) -> tuple[bool, str]:
+    def work() -> tuple[bool, str]:
+        with Session(get_engine(settings.database_url)) as session:
+            try:
+                track = duplicates.restore_copy(session, settings.music_dir, entry)
+            except (trash.TrashError, OSError) as exc:
+                return False, str(exc)
+            path = track.path
+        duplicates.refresh_library(get_engine(settings.database_url), settings.music_dir)
+        return True, path
+
+    ran, result = run_now(work)
+    if not ran:
+        return False, "A scan or write is running; try again when it's finished"
+    if result[0]:
+        navidrome.rescan_after_write(settings, 1)
+    return result
+
+
 @router.post("/api/duplicates/show-again", tags=["library"])
 def show_again_api(session: SessionDep, settings: SettingsDep) -> dict:
     """Forget every "keep them all" choice: those groups are shown again."""
@@ -156,6 +235,11 @@ def duplicates_page(
             "page": page,
             "pages": pages,
             "kept_apart": session.exec(select(func.count()).select_from(NotDuplicate)).one(),
+            "trash": trash.items(settings.music_dir),
+            "busy": busy(),
+            "note": {
+                k: request.query_params.get(k) for k in ("trashed", "restored", "emptied", "error")
+            },  # fmt: skip
         },
     )
 
@@ -205,6 +289,34 @@ async def take_form(request: Request, session: SessionDep, settings: SettingsDep
         staged += take_api(body, session, settings)["staged"]
     url = f"/duplicates?group={group.id}&keep={keep}"
     return RedirectResponse(with_saved_note(url, staged), status_code=303)
+
+
+@router.post("/duplicates/trash", include_in_schema=False)
+async def trash_form(request: Request, settings: SettingsDep):
+    form = await request.form()
+    track, keep = (str(form.get(k, "")) for k in ("track_id", "keep"))
+    back = str(form.get("back", ""))
+    back = back if back.startswith("/duplicates") else "/duplicates"
+    sep = "&" if "?" in back else "?"
+    if not (track.isdigit() and keep.isdigit()):
+        return RedirectResponse(back, status_code=303)
+    ok, result = _trash(settings, int(track), int(keep))
+    note = "trashed=1" if ok else f"error={quote(result)}"
+    return RedirectResponse(f"{back}{sep}{note}", status_code=303)
+
+
+@router.post("/duplicates/trash/{entry}/restore", include_in_schema=False)
+def restore_form(entry: str, settings: SettingsDep):
+    ok, result = _restore(settings, entry)
+    note = f"restored={quote(result)}" if ok else f"error={quote(result)}"
+    return RedirectResponse(f"/duplicates?{note}", status_code=303)
+
+
+@router.post("/duplicates/trash/empty", include_in_schema=False)
+def empty_form(settings: SettingsDep):
+    ran, removed = run_now(lambda: trash.empty(settings.music_dir))
+    note = f"emptied={removed}" if ran else "error=" + quote("A scan or write is running")
+    return RedirectResponse(f"/duplicates?{note}", status_code=303)
 
 
 @router.post("/duplicates/show-again", include_in_schema=False)

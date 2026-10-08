@@ -1,14 +1,19 @@
-"""The inbox trash: files the owner deleted from the inbox, kept for a while so they can return.
+"""The trash: files the owner deleted, kept so they can come back.
 
-Deleting moves the file into a hidden folder inside the import folder, so it is a rename on the
-same share (instant, nothing is copied). Each deleted file gets its own folder named after the
-time it was deleted, and keeps its path inside it:
+Two trashes work the same way, each a hidden folder inside its own share:
+- the **inbox trash** (``/import/.tagwerk-trash``): files deleted from the inbox; removed for good
+  after KEEP_DAYS by the regular inbox check (ADR 0011);
+- the **library trash** (``/music/.tagwerk-trash``): copies of duplicates the owner moved there
+  from the Duplicates page; kept until the owner empties it (ADR 0023). Tagwerk never removes a
+  library file on its own.
+
+Deleting is a rename on the same share (instant, nothing is copied). Each deleted file gets its
+own folder named after the time it was deleted, and keeps its path inside it:
 
     /import/.tagwerk-trash/20261004-213000-a1b2c3/Promos/Track.mp3
 
-so Restore knows where it came from without a database. The inbox scan skips hidden folders.
-Files older than KEEP_DAYS are removed for good by the regular inbox check.
-Only inbox files are ever put here: the library is never touched.
+so Restore knows where it came from without a database. Scans skip hidden folders, and a
+``.ndignore`` file tells Navidrome to skip the trash too.
 """
 
 import logging
@@ -42,24 +47,25 @@ class Deleted:
         return self.deleted_at + timedelta(days=KEEP_DAYS)
 
 
-def delete(import_dir: Path, rel: str) -> str:
-    """Move an inbox file into the trash. Returns the trash entry's id."""
-    source = _inside(import_dir, rel)
+def delete(root: Path, rel: str) -> str:
+    """Move a file (``rel``, inside ``root``) into root's trash. Returns the trash entry's id."""
+    source = _inside(root, rel)
     if not source.is_file():
-        raise TrashError(f"{rel} is no longer in the inbox")
+        raise TrashError(f"{rel} is no longer there")
     entry = f"{datetime.now(UTC):{_STAMP}}-{uuid.uuid4().hex[:6]}"
-    target = import_dir / TRASH / entry / rel
+    target = root / TRASH / entry / rel
     target.parent.mkdir(parents=True)
+    (root / TRASH / ".ndignore").touch()  # Navidrome: don't show what's in here
     os.rename(source, target)
-    log.info("Moved %s to the inbox trash", rel)
+    log.info("Moved %s to the trash in %s", rel, root)
     return entry
 
 
-def items(import_dir: Path) -> list[Deleted]:
-    """Everything in the trash, newest first."""
+def items(root: Path) -> list[Deleted]:
+    """Everything in root's trash, newest first."""
     found = []
-    root = import_dir / TRASH
-    for folder in root.iterdir() if root.is_dir() else []:
+    trash = root / TRASH
+    for folder in trash.iterdir() if trash.is_dir() else []:
         when = _deleted_at(folder.name)
         files = [p for p in folder.rglob("*") if p.is_file()]
         if when and len(files) == 1:
@@ -71,23 +77,23 @@ def items(import_dir: Path) -> list[Deleted]:
     return sorted(found, key=lambda d: d.deleted_at, reverse=True)
 
 
-def restore(import_dir: Path, entry: str) -> str:
-    """Move a deleted file back to where it was. Returns its inbox path."""
-    item = next((d for d in items(import_dir) if d.id == entry), None)
+def restore(root: Path, entry: str) -> str:
+    """Move a deleted file back to where it was. Returns its path (inside ``root``)."""
+    item = next((d for d in items(root) if d.id == entry), None)
     if item is None:
         raise TrashError("That file is no longer in the trash")
-    target = _inside(import_dir, item.path)
+    target = _inside(root, item.path)
     if target.exists():
-        raise TrashError(f"{item.path} is in the inbox again; nothing was overwritten")
+        raise TrashError(f"{item.path} is there again; nothing was overwritten")
     target.parent.mkdir(parents=True, exist_ok=True)
-    os.rename(import_dir / TRASH / entry / item.path, target)
-    shutil.rmtree(import_dir / TRASH / entry)  # now empty folders only
-    log.info("Restored %s from the inbox trash", item.path)
+    os.rename(root / TRASH / entry / item.path, target)
+    shutil.rmtree(root / TRASH / entry)  # now empty folders only
+    log.info("Restored %s from the trash in %s", item.path, root)
     return item.path
 
 
 def purge(import_dir: Path, now: datetime | None = None) -> int:
-    """Remove files deleted more than KEEP_DAYS ago for good. Returns how many."""
+    """Inbox trash only: remove files deleted more than KEEP_DAYS ago for good. Returns how many."""
     limit = (now or datetime.now(UTC)) - timedelta(days=KEEP_DAYS)
     removed = 0
     for item in items(import_dir):
@@ -102,6 +108,18 @@ def purge(import_dir: Path, now: datetime | None = None) -> int:
     return removed
 
 
+def empty(root: Path) -> int:
+    """Remove everything in root's trash for good (the owner pressed "Empty trash").
+
+    Only Tagwerk's own folders in it are touched. Returns how many files went."""
+    removed = 0
+    for item in items(root):
+        shutil.rmtree(root / TRASH / item.id)
+        removed += 1
+    log.info("Emptied the trash in %s: %d files removed for good", root, removed)
+    return removed
+
+
 def _deleted_at(name: str) -> datetime | None:
     try:
         return datetime.strptime(name[:15], _STAMP).replace(tzinfo=UTC)
@@ -109,10 +127,10 @@ def _deleted_at(name: str) -> datetime | None:
         return None  # not one of Tagwerk's folders: left alone
 
 
-def _inside(import_dir: Path, rel: str) -> Path:
-    """The path of an inbox file; refuses anything outside the import folder."""
-    root = import_dir.resolve()
-    path = (root / rel).resolve()
-    if not path.is_relative_to(root) or TRASH in Path(rel).parts:
-        raise TrashError("Not a file in the inbox")
+def _inside(root: Path, rel: str) -> Path:
+    """The path of a file inside ``root``; refuses anything outside it (or in the trash)."""
+    base = root.resolve()
+    path = (base / rel).resolve()
+    if not path.is_relative_to(base) or TRASH in Path(rel).parts:
+        raise TrashError("Not a file in that folder")
     return path

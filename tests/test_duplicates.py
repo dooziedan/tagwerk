@@ -140,7 +140,7 @@ def test_restore_never_overwrites(tmp_path):
     (tmp_path / "a.mp3").write_bytes(b"old")
     entry = trash.delete(tmp_path, "a.mp3")
     (tmp_path / "a.mp3").write_bytes(b"new download")
-    with pytest.raises(trash.TrashError, match="in the inbox again"):
+    with pytest.raises(trash.TrashError, match="is there again"):
         trash.restore(tmp_path, entry)
     assert (tmp_path / "a.mp3").read_bytes() == b"new download"
 
@@ -360,3 +360,57 @@ def test_taking_tags_over_from_another_copy(client, music_dir):
     other_group = client.post("/api/duplicates/take", json={"keep": keep, "source": 999999,
                                                              "fields": ["label"]})  # fmt: skip
     assert other_group.status_code == 400
+
+
+def test_the_library_trash(client, engine, music_dir):
+    """A copy goes to the library trash (never the one to keep, never a final one), the next
+    scan leaves it there, it can be restored, and only emptying the trash removes it for good."""
+    from app.models import FinalTrack
+
+    scan_job_run(client)
+    group = next(g for g in client.get("/api/duplicates").json() if len(g["tracks"]) == 7)
+    ids = {t["path"].rsplit("/", 1)[-1]: t["id"] for t in group["tracks"]}
+    keep, mp3, ogg = ids["tagged.flac"], ids["tagged.mp3"], ids["tagged.ogg"]
+
+    assert (
+        client.post("/api/duplicates/trash", json={"track_id": keep, "keep": keep}).status_code
+        == 409
+    )
+    with Session(engine) as session:
+        session.add(FinalTrack(track_id=ogg, mtime=0))
+        session.commit()
+    final = client.post("/api/duplicates/trash", json={"track_id": ogg, "keep": keep})
+    assert final.status_code == 409 and "final" in final.json()["detail"]
+
+    page = client.post(
+        "/duplicates/trash", data={"track_id": mp3, "keep": keep, "back": "/duplicates"}
+    )
+    assert "Moved to the trash" in page.text
+    in_trash = list((music_dir / trash.TRASH).rglob("tagged.mp3"))
+    assert len(in_trash) == 1 and (music_dir / trash.TRASH / ".ndignore").exists()
+    assert not (music_dir / "Fixture Artist/Fixture Album/tagged.mp3").exists()
+    assert client.get(f"/api/tracks/{mp3}").status_code == 404  # left the library at once
+    scan_job_run(client)  # the scan skips the trash
+    assert (
+        len(
+            next(g for g in client.get("/api/duplicates").json() if len(g["tracks"]) >= 6)["tracks"]
+        )
+        == 6
+    )
+    entry = client.get("/api/library-trash").json()[0]
+    assert entry["path"] == "Fixture Artist/Fixture Album/tagged.mp3"
+
+    client.post(f"/duplicates/trash/{entry['id']}/restore")
+    assert (music_dir / "Fixture Artist/Fixture Album/tagged.mp3").exists()
+    assert (
+        len(
+            next(g for g in client.get("/api/duplicates").json() if len(g["tracks"]) >= 6)["tracks"]
+        )
+        == 7
+    )
+
+    wav = ids["tagged.wav"]
+    client.post("/api/duplicates/trash", json={"track_id": wav, "keep": keep})
+    assert client.delete("/api/library-trash").json() == {"removed": 1}
+    assert client.get("/api/library-trash").json() == []
+    assert not list((music_dir / trash.TRASH).rglob("tagged.wav"))  # gone for good

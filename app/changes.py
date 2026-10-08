@@ -204,6 +204,9 @@ class WriteProgress:
     current: str = ""
     changeset_id: int | None = None
     errors: list[str] = field(default_factory=list)  # "path: reason"
+    # An apply's ticked changes (None: all pending ones): the Changes page leaves them out while
+    # they are being written, so they don't show up again after the list burnt away.
+    change_ids: list[int] | None = None
 
 
 def apply_pending(

@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.14, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
+> **Status: v0.15, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
 
 ![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
 
@@ -30,7 +30,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Tagwerk's work:** what Tagwerk has done for your library: tag values filled in, corrected or removed per field, where they came from (you, the audio, online, the filename …), imports, conversions, and how many tracks were set-ready before and are now.
 - **Two modes**, chosen in the setup wizard or Settings: **DJ** (BPM, keys in Camelot, Open Key or musical notation, set-readiness, audio quality) and **Collector** (albums, decades, lyrics, ReplayGain). Modes only change what is shown, never what is stored.
 - **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover, and a **play bar** that keeps playing while you browse.
-- **Duplicates:** tracks that are in your library more than once (identical files, the same recording, or the same artist and title at the same length), with their copies side by side. Tagwerk suggests keeping the one with the best sound and lets you take tags and covers over from the others before you delete them yourself; it never deletes library files.
+- **Duplicates:** tracks that are in your library more than once (identical files, the same recording, or the same artist and title at the same length), with their copies side by side. Tagwerk suggests keeping the one with the best sound and lets you take tags and covers over from the others; then move the others to the trash. They stay there, restorable, until you empty it: Tagwerk never removes a library file on its own.
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
 
 **Tagging**
@@ -82,7 +82,7 @@ Next (see the [roadmap](docs/roadmap.md)): checks on a real library before 1.0, 
 2. **Scan your library** on Home. Scanning only reads your files. Home then shows what needs you, and **Statistics** shows your library in numbers; every number opens its tracks.
 3. **Fix tags**: open a track and choose **Edit tags**, or tick tracks in the list and edit them together. Nothing is written yet: changes wait on the **Changes** page, shown as *old → new*. Tick what you want and **Apply**; **History** undoes any apply.
 4. **New music** goes into the import folder. The **Inbox** shows what Tagwerk found (from the filename, online sources and the audio); check a track, then **Import** it into the library.
-5. **Duplicates** lists tracks you have more than once. Keep the suggested copy, take over what the others have, then delete the others in your file manager.
+5. **Duplicates** lists tracks you have more than once. Keep the suggested copy, take over what the others have, then move the others to the trash (restorable until you empty it).
 6. **Final check**: mark finished tracks as final; they're locked against changes (and renamed, if you switch that on).
 
 ## Configuration

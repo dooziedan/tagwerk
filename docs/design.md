@@ -47,8 +47,11 @@ map is one indigo from dark (few) to light (many), with light ink on levels 1–
   with sparks out of the button; the sparks set the ticked changes alight and they burn away
   from the bottom up into stardust: a wavy, flickering edge (a clip-path polygon that follows
   the wave) climbs slowly at first and a little faster going up, the cards glow hot just above it,
-  and dust and a few embers rise from it (canvas above the page; 1.2 to 2.2 s by the list's
-  height); then the form is sent. Buttons opt in with
+  and dust and a few embers rise from it (canvas above the page; 0.8 to 2.2 s by the height on
+  screen: only what is on screen burns, so a long list never burns off the screen or takes
+  longer; the rest goes when the edge reaches the top, and the page then scrolls to the top). The form is sent right away, so the files are written while the list burns; when both
+  are done the page shows the result once. The server leaves changes being written out of the
+  page, so the burnt list never comes back. Buttons opt in with
   `data-fx="warp"` or `data-fx="burst"`; a form names what burns with `form.twBurnTargets()`.
   Effects start only when the form is really sent. Ambient motion is
   limited to the slow drift, breathing stars and the orbits in Home's header.
