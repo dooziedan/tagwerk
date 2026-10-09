@@ -56,8 +56,9 @@ def stage(
     ``values`` maps editable fields to the typed value ("" or None removes the field).
     Returns (number of pending changes, errors per field). With any error nothing is saved.
     A value equal to the current one removes that field's pending change instead.
-    Final tracks are locked: they are skipped (app/final.py). ``source``: where the values
-    came from (a key of SOURCES); a pending change saved again unchanged keeps its source.
+    Final tracks are locked: they are skipped (app/final.py), and so are fields a track's
+    format can't hold (writer.supports: Opus has no ReplayGain peaks). ``source``: where the
+    values came from (a key of SOURCES); a pending change saved again unchanged keeps its source.
     """
     normalized: dict[str, str | None] = {}
     errors: dict[str, str] = {}
@@ -72,6 +73,8 @@ def stage(
     count = 0
     for track in session.exec(select(Track).where(col(Track.id).in_(track_ids), _NOT_FINAL)):
         for name, new in normalized.items():
+            if not writer.supports(track.format, name):
+                continue
             old = writer.current_value(track, name)
             existing = session.exec(
                 select(PendingChange).where(

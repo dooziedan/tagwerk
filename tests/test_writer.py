@@ -262,3 +262,111 @@ def test_removing_a_comment_removes_every_copy(tmp_path, fmt):
 
     writer.undo(path, snapshot)
     assert raw(path) == before
+
+
+# --- ReplayGain (ADR 0028) ------------------------------------------------------------------
+
+REPLAYGAIN = {
+    "replaygain_track_gain": "-7.25 dB",
+    "replaygain_track_peak": "0.988525",
+    "replaygain_album_gain": "-8.10 dB",
+    "replaygain_album_peak": "1.012000",
+}
+GAINS_ONLY = {k: v for k, v in REPLAYGAIN.items() if k.endswith("gain")}
+
+
+def _replaygain(fmt):
+    return GAINS_ONLY if fmt == "opus" else REPLAYGAIN  # Opus has no peak fields
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_replaygain_round_trips_and_undoes_exactly(tmp_path, fmt):
+    path = copy(tmp_path, fmt)
+    before = raw(path)
+    snapshot = writer.write(path, _replaygain(fmt))
+    info = read_file(path)
+    for name, value in _replaygain(fmt).items():
+        assert writer.current_value(info, name) == value, name
+    writer.undo(path, snapshot)
+    assert raw(path) == before
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_replaygain_can_be_removed(tmp_path, fmt):
+    path = copy(tmp_path, fmt)
+    writer.write(path, _replaygain(fmt))
+    writer.write(path, dict.fromkeys(_replaygain(fmt)))
+    info = read_file(path)
+    assert all(getattr(info, name) is None for name in REPLAYGAIN)
+    assert info.title == "Silent Track"
+
+
+@pytest.mark.parametrize("fmt", ["mp3", "flac", "m4a"])
+def test_replaygain_keeps_the_tag_name_the_file_uses(tmp_path, fmt):
+    """The fixtures spell the track gain differently (REPLAYGAIN_TRACK_GAIN in ID3,
+    replaygain_track_gain elsewhere); a new value goes into the same field."""
+    path = copy(tmp_path, fmt)
+    names = {name for _, name in raw(path) if "replaygain_track_gain" in name.lower()}
+    writer.write(path, {"replaygain_track_gain": "-1.00 dB"})
+    assert {name for _, name in raw(path) if "replaygain_track_gain" in name.lower()} == names
+
+
+def test_opus_keeps_gains_in_its_r128_fields(tmp_path):
+    """Opus writes gains as R128_TRACK_GAIN / R128_ALBUM_GAIN: whole 1/256 dB, relative to
+    -23 LUFS (5 dB below ReplayGain's reference). A REPLAYGAIN_* gain is replaced."""
+    path = copy(tmp_path, "opus")
+    assert ("vorbis", "replaygain_track_gain") in raw(path)  # the fixture's non-standard tag
+    writer.write(path, GAINS_ONLY)
+    stored = dict(iter(mutagen.File(path).tags))  # names as stored, in capitals like opusenc's
+    assert stored["R128_TRACK_GAIN"] == str(round((-7.25 - 5) * 256))  # "-3136"
+    assert stored["R128_ALBUM_GAIN"] == str(round((-8.10 - 5) * 256))
+    assert "replaygain_track_gain" not in {k.lower() for k in stored}
+    info = read_file(path)
+    assert info.replaygain_track_gain == pytest.approx(-7.25, abs=0.004)
+    assert writer.current_value(info, "replaygain_album_gain") == "-8.10 dB"
+
+
+def test_opus_has_no_peak_fields(tmp_path):
+    path = copy(tmp_path, "opus")
+    with pytest.raises(writer.WriteError, match="no ReplayGain peak"):
+        writer.write(path, {"replaygain_track_peak": "0.9"})
+    assert not writer.supports("opus", "replaygain_track_peak")
+    assert writer.supports("opus", "replaygain_track_gain")
+    assert writer.supports("flac", "replaygain_album_peak")
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("replaygain_track_gain", "-6.2", "-6.20 dB"),
+        ("replaygain_track_gain", "-6,25 dB", "-6.25 dB"),
+        ("replaygain_album_gain", "+1.5dB", "1.50 dB"),
+        ("replaygain_track_peak", "0.98", "0.980000"),
+        ("replaygain_album_peak", "1,2", "1.200000"),
+        ("replaygain_track_peak", "", None),
+    ],
+)
+def test_normalize_replaygain(field, value, expected):
+    assert writer.normalize(field, value) == expected
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("replaygain_track_gain", "loud"),
+        ("replaygain_track_gain", "-80"),
+        ("replaygain_track_peak", "-0.5"),
+        ("replaygain_track_peak", "0.9 dB"),
+    ],
+)
+def test_normalize_rejects_bad_replaygain(field, value):
+    with pytest.raises(ValueError):
+        writer.normalize(field, value)
+
+
+def test_undo_brings_back_the_spelling_of_vorbis_names(tmp_path):
+    path = copy(tmp_path, "opus")
+    writer.write(path, {"replaygain_track_gain": "-6.00 dB"})
+    snapshot = writer.write(path, {"replaygain_track_gain": "-3.00 dB"})
+    writer.undo(path, snapshot)
+    assert dict(iter(mutagen.File(path).tags))["R128_TRACK_GAIN"] == "-2816"  # not r128_track_gain

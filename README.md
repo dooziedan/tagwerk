@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.17, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
+> **Status: v0.18, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
 
 ![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
 
@@ -24,7 +24,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 **Safe by design:** Tagwerk only writes files when you say so (or, if you switch on automatic mode, when it imports inbox tracks it is sure about). Every change is staged, shown as *old → new* with where the value came from, and written only when you click **Apply**: all of them, or only the ones you tick. The previous tags are kept, so every change can be undone. Filenames stay as they are unless you choose otherwise.
 
 **Your library**
-- **Library scan:** reads MP3, FLAC, WAV, AIFF, M4A, OGG and Opus (ID3, Vorbis comments, MP4 tags, RIFF INFO), including BPM, key, comment, label, catalog number, ReplayGain and lyrics (embedded or `.lrc`). Read-only; unchanged files are skipped on rescans.
+- **Library scan:** reads MP3, FLAC, WAV, AIFF, M4A, OGG and Opus (ID3, Vorbis comments, MP4 tags, RIFF INFO), including BPM, key, comment, label, catalog number, ReplayGain (track and album gain and peak; Opus R128) and lyrics (embedded or `.lrc`). Read-only; unchanged files are skipped on rescans.
 - **Home:** what needs you right now (inbox, pending changes, things worth fixing) and what was added recently.
 - **Statistics:** a heat map of any two of key, tempo, release year, year added, genre and format (e.g. key × tempo for harmonic mixing), library growth, set-ready share per genre, track lengths, top labels and artists, formats and quality. Every number links to its tracks.
 - **Tagwerk's work:** what Tagwerk has done for your library: tag values filled in, corrected or removed per field, where they came from (you, the audio, online, the filename …), imports, conversions, and how many tracks were set-ready before and are now.
@@ -34,7 +34,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
 
 **Tagging**
-- **Edit tags** of one track or many at once, in all 7 formats.
+- **Edit tags** of one track or many at once, in all 7 formats, including ReplayGain (track and album gain and peak).
 - **BPM and key from the audio**, made for bass-heavy music like drum & bass: an exact tempo, half/double time settled by genre, filename and online sources, keys tuned for sub-bass. Empty fields get filled, tags that differ get flagged. Uses all CPU cores you give the container.
 - **Online identification:** MusicBrainz, AcoustID (by the sound), Discogs, Deezer and iTunes fill empty fields and covers; a value is *sure* when two sources agree. MusicBrainz checks are optional, since edits, bootlegs and promos usually aren't on MusicBrainz.
 - **Genre spellings:** one genre written in several ways ("Drum & Bass", "Drum and Bass", "DnB") counts as one in the statistics and the track list; merge them into one spelling of your choice, through review and undo like every change.

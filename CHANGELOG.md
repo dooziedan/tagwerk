@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-09
+
+### Added
+- **Edit ReplayGain**: the edit page has a new **ReplayGain** section with track gain, track peak, album gain and album peak, for one track or many at once. Like every edit, the values become pending changes and are written only when you apply them, with undo. Navidrome uses these tags to even out the volume between tracks. Measuring ReplayGain from the audio comes in a later version.
+- **All ReplayGain values are read**: Tagwerk read only the track gain so far; now it also reads the track peak, album gain and album peak, and the track page shows them. The next scan reads every track once more to pick them up.
+
+### Fixed
+- **Opus files showed no ReplayGain**: Opus keeps its gains in its own fields (`R128_TRACK_GAIN`, `R128_ALBUM_GAIN`, relative to a different reference level), which Tagwerk didn't read, so Opus tracks counted as missing ReplayGain. They are now read and written the Opus way. Opus has no peak fields, so the edit page leaves the peaks out for Opus files.
+
 ## [0.17.2] - 2026-10-09
 
 ### Changed

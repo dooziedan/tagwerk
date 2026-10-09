@@ -1323,3 +1323,7 @@ article table thead th, table.kv thead th { background: none; }
 
 /* Duplicates: a copy marked for the trash (moved when the pending changes are applied) */
 .dup-table th.queued .dup-file { opacity: 0.55; text-decoration: line-through; }
+
+/* Edit page: the ReplayGain section under the main tags */
+.edit-section { margin: 1.75rem 0 0; padding: 0; border: 0; }
+.edit-section legend { padding: 0; margin-bottom: 0.75rem; }

@@ -29,6 +29,8 @@ FilterDep = Annotated[TrackFilter, Depends()]
 # Form order: what a DJ edits most comes first.
 FIELD_ORDER = ["bpm", "key", "genre", "comment", "label", "catalognumber",
                "title", "artist", "album", "albumartist", "track", "disc", "date"]  # fmt: skip
+# The edit form's fields: the tags, then the ReplayGain section.
+FORM_FIELDS = {**writer.EDITABLE, **writer.REPLAYGAIN}
 HINTS = {
     "artist": "Several artists: separate with ;",
     "albumartist": "Several: separate with ;",
@@ -38,6 +40,10 @@ HINTS = {
     "date": "2021 or 2021-05-14",
     "bpm": "e.g. 128 or 127.5",
     "key": "Any notation: Am, 8A, 1m, F# minor",
+    "replaygain_track_gain": "dB, e.g. -6.5",
+    "replaygain_album_gain": "dB, e.g. -7.1",
+    "replaygain_track_peak": "1.0 is full scale, e.g. 0.98",
+    "replaygain_album_peak": "1.0 is full scale",
 }
 
 
@@ -154,12 +160,12 @@ def edit_track_form(request: Request, track_id: int, session: SessionDep):
     if final.final_ids(session, [track.id]):  # locked: the track page explains how to unlock
         return RedirectResponse(f"/tracks/{track.id}?locked=1", status_code=303)
     prefs = preferences.load(session)
-    values = {f: writer.current_value(track, f) or "" for f in writer.EDITABLE}
+    values = {f: writer.current_value(track, f) or "" for f in FORM_FIELDS}
     pending = {
         c.field: c for p in changes.pending(session) if p.track.id == track_id for c in p.changes
     }
     for name, change in pending.items():
-        if name in writer.EDITABLE:
+        if name in FORM_FIELDS:
             values[name] = change.new_value or ""
     back = back_url(request, request.query_params.get("back"), fallback="/tracks")
     return _edit_page(request, prefs, [track], values, {}, pending=pending, back=back)
@@ -169,7 +175,8 @@ def edit_track_form(request: Request, track_id: int, session: SessionDep):
 async def edit_track(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
     track = _track(session, track_id)
     form = await read_form(request)
-    values = {f: str(form.get(f, "")) for f in writer.EDITABLE}
+    # Only the fields in the form: one it doesn't show (an Opus file's peaks) stays as it is.
+    values = {f: str(form.get(f, "")) for f in FORM_FIELDS if f in form}
     cover, errors = await cover_choice(form, settings)
     if not errors:
         count, errors = changes.stage(session, [track.id], values)
@@ -199,7 +206,7 @@ async def edit_many(request: Request, session: SessionDep, settings: SettingsDep
     form = await read_form(request)
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     tracks = list(session.exec(select(Track).where(col(Track.id).in_(ids))).all())
-    values = {f: str(form.get(f, "")) for f in writer.EDITABLE if form.get(f"change_{f}") == "on"}
+    values = {f: str(form.get(f, "")) for f in FORM_FIELDS if form.get(f"change_{f}") == "on"}
     cover, errors = await cover_choice(form, settings)
     count = 0
     if not errors and not values and cover is KEEP_COVER:
@@ -208,7 +215,7 @@ async def edit_many(request: Request, session: SessionDep, settings: SettingsDep
         count, errors = changes.stage(session, ids, values)
     if errors:
         prefs = preferences.load(session)
-        typed = {f: str(form.get(f, "")) for f in writer.EDITABLE}
+        typed = {f: str(form.get(f, "")) for f in FORM_FIELDS}
         back = back_url(request, form.get("back"), fallback="/tracks")
         locked = len(final.final_ids(session, ids))
         return _edit_page(
@@ -283,7 +290,7 @@ def _edit_page(
     many = len(tracks) > 1
     shared = {}
     if many:
-        for name in writer.EDITABLE:
+        for name in FORM_FIELDS:
             found = {writer.current_value(t, name) for t in tracks}
             shared[name] = next(iter(found)) if len(found) == 1 else None
             if not values.get(name) and len(found) == 1:
@@ -296,6 +303,13 @@ def _edit_page(
             "tracks": tracks,
             "many": many,
             "fields": [(n, writer.EDITABLE[n]) for n in FIELD_ORDER],
+            # ReplayGain: peaks only where the format has them (not Opus, RFC 7845)
+            "replaygain": [
+                (n, label.removeprefix("ReplayGain ").capitalize())
+                for n, label in writer.REPLAYGAIN.items()
+                if many or writer.supports(tracks[0].format, n)
+            ],
+            "opus": sum(1 for t in tracks if t.format == "opus"),
             "values": values,
             "shared": shared,
             "errors": errors,

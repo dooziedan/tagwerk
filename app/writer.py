@@ -60,11 +60,25 @@ IDS = {
     "discogs_releaseid": "Discogs release ID",
     "discogs_artistid": "Discogs artist ID",
 }
+# ReplayGain (ADR 0028): gains in dB ("-6.20 dB"), peaks as linear amplitude ("0.988525",
+# 1.0 is full scale). Its own section on the edit page, not part of the inbox and import.
+REPLAYGAIN = {
+    "replaygain_track_gain": "ReplayGain track gain",
+    "replaygain_track_peak": "ReplayGain track peak",
+    "replaygain_album_gain": "ReplayGain album gain",
+    "replaygain_album_peak": "ReplayGain album peak",
+}
+_GAINS = {"replaygain_track_gain", "replaygain_album_gain"}
+_PEAKS = {"replaygain_track_peak", "replaygain_album_peak"}
+# Opus keeps gains in its own fields (RFC 7845): whole numbers in 1/256 dB, relative to the
+# EBU R128 level of -23 LUFS instead of ReplayGain's -18 LUFS. It has no peak fields.
+_R128 = {"replaygain_track_gain": "R128_TRACK_GAIN", "replaygain_album_gain": "R128_ALBUM_GAIN"}
+R128_OFFSET = 5.0  # dB between the two reference levels
 # "A; B" is written as two values. The MusicBrainz track ID can only hold one (ID3 UFID).
 MULTI_VALUE = {"artist", "albumartist", "genre", *IDS} - {"mb_trackid"}
 COVER = "cover"
 # Every field a change can have, with its label: the text fields, IDs and cover art.
-LABELS = {**EDITABLE, **IDS, COVER: "Cover art"}
+LABELS = {**EDITABLE, **REPLAYGAIN, **IDS, COVER: "Cover art"}
 # Removing one program's private ID3 frames (PRIV), e.g. "private:TRAKTOR4" for the waveform,
 # beat grid and cue points Traktor keeps in the file. Only removal; only ID3 has them.
 PRIVATE = "private:"
@@ -83,6 +97,11 @@ def private_owners(path: Path) -> set[str]:
         return {f.owner for f in tags.getall("PRIV")} if isinstance(tags, ID3) else set()
     except Exception:
         return set()
+
+
+def supports(fmt: str | None, field: str) -> bool:
+    """Whether a file format can hold a field: Opus has no ReplayGain peaks (RFC 7845)."""
+    return not (fmt == "opus" and field in _PEAKS)
 
 
 def label(field: str) -> str:
@@ -112,13 +131,15 @@ def normalize(field: str, value: str | None) -> str | None:
 
     Raises ValueError with a readable message for values that can't be written.
     """
-    if field not in EDITABLE and field not in IDS:
+    if field not in EDITABLE and field not in IDS and field not in REPLAYGAIN:
         raise ValueError(f"{field} can't be edited")
     value = (value or "").strip()
     if not value:
         return None
     if field in IDS:
         return _normalize_ids(field, value)
+    if field in REPLAYGAIN:
+        return _normalize_replaygain(field, value)
     if field in MULTI_VALUE:
         parts = [p.strip() for p in value.split(";") if p.strip()]
         return "; ".join(dict.fromkeys(parts)) or None
@@ -142,6 +163,19 @@ def normalize(field: str, value: str | None) -> str | None:
     if field == "date" and not re.fullmatch(r"\d{4}(-\d{2}(-\d{2})?)?", value):
         raise ValueError("Date must look like 2021 or 2021-05-14")
     return value
+
+
+def _normalize_replaygain(field: str, value: str) -> str:
+    """ "-6.2", "-6,2 dB" -> "-6.20 dB"; "0.98" -> "0.980000" (how taggers write them)."""
+    match = re.fullmatch(r"([-+]?\d+(?:[.,]\d+)?)\s*(db)?", value, re.IGNORECASE)
+    number = float(match.group(1).replace(",", ".")) if match else None
+    if field in _GAINS:
+        if number is None or not -60 <= number <= 60:
+            raise ValueError("A gain is a number of dB between -60 and 60, e.g. -6.5")
+        return f"{number:.2f} dB"
+    if number is None or match.group(2) or not 0 <= number <= 10:
+        raise ValueError("A peak is a number like 0.98 (1.0 is full scale)")
+    return f"{number:.6f}"
 
 
 def _normalize_ids(field: str, value: str) -> str:
@@ -168,6 +202,11 @@ def current_value(track, field: str) -> str | None:
         return display(track.key_camelot, "musical") if track.key_camelot else track.key
     if field == COVER:
         return "embedded" if track.has_cover else None
+    if field in REPLAYGAIN:
+        number = getattr(track, field)
+        if number is None:
+            return None
+        return f"{number:.2f} dB" if field in _GAINS else f"{number:.6f}"
     return getattr(track, field)
 
 
@@ -197,6 +236,8 @@ def write(path: Path, changes: dict[str, str | None], images: ImageStore | None 
     handler = _handler(audio)
     if handler is not _ID3 and any(f.startswith(PRIVATE) for f in changes):
         raise WriteError("only ID3 tags (MP3, WAV, AIFF) have private data")
+    if _is_opus(audio) and any(changes.get(f) is not None for f in _PEAKS):
+        raise WriteError("Opus files have no ReplayGain peak fields")
     snapshot = handler.write(audio, changes, images)
     return {"system": handler.system, "fields": sorted(changes), **snapshot}
 
@@ -227,6 +268,10 @@ def tag_converted(path: Path, frames: list) -> None:
     for frame in frames:
         audio.tags.add(frame)
     audio.save(v2_version=4)
+
+
+def _is_opus(audio) -> bool:
+    return type(audio).__name__ == "OggOpus"
 
 
 def _picture(data: bytes) -> Picture:
@@ -294,6 +339,10 @@ _ID3_GROUPS: dict[str, Callable] = {
     "mb_albumartistid": _id3_txxx("musicbrainz album artist id"),
     "discogs_releaseid": _id3_txxx("discogs_release_id"),
     "discogs_artistid": _id3_txxx("discogs_artist_id"),
+    "replaygain_track_gain": _id3_txxx("replaygain_track_gain"),
+    "replaygain_track_peak": _id3_txxx("replaygain_track_peak"),
+    "replaygain_album_gain": _id3_txxx("replaygain_album_gain"),
+    "replaygain_album_peak": _id3_txxx("replaygain_album_peak"),
     COVER: lambda f: f.FrameID == "APIC",
 }
 # TXXX frames by field, with the name used when the file has none yet (Picard's and Mp3tag's).
@@ -304,6 +353,10 @@ _ID3_TXXX = {
     "mb_albumartistid": "MusicBrainz Album Artist Id",
     "discogs_releaseid": "DISCOGS_RELEASE_ID",
     "discogs_artistid": "DISCOGS_ARTIST_ID",
+    "replaygain_track_gain": "REPLAYGAIN_TRACK_GAIN",
+    "replaygain_track_peak": "REPLAYGAIN_TRACK_PEAK",
+    "replaygain_album_gain": "REPLAYGAIN_ALBUM_GAIN",
+    "replaygain_album_peak": "REPLAYGAIN_ALBUM_PEAK",
 }
 
 
@@ -445,6 +498,10 @@ _VORBIS_KEYS = {
     "mb_albumartistid": ["musicbrainz_albumartistid"],
     "discogs_releaseid": ["discogs_release_id"],
     "discogs_artistid": ["discogs_artist_id"],
+    "replaygain_track_gain": ["replaygain_track_gain"],
+    "replaygain_track_peak": ["replaygain_track_peak"],
+    "replaygain_album_gain": ["replaygain_album_gain"],
+    "replaygain_album_peak": ["replaygain_album_peak"],
 }
 _VORBIS_NUMBERS = {
     "track": (["tracknumber", "track"], ["tracktotal", "totaltracks"]),
@@ -452,13 +509,20 @@ _VORBIS_NUMBERS = {
 }
 
 
-def _vorbis_keys(field: str) -> list[str]:
+def _vorbis_keys(field: str, opus: bool = False) -> list[str]:
     if field == COVER:
         return []  # handled by _Vorbis._write_cover / _undo_cover
     if field in _VORBIS_NUMBERS:
         number, total = _VORBIS_NUMBERS[field]
         return number + total
+    if opus and field in _R128:  # a REPLAYGAIN_* gain some taggers add is replaced too
+        return [_R128[field].lower(), *_VORBIS_KEYS[field]]
     return _VORBIS_KEYS[field]
+
+
+def r128_gain(value: str) -> str:
+    """A ReplayGain gain ("-6.20 dB") as Opus writes it: 1/256 dB relative to -23 LUFS."""
+    return str(round((float(value.split()[0]) - R128_OFFSET) * 256))
 
 
 class _Vorbis:
@@ -469,13 +533,13 @@ class _Vorbis:
         if audio.tags is None:
             audio.add_tags()
         tags = audio.tags
+        opus = _is_opus(audio)
         present = {k.lower() for k in tags.keys()}  # noqa: SIM118
-        before = {
-            key: list(tags[key])
-            for field in changes
-            for key in _vorbis_keys(field)
-            if key in present
-        }
+        wanted = {key for field in changes for key in _vorbis_keys(field, opus)}
+        before: dict[str, list[str]] = {}  # names as the file spells them, for an exact undo
+        for key, value in tags:  # (tags.keys() would give them in lower case)
+            if key.lower() in wanted:
+                before.setdefault(key, []).append(value)
         snapshot: dict = {"values": before}
         for field, value in changes.items():
             if field == COVER:
@@ -483,12 +547,14 @@ class _Vorbis:
             elif field in _VORBIS_NUMBERS:
                 _Vorbis._set_number(tags, present, field, value)
             else:
-                keys = _VORBIS_KEYS[field]
+                keys = _vorbis_keys(field, opus)
                 target = next((k for k in keys if k in present), keys[0])
                 for k in keys:
                     if k in present:
                         del tags[k]
-                if value is not None:
+                if value is not None and opus and field in _R128:
+                    tags[_R128[field]] = [r128_gain(value)]
+                elif value is not None:
                     tags[target] = _split(value) if field in MULTI_VALUE else [value]
         audio.save()
         return snapshot
@@ -550,7 +616,7 @@ class _Vorbis:
         tags = audio.tags
         present = {k.lower() for k in tags.keys()}  # noqa: SIM118
         for field in snapshot["fields"]:
-            for key in _vorbis_keys(field):
+            for key in _vorbis_keys(field, _is_opus(audio)):
                 if key in present:
                     del tags[key]
         for key, values in snapshot["values"].items():
@@ -583,6 +649,10 @@ _MP4_KEYS = {
     "mb_albumartistid": [_FF + "MusicBrainz Album Artist Id"],
     "discogs_releaseid": [_FF + "DISCOGS_RELEASE_ID"],
     "discogs_artistid": [_FF + "DISCOGS_ARTIST_ID"],
+    "replaygain_track_gain": [_FF + "replaygain_track_gain"],
+    "replaygain_track_peak": [_FF + "replaygain_track_peak"],
+    "replaygain_album_gain": [_FF + "replaygain_album_gain"],
+    "replaygain_album_peak": [_FF + "replaygain_album_peak"],
     COVER: ["covr"],
 }
 

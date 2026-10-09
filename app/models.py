@@ -57,7 +57,10 @@ class Track(SQLModel, table=True):
     comment: str | None = None
     label: str | None = None
     catalognumber: str | None = None
-    replaygain_track_gain: float | None = None  # dB
+    replaygain_track_gain: float | None = None  # dB, relative to -18 LUFS
+    replaygain_track_peak: float | None = None  # linear amplitude, 1.0 = full scale
+    replaygain_album_gain: float | None = None  # dB
+    replaygain_album_peak: float | None = None
 
     error: str | None = None  # set when the file could not be read
     # When the track joined the library (Statistics: library growth). Imported tracks: the
