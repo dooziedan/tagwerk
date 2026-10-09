@@ -62,6 +62,7 @@ def main(base: str, out: Path) -> int:
     }
     if track:
         pages["track"] = f"/tracks/{track}"
+        pages["edit"] = f"/tracks/{track}/edit"
         pages["convert"] = f"/convert?ids={track}"
     # Pages that only have something to show in some libraries (BPM/key from the audio, IDs).
     for name, flag in (("track-audio", "audio_bpm_octave"), ("track-ids", "invalid_mbid")):

@@ -70,6 +70,7 @@ Noted by the owner (2026-10-08); not yet placed before or after 1.0.
   albums; ffmpeg is already in the image), offer the results as pending changes like BPM and
   key, and make the ReplayGain fields editable in all 7 formats, including Opus's own
   `R128_TRACK_GAIN` and exact undo. Navidrome uses these tags to even out playback volume.
+  *Part 1 done: all four fields are read and editable in every format ([ADR 0028](decisions/0028-replaygain.md)); measuring from the audio is next.*
 - **Advanced tags on the edit page**
   ([issue #40](https://github.com/dooziedan/tagwerk/issues/40)). A switch on a track's edit page that shows every tag field
   in the file (the raw fields the track page lists, with what each one feeds) and lets the owner

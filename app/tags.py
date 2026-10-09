@@ -92,13 +92,16 @@ class FileInfo:
     comment: str | None = None
     label: str | None = None
     catalognumber: str | None = None
-    replaygain_track_gain: float | None = None  # dB
+    replaygain_track_gain: float | None = None  # dB, relative to -18 LUFS
+    replaygain_track_peak: float | None = None  # linear amplitude, 1.0 = full scale
+    replaygain_album_gain: float | None = None
+    replaygain_album_peak: float | None = None
 
     # Raw text values, converted to numbers by _finish().
     _track: str | None = field(default=None, repr=False)  # "3/12"
     _disc: str | None = field(default=None, repr=False)
     _bpm: str | None = field(default=None, repr=False)
-    _replaygain: str | None = field(default=None, repr=False)  # "-6.20 dB"
+    _replaygain: dict[str, str | None] = field(default_factory=dict, repr=False)  # "-6.20 dB"
 
     # Every tag field as stored in the file (for the Tag fields page), not a Track column.
     raw: list[RawField] = field(default_factory=list, repr=False)
@@ -106,6 +109,17 @@ class FileInfo:
     def as_columns(self) -> dict:
         """The values to store on a ``Track`` row."""
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_") and k != "raw"}
+
+
+# The ReplayGain fields: Tagwerk name -> tag name (TXXX description, Vorbis key, MP4 freeform).
+REPLAYGAIN_TAGS = {
+    "replaygain_track_gain": "REPLAYGAIN_TRACK_GAIN",
+    "replaygain_track_peak": "REPLAYGAIN_TRACK_PEAK",
+    "replaygain_album_gain": "REPLAYGAIN_ALBUM_GAIN",
+    "replaygain_album_peak": "REPLAYGAIN_ALBUM_PEAK",
+}
+# Opus's own gains (RFC 7845): 1/256 dB relative to -23 LUFS, 5 dB below ReplayGain's level.
+R128_TAGS = {"replaygain_track_gain": "R128_TRACK_GAIN", "replaygain_album_gain": "R128_ALBUM_GAIN"}
 
 
 def is_comment_frame(frame) -> bool:
@@ -142,7 +156,7 @@ def read_file(path: Path) -> FileInfo:
     if isinstance(tags, ID3):
         _read_id3(tags, info)
     elif isinstance(tags, VCommentDict):
-        _read_vorbis(tags, info)
+        _read_vorbis(tags, info, opus=fmt == "opus")
         if isinstance(audio, FLAC) and audio.pictures:
             info.has_cover = True
     elif isinstance(tags, MP4Tags):
@@ -185,7 +199,7 @@ def _read_id3(tags: ID3, info: FileInfo) -> None:
     info.key = _id3_text(tags, "TKEY")
     info.label = _id3_text(tags, "TPUB") or _id3_txxx(tags, "LABEL")
     info.catalognumber = _id3_txxx(tags, "CATALOGNUMBER")
-    info._replaygain = _id3_txxx(tags, "REPLAYGAIN_TRACK_GAIN")
+    info._replaygain = {k: _id3_txxx(tags, name) for k, name in REPLAYGAIN_TAGS.items()}
     # Comments have a description; skip the hidden ones players write, like "iTunNORM".
     info.comment = _join(str(frame) for frame in tags.getall("COMM") if is_comment_frame(frame))
 
@@ -206,7 +220,7 @@ def _id3_txxx(tags: ID3, name: str) -> str | None:
 # --- Vorbis comments (FLAC, OGG, Opus) ------------------------------------------------------
 
 
-def _read_vorbis(tags: VCommentDict, info: FileInfo) -> None:
+def _read_vorbis(tags: VCommentDict, info: FileInfo, opus: bool = False) -> None:
     def get(*keys: str) -> str | None:
         for key in keys:
             if key in tags:
@@ -238,7 +252,12 @@ def _read_vorbis(tags: VCommentDict, info: FileInfo) -> None:
     info.comment = get("comment", "description")
     info.label = get("label", "organization", "publisher")
     info.catalognumber = get("catalognumber")
-    info._replaygain = get("replaygain_track_gain")
+    info._replaygain = {k: get(name.lower()) for k, name in REPLAYGAIN_TAGS.items()}
+    if opus:  # Opus's own gains win over REPLAYGAIN_* tags some taggers add anyway
+        for name, key in R128_TAGS.items():
+            r128 = _to_int(get(key.lower()))
+            if r128 is not None:
+                info._replaygain[name] = f"{r128 / 256 + 5:.8f}"
 
 
 # --- MP4 atoms (M4A) ----------------------------------------------------------------------
@@ -283,7 +302,7 @@ def _read_mp4(tags: MP4Tags, info: FileInfo) -> None:
     info.comment = text("\xa9cmt")
     info.label = freeform("LABEL") or freeform("publisher")
     info.catalognumber = freeform("CATALOGNUMBER")
-    info._replaygain = freeform("replaygain_track_gain")
+    info._replaygain = {k: freeform(name) for k, name in REPLAYGAIN_TAGS.items()}
 
 
 # --- RIFF INFO (WAV without ID3) ----------------------------------------------------------
@@ -359,7 +378,8 @@ def _finish(info: FileInfo) -> None:
     bpm = _to_float(info._bpm)
     info.bpm = round(bpm, 2) if bpm and bpm > 0 else None  # Some taggers write "0" for unknown
     info.key_camelot = to_camelot(info.key)
-    info.replaygain_track_gain = _to_float(info._replaygain)
+    for name in REPLAYGAIN_TAGS:
+        setattr(info, name, _to_float(info._replaygain.get(name)))
     info.mbid_invalid = any(
         value and not all(MBID_RE.match(part) for part in value.split("; "))
         for value in (getattr(info, name) for name in MBID_FIELDS)

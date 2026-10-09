@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Edit · Tagwerk{% endblock %}
 {% block content %}
+{% macro field_row(name, label) %}
+  <div class="edit-row{% if many %} with-check{% endif %}{% if errors[name] %} has-error{% endif %}">
+    {% if many %}
+    <label class="edit-check"><input type="checkbox" name="change_{{ name }}" {% if name in checked %}checked{% endif %} aria-label="Change {{ label }}"> Change</label>
+    {% endif %}
+    <label for="f-{{ name }}" class="edit-label">{{ label }}{% if name in pending %} <span class="badge">pending</span>{% endif %}</label>
+    <div class="edit-input">
+      <input id="f-{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}"
+             {% if many and shared.get(name) is none %}placeholder="(different values)"{% endif %}
+             {% if errors[name] %}aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}
+             {% if many %}oninput="this.form['change_{{ name }}'].checked = true"{% endif %}>
+      {% if errors[name] %}<small id="e-{{ name }}" class="form-error">{{ errors[name] }}</small>
+      {% elif hints[name] %}<small class="muted">{{ hints[name] }}</small>{% endif %}
+    </div>
+  </div>
+{% endmacro %}
 <p><a href="{{ cancel }}">← Back</a></p>
 {% if many %}
 <h1>Edit {{ tracks | length | plural('track') }}</h1>
@@ -31,22 +47,12 @@
       "error": errors.cover,
   } %}{% include "partials/cover_field.html" %}{% endwith %}
 
-  {% for name, label in fields %}
-  <div class="edit-row{% if many %} with-check{% endif %}{% if errors[name] %} has-error{% endif %}">
-    {% if many %}
-    <label class="edit-check"><input type="checkbox" name="change_{{ name }}" {% if name in checked %}checked{% endif %} aria-label="Change {{ label }}"> Change</label>
-    {% endif %}
-    <label for="f-{{ name }}" class="edit-label">{{ label }}{% if name in pending %} <span class="badge">pending</span>{% endif %}</label>
-    <div class="edit-input">
-      <input id="f-{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}"
-             {% if many and shared.get(name) is none %}placeholder="(different values)"{% endif %}
-             {% if errors[name] %}aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}
-             {% if many %}oninput="this.form['change_{{ name }}'].checked = true"{% endif %}>
-      {% if errors[name] %}<small id="e-{{ name }}" class="form-error">{{ errors[name] }}</small>
-      {% elif hints[name] %}<small class="muted">{{ hints[name] }}</small>{% endif %}
-    </div>
-  </div>
-  {% endfor %}
+  {% for name, label in fields %}{{ field_row(name, label) }}{% endfor %}
+  <fieldset class="edit-section">
+    <legend><strong>ReplayGain</strong> <small class="muted">evens out the volume between tracks in Navidrome</small></legend>
+    {% for name, label in replaygain %}{{ field_row(name, label) }}{% endfor %}
+    {% if opus %}<small class="muted">{% if many %}{{ opus | plural('Opus file') }} among them: Opus{% else %}Opus{% endif %} keeps only the gains (in its own R128 fields), no peaks{% if many %}; peaks are skipped there{% endif %}.</small>{% endif %}
+  </fieldset>
   <div class="edit-actions">
     <button type="submit">Save as pending change</button>
     <small class="muted">An empty field removes that tag{% if many %} (only where “Change” is ticked){% endif %}. Nothing is written yet.</small>

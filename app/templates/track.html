@@ -122,7 +122,9 @@
       <table class="kv">
         {{ row("Album artist", t.albumartist) }}
         {{ row("Track", t.tracknumber) }}
-        {{ row("ReplayGain", ("%+.2f dB" % t.replaygain_track_gain) if t.replaygain_track_gain is not none else "") }}
+        {% macro gain(g, peak) %}{% if g is not none %}{{ "%+.2f dB" % g }}{% if peak is not none %} <small class="muted">· peak {{ "%.3f" % peak }}</small>{% endif %}{% elif peak is not none %}<small class="muted">peak {{ "%.3f" % peak }}</small>{% endif %}{% endmacro %}
+        {{ row("ReplayGain track", gain(t.replaygain_track_gain, t.replaygain_track_peak) | trim) }}
+        {{ row("ReplayGain album", gain(t.replaygain_album_gain, t.replaygain_album_peak) | trim) }}
         {{ row("Lyrics", "embedded" if t.has_lyrics else (".lrc file" if t.has_lrc else "")) }}
       </table>
     </details>
