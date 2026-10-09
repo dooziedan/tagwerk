@@ -143,10 +143,12 @@ def test_dj_stats(engine, music_dir):
     assert stats.low_bitrate == 5  # all lossy fixtures are tiny 32 kbps files
 
 
-def test_musicbrainz_check_is_opt_in(engine, music_dir):
+def test_missing_musicbrainz_ids_are_not_a_problem(engine, music_dir):
+    """Edits and bootlegs aren't on MusicBrainz: no "missing" ring, but wrong IDs count."""
     scan(engine, music_dir)
-    missing = {bar.label for bar in stats_for(engine, show_musicbrainz=True).missing}
-    assert "MusicBrainz IDs" in missing
+    stats = stats_for(engine)
+    assert "MusicBrainz IDs" not in {bar.label for bar in stats.missing}
+    assert stats.invalid_mbids == 1
 
 
 def test_empty_bpm_ranges_are_merged(engine, music_dir):

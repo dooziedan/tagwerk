@@ -115,10 +115,6 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
     readable = Track.error.is_(None)
     readable_count = count(session, readable)
 
-    checks = list(MISSING_CHECKS)
-    if prefs.show_musicbrainz:
-        checks.append("MusicBrainz IDs")
-
     stats = LibraryStats(
         tracks=tracks,
         artists=session.exec(select(func.count(distinct(ALBUM_ARTIST)))).one(),
@@ -129,7 +125,7 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
         genres=_genres(session, tracks),
         missing=[
             Bar(name, n, _pct(n, readable_count), url=TrackFilter(missing=name).url())
-            for name in checks
+            for name in MISSING_CHECKS
             for n in [count(session, readable, MISSING[name])]
         ],
         untagged=_flag(session, "untagged"),

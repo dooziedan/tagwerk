@@ -42,7 +42,7 @@ def home_page(request: Request, settings: SettingsDep, session: SessionDep):
         prefs = preferences.load(session)
         if not prefs.setup_done and status["ok"]:
             return RedirectResponse("/setup", status_code=303)  # first start: the wizard
-        data = home_data(session, prefs)
+        data = home_data(session)
         inbox = _inbox(session) if settings.import_dir.is_dir() else None
         pending = changes.pending_count(session)
         folders = proposal_count(session, settings.music_dir)
@@ -84,9 +84,9 @@ def stats_page(request: Request, session: SessionDep, rows: str = "key", cols: s
 
 
 @router.get("/api/home", tags=["library"])
-def home_api(session: SessionDep, prefs: PreferencesDep) -> dict:
+def home_api(session: SessionDep) -> dict:
     """What the Home page shows: problems with their track lists, recently added tracks."""
-    data = home_data(session, prefs)
+    data = home_data(session)
     return {
         **{k: v for k, v in asdict(data).items() if k != "recent"},
         "set_ready_percent": data.set_ready_percent,
