@@ -108,6 +108,12 @@ def test_title_tags_lose_the_artist_and_bpm_they_repeat():
         ("Tune (re-edit)", "Tune (Re-Edit)"),
         ("Song (feat. X) (dub)", "Song (feat. X) (Dub)"),
         ("Live Forever", "Live Forever"),  # only words inside brackets
+        ("Body (extended)", "Body (Extended)"),  # only track types: a mix name too
+        ("Rain (Club remix) [Re-edit]", "Rain (Club Remix) [Re-Edit]"),
+        ("Hold On (DJ HYPE REMIX)", "Hold On (DJ HYPE REMIX)"),  # CAPITALS on purpose
+        ("Fly (the long road)", "Fly (the long road)"),  # no mix word: part of the title
+        ("Fly (feat. dub phizix)", "Fly (feat. dub phizix)"),  # an artist, not a dub
+        ("Fly (with dub phizix)", "Fly (with dub phizix)"),
     ],
 )
 def test_mix_types_get_capital_letters(title, expected):

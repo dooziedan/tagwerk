@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "macros.html" import nav_icon %}
+{% block title %}Mix names · Tagwerk{% endblock %}
+{% block content %}
+<p><a href="/">← Home</a></p>
+<div class="page-head">
+  <div>
+    <h1>Mix names</h1>
+    <p class="muted page-sub">Titles with the mix name in lower case, like "Rio (club remix)". Tagwerk writes the track types with a capital letter: "Rio (Club Remix)", "(Radio Edit)", "[VIP]". Remixer names and words in CAPITALS stay as they are.</p>
+  </div>
+</div>
+
+{% if not fixes %}
+<article class="empty-state">
+  <p class="empty-note">{{ nav_icon("check") }} <strong>Every mix name is written with capital letters.</strong></p>
+</article>
+{% else %}
+<script>
+  function tickAllMixNames(on) {
+    document.querySelectorAll("input[name=track]").forEach((b) => (b.checked = on));
+  }
+</script>
+<form method="post" action="/mix-names/fix" data-confirm="Create pending changes for the ticked titles? Nothing is written until you apply them on the Changes page." data-confirm-ok="Create pending changes">
+<p>{{ fixes | length | plural('title') }} to fix. Untick what you want to keep as it is.</p>
+<p class="tick-tools"><button type="button" class="outline secondary small" onclick="tickAllMixNames(true)">Tick all</button> <button type="button" class="outline secondary small" onclick="tickAllMixNames(false)">Untick all</button></p>
+<article>
+  <table class="diff mix-names">
+    <tbody>
+      {% for f in fixes %}
+      <tr>
+        <td class="check-col"><input type="checkbox" name="track" value="{{ f.track_id }}" checked aria-label="Fix {{ f.title }}"></td>
+        <th scope="row"><a href="/tracks/{{ f.track_id }}">{{ f.artist or "(no artist)" }}</a></th>
+        <td class="old"><del>{{ f.title }}</del></td>
+        <td class="arrow" aria-hidden="true">→</td>
+        <td class="new"><ins>{{ f.fixed }}</ins></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</article>
+<button type="submit">Create pending changes</button>
+<small class="muted">Final tracks are skipped (their tags are locked). Undo works as for every change.</small>
+</form>
+{% endif %}
+{% endblock %}

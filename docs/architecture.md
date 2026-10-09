@@ -39,7 +39,7 @@ Files are never modified directly from a form or a lookup:
 | `app/home.py` | Home page: problems worth a look, recently added, headline numbers ([ADR 0019](decisions/0019-home-and-statistics.md)) | 0.10 |
 | `app/work.py` | Tagwerk's work (Statistics): what Tagwerk did, from the History; values per field, sources, activity, set-ready before → now ([ADR 0020](decisions/0020-tagwerks-work.md)) | 0.11 |
 | `app/covers.py` | Cover art for display: embedded or `cover.jpg`/`folder.jpg` next to the file | 0.5 |
-| `app/routes/` | Pages and API, one module per feature (`system`, `home` (Home and Statistics), `scan`, `settings`, `fields`, `library`, `changes`, `inbox`) | 0.2 |
+| `app/routes/` | Pages and API, one module per feature (`system`, `home` (Home and Statistics), `scan`, `settings`, `fields`, `library`, `changes`, `inbox`, `genres`, `mix_names`, …) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
 | `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
 | `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field | 0.4 |
@@ -53,6 +53,7 @@ Files are never modified directly from a form or a lookup:
 | `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
 | `app/genres.py` | The genre map: spelling variants and subgenre → main genre | 0.7 |
 | `app/genre_merge.py` | Genre spellings page: genres written in several ways, merged into one spelling as pending changes | 0.17 |
+| `app/mix_names.py` | Mix names page: titles with "(club remix)" written as "(Club Remix)" (the inbox's clean-up rule), staged as pending changes ([ADR 0026](decisions/0026-mix-names.md)) | 0.17.1 |
 | `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back | 0.7 |
 | `app/convert.py` | Converting lossless tracks to AIFF with ffmpeg (ffprobe decides what is lossless): check, convert, verify, move the original to `/originals`; undo ([ADR 0013](decisions/0013-convert-to-aiff.md)) | 0.7 |
 | `app/tagcopy.py` | Translates all tags and pictures of a FLAC, WAV or ALAC file into ID3 frames (Picard's mapping) for the AIFF | 0.7 |
