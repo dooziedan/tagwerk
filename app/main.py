@@ -17,6 +17,7 @@ from app.routes import (
     duplicates,
     fields,
     final,
+    genres,
     home,
     ids,
     inbox,
@@ -67,6 +68,7 @@ app.include_router(scan.router)
 app.include_router(settings.router)
 app.include_router(setup.router)
 app.include_router(fields.router)
+app.include_router(genres.router)
 # Before library: /tracks/edit must not be taken for the track page /tracks/{id}.
 app.include_router(inbox.router)
 app.include_router(changes.router)

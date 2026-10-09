@@ -82,6 +82,19 @@ class GenreMap:
     def canonical(self, genre: str) -> str:
         return self.spelling.get(genre.strip().lower(), genre.strip())
 
+    def key(self, genre: str) -> str:
+        """What all spellings of a genre share: "Drum and Bass", "DnB" -> "drum & bass".
+
+        Lower case only for A-Z, like SQLite's LIKE, so counts and the track list agree.
+        """
+        return "".join(c.lower() if c.isascii() else c for c in self.canonical(genre))
+
+    def spellings(self, genre: str) -> list[str]:
+        """Every spelling of a genre: ``Drum & Bass`` -> Drum & Bass, dnb, d&b, drum and bass, …"""
+        name = self.canonical(genre)
+        variants = [v for v, target in self.spelling.items() if target.lower() == name.lower()]
+        return list(dict.fromkeys([name, *variants]))
+
     def tidy(self, genres: list[str]) -> list[str]:
         """Unified spelling, main genre first: ["DnB", "liquid"] -> ["Drum & Bass", "Liquid"]."""
         tidy = list(dict.fromkeys(self.canonical(g) for g in genres if g.strip()))

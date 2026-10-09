@@ -48,6 +48,7 @@ def main(base: str, out: Path) -> int:
         "home": "/",
         "tracks": "/tracks",
         "stats": "/stats",
+        "genres": "/genres",
         "stats-heat-year-genre": "/stats?rows=year&cols=genre",
         "stats-work": "/stats#work",
         "history": "/changes/history",

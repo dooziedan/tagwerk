@@ -111,6 +111,7 @@
   <article>
     <header><strong>Genres</strong> <small class="muted">top {{ stats.genres | length }}</small></header>
     {{ bars(stats.genres, empty="No genres in the tags yet.", tone="genres") }}
+    <footer><small class="muted">Upper/lower case and the spellings in your <a href="/settings#genres">genre map</a> count as one genre.{% if stats.genre_spellings %} <a href="/genres">{{ stats.genre_spellings | plural('genre') }} written in several ways: merge them →</a>{% endif %}</small></footer>
   </article>
 </div>
 

@@ -52,6 +52,7 @@ Files are never modified directly from a form or a lookup:
 | `app/inbox.py` | Keeps the `inboxtrack` table in sync with the import folder; the owner's values per track (`inboxvalue`) and the review of each field | 0.7 |
 | `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
 | `app/genres.py` | The genre map: spelling variants and subgenre → main genre | 0.7 |
+| `app/genre_merge.py` | Genre spellings page: genres written in several ways, merged into one spelling as pending changes | 0.17 |
 | `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back | 0.7 |
 | `app/convert.py` | Converting lossless tracks to AIFF with ffmpeg (ffprobe decides what is lossless): check, convert, verify, move the original to `/originals`; undo ([ADR 0013](decisions/0013-convert-to-aiff.md)) | 0.7 |
 | `app/tagcopy.py` | Translates all tags and pictures of a FLAC, WAV or ALAC file into ID3 frames (Picard's mapping) for the AIFF | 0.7 |

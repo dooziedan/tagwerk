@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 from sqlalchemy import ColumnElement, Integer, and_, cast, distinct, exists, func, not_, or_
 from sqlmodel import Session, col, select
 
+from app import genres
 from app.audio_analysis import ANALYSIS_VERSION
 from app.keys import display
 from app.models import (
@@ -201,14 +202,18 @@ def added_period(chars: int):
     return func.strftime("%Y" if chars == 4 else "%Y-%m", Track.added_at)
 
 
-def genre_is(genre: str) -> ColumnElement[bool]:
+def genre_is(genre: str, genre_map: genres.GenreMap | None = None) -> ColumnElement[bool]:
     """Matches one genre inside a multi-genre tag like "House; Tech House" or "House;Techno".
 
-    Same rule as the dashboard's genre count: split on ";" and ignore surrounding spaces.
+    Same rule as the Statistics page's genre count: split on ";", ignore surrounding spaces
+    and upper/lower case, and (with the genre map) count every spelling of the genre:
+    "Drum & Bass" also finds "Drum and Bass" and "DnB".
     """
     normalized = func.replace(func.replace(Track.genre, "; ", ";"), " ;", ";")
     padded = func.coalesce(";" + normalized + ";", "")
-    return padded.contains(f";{genre.strip()};", autoescape=True)
+    names = genre_map.spellings(genre) if genre_map else [genre.strip()]
+    # SQLite's LIKE (behind contains) ignores upper/lower case.
+    return or_(*(padded.contains(f";{name};", autoescape=True) for name in names))
 
 
 @dataclass
@@ -235,7 +240,8 @@ class TrackFilter:
     length_max: float | None = None  # minutes (below)
     label: str = ""  # record label, exact
 
-    def conditions(self) -> list[ColumnElement[bool]]:
+    def conditions(self, genre_map: genres.GenreMap | None = None) -> list[ColumnElement[bool]]:
+        """The SQL conditions. Pass the genre map so a genre also finds its other spellings."""
         c: list[ColumnElement[bool]] = []
         if self.q:
             c.append(
@@ -266,7 +272,7 @@ class TrackFilter:
         if self.bpm_max is not None:
             c.append(Track.bpm < self.bpm_max)
         if self.genre:
-            c.append(genre_is(self.genre))
+            c.append(genre_is(self.genre, genre_map))
         if self.decade is not None:
             c.append(and_(Track.year >= self.decade, Track.year <= self.decade + 9))
         if self.folder:
@@ -369,7 +375,7 @@ class TrackPage:
 def find_tracks(
     session: Session, f: TrackFilter, sort: str = "artist", desc: bool = False, page: int = 1
 ) -> TrackPage:
-    conditions = f.conditions()
+    conditions = f.conditions(genres.active(session))
     total = session.exec(select(func.count(Track.id)).where(*conditions)).one()
     pages = max(1, -(-total // PER_PAGE))
     page = min(max(1, page), pages)

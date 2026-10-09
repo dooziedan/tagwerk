@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "macros.html" import nav_icon %}
+{% block title %}Genre spellings · Tagwerk{% endblock %}
+{% block content %}
+<p><a href="/stats">← Statistics</a></p>
+<div class="page-head">
+  <div>
+    <h1>Genre spellings</h1>
+    <p class="muted page-sub">Genres written in more than one way, like "Drum and Bass" and "Drum &amp; Bass". Pick the spelling to keep: Tagwerk writes it into every track that spells the genre differently. Other genres in the tag stay as they are.</p>
+  </div>
+</div>
+
+{% if not groups %}
+<article class="empty-state">
+  <p class="empty-note">{{ nav_icon("check") }} <strong>Every genre is written one way.</strong></p>
+  <p class="muted"><small>Upper and lower case count as the same genre, and so do the spellings in your <a href="/settings#genres">genre map</a>.</small></p>
+</article>
+{% else %}
+<form method="post" action="/genres/merge" data-confirm="Create pending changes for the ticked genres? Nothing is written until you apply them on the Changes page." data-confirm-ok="Create pending changes">
+{% for g in groups %}
+<article class="genre-group">
+  <header class="card-head">
+    <label><input type="checkbox" name="merge" value="{{ g.key }}" checked> <strong>{{ g.suggested }}</strong></label>
+    <small class="muted"><a href="{{ g.url }}">{{ g.tracks | plural('track') }}</a>, written {{ g.spellings | length }} ways</small>
+  </header>
+  <fieldset class="genre-choices">
+    <legend class="muted"><small>Keep this spelling:</small></legend>
+    {% for name in g.choices %}
+    <label><input type="radio" name="agreed:{{ g.key }}" value="{{ name }}"{% if loop.first %} checked{% endif %}> {{ name }}
+      <span class="muted genre-count">{% if g.tracks_with(name) %}{{ g.tracks_with(name) | plural('track') }}{% else %}not used yet{% endif %}{% if loop.first %} · suggested{% endif %}</span></label>
+    {% endfor %}
+  </fieldset>
+</article>
+{% endfor %}
+<button type="submit">Create pending changes</button>
+<small class="muted">Final tracks are skipped (their tags are locked). Undo works as for every change.</small>
+</form>
+{% endif %}
+{% endblock %}
