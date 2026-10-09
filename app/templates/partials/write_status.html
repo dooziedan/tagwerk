@@ -1,6 +1,8 @@
 {# Progress of an apply/undo job. Polls itself while running, reloads the page when done. #}
 {% from "macros.html" import toast %}
 {% set p = job.progress %}
+{# ``actions``: the jobs this page started (e.g. ["apply"] on Changes); others show elsewhere. #}
+{% if actions is not defined or p.action in actions %}
 {% set verb = {"undo": "Undoing", "import": "Importing", "folder": "Moving", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting to AIFF"}.get(p.action, "Writing") %}
 {% if job.running %}
 {# A clear status card at the top: what is happening, how far, which file. #}
@@ -32,4 +34,5 @@
   {% endif %}
 {% endcall %}
 </div>
+{% endif %}
 {% endif %}

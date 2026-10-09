@@ -83,7 +83,7 @@ docker run -d --name tagwerk-showcase -p 8005:8000 -e PUID=$(id -u) -e PGID=$(id
     -v "$PWD/dev/showcase/import:/import" tagwerk:dev
 ```
 
-Finish the setup (DJ mode), scan, then run `scripts/readme_screenshots.py` in the Playwright
+Finish the setup, scan, then run `scripts/readme_screenshots.py` in the Playwright
 image (see its docstring). The JPEGs land in `docs/screenshots/`.
 
 ## Speed with a big library

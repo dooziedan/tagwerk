@@ -135,7 +135,7 @@ class ChangeEntry(SQLModel, table=True):
 
 
 class AppSetting(SQLModel, table=True):
-    """User preferences that apply to every device, e.g. the dashboard mode."""
+    """User preferences that apply to every device, e.g. the key notation."""
 
     key: str = Field(primary_key=True)
     value: str  # JSON

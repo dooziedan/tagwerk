@@ -23,7 +23,7 @@ def test_walk_through_every_step(client):
     client.put("/api/settings", json={"setup_done": False})
     steps = [
         ("welcome", {}),
-        ("style", {"mode": "dj", "key_notation": "musical"}),
+        ("style", {"key_notation": "musical"}),
         ("folders", {"folder_layout": "genre", "genre_folders": ["House"], "more_genres": "Breaks, Disco"}),
         ("automation", {"automation": "auto"}),
         ("final", {"rename_on_final": "on", "filename_pattern": "{artist} - {title} [{bpm} {key}]"}),
@@ -37,7 +37,7 @@ def test_walk_through_every_step(client):
     done = client.post("/setup/done", data={"backup": "on"}, follow_redirects=False)
     assert done.headers["location"] == "/"
     p = prefs(client)
-    assert (p["mode"], p["key_notation"], p["automation"]) == ("dj", "musical", "auto")
+    assert (p["key_notation"], p["automation"]) == ("musical", "auto")
     assert p["genre_folders"] == ["House", "Breaks", "Disco"]
     assert p["rename_on_final"] and p["filename_pattern"] == "{artist} - {title} [{bpm} {key}]"
     assert p["setup_done"] and p["backup_confirmed"]

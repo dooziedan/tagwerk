@@ -28,7 +28,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Home:** what needs you right now (inbox, pending changes, things worth fixing) and what was added recently.
 - **Statistics:** a heat map of any two of key, tempo, release year, year added, genre and format (e.g. key × tempo for harmonic mixing), library growth, set-ready share per genre, track lengths, top labels and artists, formats and quality. Every number links to its tracks.
 - **Tagwerk's work:** what Tagwerk has done for your library: tag values filled in, corrected or removed per field, where they came from (you, the audio, online, the filename …), imports, conversions, and how many tracks were set-ready before and are now.
-- **Two modes**, chosen in the setup wizard or Settings: **DJ** (BPM, keys in Camelot, Open Key or musical notation, set-readiness, audio quality) and **Collector** (albums, decades, lyrics, ReplayGain). Modes only change what is shown, never what is stored.
+- **Made for DJs:** BPM, keys in Camelot, Open Key or musical notation, set-readiness and audio quality come first on every page.
 - **Browse and search:** track list with filters and sorting, artists, albums, a page per track with all tags and its cover, and a **play bar** that keeps playing while you browse.
 - **Duplicates:** tracks that are in your library more than once (identical files, the same recording, or the same artist and title at the same length), with their copies side by side. Tagwerk suggests keeping the one with the best sound and lets you take tags and covers over from the others; then move the others to the trash. They stay there, restorable, until you empty it: Tagwerk never removes a library file on its own.
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
@@ -78,7 +78,7 @@ Next (see the [roadmap](docs/roadmap.md)): checks on a real library before 1.0, 
 
 ## First steps
 
-1. **The setup wizard** asks how you work (DJ or Collector, key notation), where imported tracks go (genre folders by default, filenames never change) and how independently Tagwerk may import. Everything can be changed later in **Settings**.
+1. **The setup wizard** asks how keys should be shown, where imported tracks go (genre folders by default, filenames never change) and how independently Tagwerk may import. Everything can be changed later in **Settings**.
 2. **Scan your library** on Home. Scanning only reads your files. Home then shows what needs you, and **Statistics** shows your library in numbers; every number opens its tracks.
 3. **Fix tags**: open a track and choose **Edit tags**, or tick tracks in the list and edit them together. Nothing is written yet: changes wait on the **Changes** page, shown as *old → new*. Tick what you want and **Apply**; **History** undoes any apply.
 4. **New music** goes into the import folder. The **Inbox** shows what Tagwerk found (from the filename, online sources and the audio); check a track, then **Import** it into the library.

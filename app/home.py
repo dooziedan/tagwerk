@@ -42,26 +42,24 @@ class HomeData:
         return percent(self.set_ready, self.tracks)  # 100 only when every track is
 
 
-# Shown in this order, only when there is something. (flag, noun, text, hint, warn, DJ only)
+# Shown in this order, only when there is something. (flag, noun, text, hint, warn)
 _FLAG_PROBLEMS = [
-    ("unreadable", "file", "couldn't be read", "They may be damaged or still copying.", True,
-     False),
-    ("audio_bpm_octave", "track", "with a BPM at probably half or double time", "", True, True),
-    ("audio_key_differs", "track", "with a key that differs from the audio", "", True, True),
-    ("audio_bpm_differs", "track", "with a BPM that differs from the audio", "", True, True),
+    ("unreadable", "file", "couldn't be read", "They may be damaged or still copying.", True),
+    ("audio_bpm_octave", "track", "with a BPM at probably half or double time", "", True),
+    ("audio_key_differs", "track", "with a key that differs from the audio", "", True),
+    ("audio_bpm_differs", "track", "with a BPM that differs from the audio", "", True),
     ("invalid_mbid", "track", "with other IDs in MusicBrainz fields", "Fix IDs moves them.",
-     True, False),
-    ("final_changed", "final track", "changed outside Tagwerk", "", True, False),
+     True),
+    ("final_changed", "final track", "changed outside Tagwerk", "", True),
     ("not_set_ready", "track", "not set-ready yet",
-     "Missing title, artist, genre, BPM, key or cover.", False, True),
+     "Missing title, artist, genre, BPM, key or cover.", False),
     ("not_analysed", "track", "without BPM and key from the audio",
-     "Analyse them from the list.", False, True),
+     "Analyse them from the list.", False),
 ]  # fmt: skip
 RECENT = 10
 
 
 def home_data(session: Session, prefs: Preferences) -> HomeData:
-    dj = prefs.mode == "dj"
     tracks, duration = session.exec(
         select(func.count(Track.id), func.coalesce(func.sum(Track.duration), 0))
     ).one()
@@ -74,9 +72,7 @@ def home_data(session: Session, prefs: Preferences) -> HomeData:
         added_this_month=count(session, *this_month.conditions()),
         added_this_month_url=this_month.url(),
     )
-    for flag, noun, text, hint, warn, dj_only in _FLAG_PROBLEMS:
-        if dj_only and not dj:
-            continue
+    for flag, noun, text, hint, warn in _FLAG_PROBLEMS:
         if flag == "invalid_mbid" and not prefs.show_musicbrainz:
             continue
         n = count(session, FLAGS[flag][1])

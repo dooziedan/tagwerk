@@ -26,13 +26,9 @@ from app.templating import templates
 router = APIRouter()
 FilterDep = Annotated[TrackFilter, Depends()]
 
-# Form order per mode: what a DJ edits most comes first.
-FIELD_ORDER = {
-    "dj": ["bpm", "key", "genre", "comment", "label", "catalognumber",
-           "title", "artist", "album", "albumartist", "track", "disc", "date"],
-    "collector": ["title", "artist", "album", "albumartist", "track", "disc", "date",
-                  "genre", "comment", "label", "catalognumber", "bpm", "key"],
-}  # fmt: skip
+# Form order: what a DJ edits most comes first.
+FIELD_ORDER = ["bpm", "key", "genre", "comment", "label", "catalognumber",
+               "title", "artist", "album", "albumartist", "track", "disc", "date"]  # fmt: skip
 HINTS = {
     "artist": "Several artists: separate with ;",
     "albumartist": "Several: separate with ;",
@@ -299,7 +295,7 @@ def _edit_page(
             "prefs": prefs,
             "tracks": tracks,
             "many": many,
-            "fields": [(n, writer.EDITABLE[n]) for n in FIELD_ORDER[prefs.mode]],
+            "fields": [(n, writer.EDITABLE[n]) for n in FIELD_ORDER],
             "values": values,
             "shared": shared,
             "errors": errors,

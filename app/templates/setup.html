@@ -26,7 +26,7 @@
     <p class="muted"><small>Folders and Navidrome are container settings (the Unraid template). The questions that follow are stored in Tagwerk.</small></p>
 
     {% elif step == "style" %}
-    <h1>How you work</h1>
+    <h1>Keys</h1>
     {% include "partials/choices_style.html" %}
 
     {% elif step == "folders" %}
@@ -46,7 +46,7 @@
     <h1>Ready</h1>
     <p>Here's what you chose. Click a step above to change it, or change it any time in <a href="/settings">Settings</a>.</p>
     <dl class="setup-summary">
-      <dt>How you work</dt><dd>{{ modes[prefs.mode] }} · keys as {{ notations[prefs.key_notation] }}</dd>
+      <dt>Keys</dt><dd>shown as {{ notations[prefs.key_notation] }}</dd>
       <dt>Import folders</dt><dd>{{ layouts[prefs.folder_layout] }}{% if prefs.folder_layout == "genre" %}: {% if prefs.genre_folders %}{{ prefs.genre_folders | join(", ") }}, others to _Unsorted{% else %}the genre folders you have; new ones after your OK{% endif %}{% elif prefs.folder_layout == "custom" %}: <code>{{ prefs.folder_pattern }}</code>{% endif %} · filenames unchanged</dd>
       <dt>Independence</dt><dd>{{ automations[prefs.automation] }}</dd>
       <dt>Final tracks</dt><dd>{% if prefs.rename_on_final %}renamed to <code>{{ prefs.filename_pattern }}</code>{% else %}names stay as they are{% endif %}</dd>

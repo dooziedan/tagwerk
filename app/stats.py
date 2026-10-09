@@ -1,9 +1,8 @@
 """Library statistics (the Statistics page), computed from the ``track`` table.
 
-Both modes share the totals, formats, growth, track lengths, labels and artists. DJ mode adds
-BPM, keys, set-readiness and audio quality; Collector mode adds decades and lyrics. "Missing
-tags" checks differ per mode. The heat map crosses any two of key, tempo, release year, year
-added, genre and format.
+Totals, formats, growth, track lengths, labels and artists, BPM, keys, set-readiness and
+audio quality: what a DJ needs (Tagwerk is made for DJs, ADR 0024). The heat map crosses any
+two of key, tempo, release year, year added, genre and format.
 
 Every number uses the same conditions as the track list (``app.library``), and carries the
 URL of the list that shows exactly those tracks.
@@ -39,22 +38,8 @@ BPM_BUCKET = 5  # BPM histogram bar width
 BPM_MIN, BPM_MAX = 60, 200  # tempos outside are grouped as "< 60" / "200+"
 
 
-# Which checks each mode shows, in display order.
-MISSING_BY_MODE = {
-    "dj": ["Title", "Artist", "Genre", "BPM", "Key", "Label", "Comment", "Cover art"],
-    "collector": [
-        "Title",
-        "Artist",
-        "Album",
-        "Album artist",
-        "Track number",
-        "Year",
-        "Genre",
-        "Cover art",
-        "Lyrics",
-        "ReplayGain",
-    ],
-}
+# The "Missing tags" checks, in display order: what a DJ needs.
+MISSING_CHECKS = ["Title", "Artist", "Genre", "BPM", "Key", "Label", "Comment", "Cover art"]
 
 
 @dataclass
@@ -79,7 +64,6 @@ class KeyCell:
 
 @dataclass
 class LibraryStats:
-    mode: str
     tracks: int
     artists: int
     albums: int
@@ -94,13 +78,11 @@ class LibraryStats:
     last_scan: datetime | None
     duplicates: int = 0  # files that are copies of another library track (ADR 0022)
     duplicate_groups: int = 0  # how many tracks have copies
-    # Both modes
     growth: list[Bar] = field(default_factory=list)  # tracks added per month (recent months)
     growth_years: list[Bar] = field(default_factory=list)  # tracks added per year
     lengths: list[Bar] = field(default_factory=list)
     labels: list[Bar] = field(default_factory=list)  # top labels
     top_artists: list[Bar] = field(default_factory=list)
-    # DJ mode
     set_ready: int = 0  # title, artist, genre, BPM, key and cover tagged
     set_ready_genres: list[Bar] = field(default_factory=list)  # set-ready share per genre
     bpm: list[Bar] = field(default_factory=list)
@@ -116,10 +98,6 @@ class LibraryStats:
     audio_bpm_differs: int = 0
     audio_key_differs: int = 0
     not_analysed: int = 0
-    # Collector mode
-    decades: list[Bar] = field(default_factory=list)
-    unknown_year: int = 0
-    with_lyrics: int = 0
 
 
 def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
@@ -134,12 +112,11 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
     readable = Track.error.is_(None)
     readable_count = count(session, readable)
 
-    checks = list(MISSING_BY_MODE[prefs.mode])
+    checks = list(MISSING_CHECKS)
     if prefs.show_musicbrainz:
         checks.append("MusicBrainz IDs")
 
     stats = LibraryStats(
-        mode=prefs.mode,
         tracks=tracks,
         artists=session.exec(select(func.count(distinct(ALBUM_ARTIST)))).one(),
         albums=_album_count(session),
@@ -163,10 +140,7 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
     stats.lengths = _lengths(session)
     stats.labels = _top(session, Track.label, "label")
     stats.top_artists = _top(session, ALBUM_ARTIST, "albumartist")
-    if prefs.mode == "dj":
-        _add_dj(session, stats, prefs)
-    else:
-        _add_collector(session, stats)
+    _add_dj(session, stats, prefs)
     return stats
 
 
@@ -188,22 +162,6 @@ def _add_dj(session: Session, stats: LibraryStats, prefs: Preferences) -> None:
     stats.audio_bpm_differs = _flag(session, "audio_bpm_differs")
     stats.audio_key_differs = _flag(session, "audio_key_differs")
     stats.not_analysed = _flag(session, "not_analysed")
-
-
-def _add_collector(session: Session, stats: LibraryStats) -> None:
-    decade = (Track.year // 10) * 10
-    rows = session.exec(
-        select(decade, func.count(Track.id))
-        .where(Track.year.is_not(None))
-        .group_by(decade)
-        .order_by(decade)
-    ).all()
-    dated = sum(n for _, n in rows)
-    stats.decades = [
-        Bar(f"{d}s", n, _pct(n, dated), url=TrackFilter(decade=d).url()) for d, n in rows
-    ]
-    stats.unknown_year = stats.tracks - dated
-    stats.with_lyrics = _flag(session, "has_lyrics")
 
 
 def _formats(session: Session, tracks: int) -> list[Bar]:

@@ -30,7 +30,7 @@ from app.models import InboxTrack
 from app.navigation import reload_page
 from app.proposals import still_missing
 from app.routes.analysis import audio_context
-from app.routes.changes import FIELD_ORDER, HINTS, KEEP_COVER, cover_choice
+from app.routes.changes import HINTS, KEEP_COVER, cover_choice
 from app.routes.scan import scan_state
 from app.scanner import ScanProgress
 from app.sources.base import SourceError
@@ -442,8 +442,7 @@ def inbox_cover(track_id: int, session: SessionDep, settings: SettingsDep):
 
 def _review_page(request, session, track, errors, typed=None, show="all", status_code=200):
     prefs = preferences.load(session)
-    order = INBOX_ORDER if prefs.mode == "dj" else FIELD_ORDER["collector"]
-    fields = review(session, track, order)
+    fields = review(session, track, INBOX_ORDER)
     if typed:  # show what was typed, with the errors
         for f in fields:
             if f.field in typed:

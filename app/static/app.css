@@ -70,8 +70,6 @@
 .notes { margin: 0; padding-left: 1rem; font-size: 0.875rem; color: var(--pico-muted-color); }
 .notes li { margin: 0; }
 
-/* DJ / Collector switch in the menu */
-
 /* Camelot wheel (colours are set in the SVG itself, see app/charts.py) */
 .key-wheel { margin: 0 auto 1rem; max-width: 24rem; color: var(--pico-color); }
 .key-wheel svg { display: block; width: 100%; height: auto; }
@@ -147,7 +145,7 @@ a.wheel-seg.empty { pointer-events: none; }
 .info-panel tr + tr { margin-top: 0.6rem; }
 .info-panel th { font-size: 0.75rem; font-weight: 400; color: var(--pico-muted-color); }
 .info-panel td { font-family: var(--pico-font-family-monospace); font-size: 0.8rem; overflow-wrap: anywhere; }
-/* The other mode's fields, folded into the bottom of the main card. */
+/* Less used fields (album, ReplayGain, lyrics), folded into the bottom of the main card. */
 .card-more { margin: 0.5rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--pico-muted-border-color); }
 .card-more > summary { font-size: 0.9rem; color: var(--pico-muted-color); }
 .card-more table { margin: 0.5rem 0 0; }
@@ -519,7 +517,6 @@ h1, h2, h3 { text-wrap: balance; letter-spacing: -0.01em; }
 /* Small uppercase label above a title or a number (Orbit Stage's "eyebrow"), in Inter. */
 .eyebrow { display: block; margin: 0 0 0.35rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tw-ink-2); }
 .eyebrow.gold { color: var(--tw-gold); }
-.pill-eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.85rem; border-radius: 999px; border: 1px solid var(--tw-gold-line); background: var(--tw-gold-soft); color: var(--tw-gold); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; }
 
 /* --- Glass ---------------------------------------------------------------------------------- */
 /* Cards (Pico's <article>) are smoked glass: solid first, see-through + blur when supported
@@ -1092,8 +1089,7 @@ table.work-fields thead th { letter-spacing: 0.08em; font-size: 0.64rem; }
   .page-head h1 { background: linear-gradient(100deg, #f8fafc 10%, #c7d2fe 55%, #a5b4fc 95%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 14px rgba(129, 140, 248, 0.35)); }
 }
 .page-head .page-sub { color: var(--tw-ink-2); }
-.page-head .pill-eyebrow { margin-bottom: 0.6rem; }
-.home-head { flex-wrap: nowrap; }
+.page-head .home-head { flex-wrap: nowrap; }
 .home-hero-text { flex: 1 1 26rem; min-width: 0; }
 .home-head .hero-actions { margin-top: 1.5rem; }
 .hero-actions .scan { align-items: flex-start; min-width: 0; }

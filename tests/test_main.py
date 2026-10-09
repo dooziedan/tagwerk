@@ -37,12 +37,11 @@ def test_scan_then_statistics(client):
     page = client.get("/stats").text
     assert "Formats" in page and "Missing tags" in page
     assert "M4A" in page and "OPUS" in page
-    assert "Decades" in page  # Collector is the default mode
+    assert "Tempo" in page and "Decades" not in page  # made for DJs (ADR 0024)
 
 
 def test_settings_api(client):
     assert client.get("/api/settings").json() == {
-        "mode": "collector",
         "key_notation": "camelot",
         "show_musicbrainz": False,
         "effects": "full",
@@ -62,7 +61,7 @@ def test_settings_api(client):
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}
     ).json()
-    assert saved["mode"] == "dj"
+    assert saved["key_notation"] == "musical" and "mode" not in saved  # unknown names ignored
     assert client.get("/api/settings").json() == saved
 
 
@@ -75,25 +74,20 @@ def test_settings_form_and_unknown_values(client):
     )
     assert response.status_code == 303
     prefs = client.get("/api/settings").json()
-    assert prefs["mode"] == "dj"
     assert prefs["key_notation"] == "camelot"  # unknown value falls back to the default
     assert prefs["show_musicbrainz"] is False  # unchecked box
     assert "Settings" in client.get("/settings").text
 
 
-def test_dj_mode_shows_dj_statistics(client):
+def test_statistics_are_made_for_djs(client):
     client.post("/api/scan")
     scan_job.wait(timeout=30)
-    client.put("/api/settings", json={"mode": "dj", "key_notation": "openkey"})
+    client.put("/api/settings", json={"key_notation": "openkey"})
     page = client.get("/stats").text
-    assert "<h1>Statistics</h1>" in page and "DJ mode" in page
+    assert "<h1>Statistics</h1>" in page
     assert "Tempo" in page and "Keys" in page
     assert ">1m<" in page  # Am shown in Open Key notation
-    assert "Decades" not in page
-
-    client.put("/api/settings", json={"mode": "collector"})  # changed in Settings
-    assert "Decades" in client.get("/stats").text
-    assert 'action="/settings/mode"' not in page  # no switch in the header any more
+    assert "Decades" not in page and "Collector" not in page
 
 
 def test_missing_music_folder_shows_setup_problem(client, music_dir):
@@ -125,7 +119,6 @@ def test_the_menu_shows_where_you_are(client):
 def test_home_shows_what_needs_you_and_recent_tracks(client):
     client.post("/api/scan")
     scan_job.wait(timeout=30)
-    client.put("/api/settings", json=client.get("/api/settings").json() | {"mode": "dj"})
     page = client.get("/").text
     assert "Waiting for you" in page and "Worth a look" in page
     assert "Recently added" in page and "Silent Track" in page  # the fixtures' title

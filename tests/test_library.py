@@ -36,13 +36,12 @@ def filter_from_url(url: str) -> TrackFilter:
     return TrackFilter(**params)
 
 
-@pytest.mark.parametrize("mode", ["dj", "collector"])
-def test_every_dashboard_number_matches_its_track_list(engine, music_dir, mode):
+def test_every_dashboard_number_matches_its_track_list(engine, music_dir):
     """Clicking a number on the dashboard must show exactly that many tracks."""
     scan(engine, music_dir)
     with Session(engine) as session:
-        stats = library_stats(session, Preferences(mode=mode, show_musicbrainz=True))
-        bars = stats.missing + stats.formats + stats.genres + stats.bpm + stats.decades
+        stats = library_stats(session, Preferences(show_musicbrainz=True))
+        bars = stats.missing + stats.formats + stats.genres + stats.bpm
         bars += [cell for cell in stats.keys if cell.url]
         bars += stats.growth + stats.growth_years + stats.lengths + stats.labels
         bars += stats.top_artists + stats.set_ready_genres
@@ -69,7 +68,7 @@ def test_flags_match_dashboard_counts(engine, music_dir):
     audio.save()
     scan(engine, music_dir)
     with Session(engine) as session:
-        stats = library_stats(session, Preferences(mode="dj"))
+        stats = library_stats(session, Preferences())
         for flag, expected in {
             "bpm_zero": stats.bpm_zero,
             "lossless": stats.lossless,
@@ -176,10 +175,8 @@ def test_pages_render(client):
     client.post("/api/scan")
     scan_job.wait(timeout=30)
 
-    for mode, column in (("dj", "BPM"), ("collector", "Album")):
-        client.put("/api/settings", json={"mode": mode})
-        page = client.get("/tracks").text
-        assert "10 tracks" in page and f">{column}<" in page
+    page = client.get("/tracks").text
+    assert "10 tracks" in page and ">BPM<" in page and ">Key<" in page
 
     filtered = client.get("/tracks", params={"missing": "BPM", "q": "tagged"}).text
     assert "Missing: BPM" in filtered and "Search: tagged" in filtered and "1 track" in filtered

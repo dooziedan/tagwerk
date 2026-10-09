@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button, nav_icon, brand_mark, ring %}
+{% from "macros.html" import play_button, nav_icon, ring %}
 {% block title %}Home · Tagwerk{% endblock %}
 {% block content %}
 {# What needs you now; the charts are on Statistics (app/home.py). #}
@@ -21,10 +21,8 @@
 </article>
 {% endif %}
 
-{% set dj = prefs.mode == "dj" %}
 <div class="page-head home-head">
   <div class="home-hero-text">
-    <span class="pill-eyebrow">{% if dj %}DJ{% else %}Collector{% endif %} mode</span>
     <h1 id="greeting">Home</h1>
     {# The greeting follows the browser's clock; without JavaScript it stays "Home". #}
     <script>(function () { const h = new Date().getHours(); document.getElementById("greeting").textContent = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; })();</script>
@@ -52,14 +50,12 @@
     <span class="moon m1" aria-hidden="true"><b><i></i></b></span>
     <span class="moon m2" aria-hidden="true"><b><i></i></b></span>
     <span class="moon m3" aria-hidden="true"><b><i></i></b></span>
-    {% if dj %}
+    
     <a class="core gauge-planet" href="/tracks?flag=set_ready" title="Title, artist, genre, BPM, key and cover tagged">
       {{ ring(home.set_ready_percent, "genres", 168, 7, "") }}
       <span class="n">{{ home.set_ready_percent }}<small>%</small></span><span class="l">Set-ready</span>
     </a>
-    {% else %}
-    <span class="core gauge-planet" aria-hidden="true">{{ brand_mark(84, "home") }}</span>
-    {% endif %}
+    
     <svg class="orbit-rings" width="300" height="260" viewBox="-150 -130 300 260" aria-hidden="true">
       <path d="M -136 0 A 136 42 0 0 0 136 0" transform="rotate(-14)" fill="none" stroke="#818cf8" stroke-opacity="0.3"/>
       <path d="M -150 0 A 150 33 0 0 0 150 0" transform="rotate(21)" fill="none" stroke="#f5c542" stroke-opacity="0.22"/>
@@ -93,14 +89,14 @@
             <a class="art" href="/tracks/{{ t.id }}" aria-label="{{ name }}">
               {% if t.has_cover %}<img src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="" loading="lazy">
               {% else %}<span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((t.artist or name) | length) % 8] }}"><i></i><b></b><em></em></span>{% endif %}
-              {% if dj and t.key_camelot %}<span class="key-chip" style="background: {{ key_colour(t.key_camelot) }}">{{ key_label(t.key_camelot, prefs.key_notation) }}</span>{% endif %}
+              {% if t.key_camelot %}<span class="key-chip" style="background: {{ key_colour(t.key_camelot) }}">{{ key_label(t.key_camelot, prefs.key_notation) }}</span>{% endif %}
             </a>
             {% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}
           </div>
           <div>
             <a class="t" href="/tracks/{{ t.id }}">{{ name }}</a>
             <span class="a">{{ t.artist or "Unknown artist" }}</span>
-            <span class="m">{% if dj and t.bpm %}{{ t.bpm | bpm }} BPM · {% endif %}{{ t.genre or "no genre" }} · <time data-local data-date-only datetime="{{ t.added_at | isoutc }}">{{ t.added_at | isoutc }}</time></span>
+            <span class="m">{% if t.bpm %}{{ t.bpm | bpm }} BPM · {% endif %}{{ t.genre or "no genre" }} · <time data-local data-date-only datetime="{{ t.added_at | isoutc }}">{{ t.added_at | isoutc }}</time></span>
           </div>
         </div>
         {% endfor %}

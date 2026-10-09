@@ -1,6 +1,6 @@
 """The Settings page and the preferences API.
 
-Sections: Display (mode, key notation, effects, MusicBrainz), Import, Genre map, Final tracks,
+Sections: Display (key notation, effects, MusicBrainz), Import, Genre map, Final tracks,
 Online lookups, Navidrome. Each section is its own form; after saving, the page comes back with
 ``?saved=<section>`` and scrolls to it.
 """
@@ -17,7 +17,7 @@ from app.db import SessionDep
 from app.forms import read_form
 from app.genres import DEFAULT_MAP, GenreMap
 from app.keys import NOTATIONS
-from app.preferences import EFFECTS, MODES, Preferences, PreferencesDep
+from app.preferences import EFFECTS, Preferences, PreferencesDep
 from app.routes.setup import apply_choices, choices_context
 from app.templating import templates
 
@@ -66,7 +66,6 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
             "genre_rules": GenreMap.rule_count(genre_text),
             "genre_map_custom": bool(prefs.genre_map),
             "prefs": prefs,
-            "modes": MODES,
             "notations": NOTATIONS,
             "effects": EFFECTS,
             "saved": saved,
@@ -162,7 +161,6 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
     form = await _form(request)
     updated = replace(
         prefs,
-        mode=form.get("mode", prefs.mode),
         key_notation=form.get("key_notation", prefs.key_notation),
         show_musicbrainz=form.get("show_musicbrainz") == "on",  # unchecked boxes aren't sent
         effects=form.get("effects", prefs.effects),

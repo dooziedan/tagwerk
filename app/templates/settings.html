@@ -35,7 +35,7 @@
 <div class="settings-layout">
   {# Where everything is, and how it's set right now. #}
   <nav class="settings-nav" aria-label="Settings sections">
-    <a href="#display">{{ nav_icon("eye") }}<span>Display<small>{{ modes[prefs.mode] }} · {{ notations[prefs.key_notation].split(" ")[0] }} · {{ "full effects" if prefs.effects == "full" else "lighter effects" }}</small></span></a>
+    <a href="#display">{{ nav_icon("eye") }}<span>Display<small>{{ notations[prefs.key_notation].split(" ")[0] }} · {{ "full effects" if prefs.effects == "full" else "lighter effects" }}</small></span></a>
     <a href="#import">{{ nav_icon("inbox") }}<span>Import<small>{{ layouts[prefs.folder_layout] }} · {{ "always ask" if prefs.automation == "ask" else "automatic" }}</small></span></a>
     <a href="#genres">{{ nav_icon("fields") }}<span>Genre map<small>{{ genre_rules | plural('rule') }} · {{ "your own" if genre_map_custom else "built-in" }}</small></span></a>
     <a href="#final">{{ nav_icon("final") }}<span>Final tracks<small>{{ "renamed on marking" if prefs.rename_on_final else "names stay" }}</small></span></a>
@@ -45,12 +45,8 @@
 
   <div class="settings-body">
     <section id="display" class="settings-section">
-      {{ section_head("display", "eye", "Display", "What Tagwerk shows first, how keys read, and how much the night sky moves.") }}
+      {{ section_head("display", "eye", "Display", "How keys read, and how much the night sky moves.") }}
       <form method="post" action="/settings">
-        <div class="setting">
-          <div class="setting-text"><strong>Mode</strong><small class="muted">Only changes what is shown and checked.</small></div>
-          <div class="setting-control">{{ segmented("mode", modes, prefs.mode, "Mode", {"dj": "Tempo, keys, label, comment and audio quality come first: for preparing sets.", "collector": "Albums, years, cover art and lyrics come first: for a well-kept collection."}) }}</div>
-        </div>
         <div class="setting">
           <div class="setting-text"><strong>Key notation</strong><small class="muted">Files always keep standard keys (Am, F#).</small></div>
           <div class="setting-control">{{ segmented("key_notation", notations, prefs.key_notation, "Key notation") }}</div>

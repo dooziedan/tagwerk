@@ -127,24 +127,9 @@ def test_shared_stats(engine, music_dir):
     assert stats.unreadable == 0
 
 
-def test_collector_stats(engine, music_dir):
-    scan(engine, music_dir)
-    stats = stats_for(engine, mode="collector")
-    missing = {bar.label: bar.count for bar in stats.missing}
-    assert "BPM" not in missing
-    assert "MusicBrainz IDs" not in missing  # opt-in
-    assert missing["Title"] == 1  # untagged.mp3
-    assert missing["Cover art"] == 3  # riff-info.wav, untagged.mp3, discogs-ids.flac
-    assert missing["Lyrics"] == 3
-    assert [(bar.label, bar.count) for bar in stats.decades] == [("1990s", 1), ("2020s", 7)]
-    assert stats.unknown_year == 2
-    assert stats.with_lyrics == 7
-    assert stats.bpm == []
-
-
 def test_dj_stats(engine, music_dir):
     scan(engine, music_dir)
-    stats = stats_for(engine, mode="dj", key_notation="musical")
+    stats = stats_for(engine, key_notation="musical")
     missing = {bar.label: bar.count for bar in stats.missing}
     assert missing["BPM"] == 3
     assert missing["Key"] == 3
@@ -156,7 +141,6 @@ def test_dj_stats(engine, music_dir):
     assert stats.with_bpm_and_key == 7
     assert stats.lossless == 5  # FLAC x2, WAV x2, AIFF
     assert stats.low_bitrate == 5  # all lossy fixtures are tiny 32 kbps files
-    assert stats.decades == []
 
 
 def test_musicbrainz_check_is_opt_in(engine, music_dir):
@@ -183,7 +167,7 @@ def test_empty_bpm_ranges_are_merged(engine, music_dir):
     ):
         (music_dir / ALBUM / name).unlink()
     scan(engine, music_dir)
-    bars = [(bar.label, bar.count) for bar in stats_for(engine, mode="dj").bpm]
+    bars = [(bar.label, bar.count) for bar in stats_for(engine).bpm]
     assert bars == [("120–124", 1), ("125–169", 0), ("170–174", 1)]
 
 
