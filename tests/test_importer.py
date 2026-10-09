@@ -175,7 +175,7 @@ def test_automatic_import_takes_only_complete_settled_tracks(client, settings, e
     import os
     import time
 
-    from app.jobs import inbox_job
+    from app.jobs import analysis_job, inbox_job
 
     root = settings.import_dir
     root.mkdir(parents=True)
@@ -188,6 +188,7 @@ def test_automatic_import_takes_only_complete_settled_tracks(client, settings, e
 
     client.post("/api/inbox/scan")  # automation is "ask": nothing happens
     inbox_job.wait(30)
+    analysis_job.wait(60)  # automatic import waits for BPM and key from the audio
     assert len(client.get("/api/inbox").json()) == 3
 
     prefs = client.get("/api/settings").json() | {"automation": "auto"}
