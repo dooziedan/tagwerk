@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Merge genre spellings**: a new **Genre spellings** page (linked from the Genres chart on Statistics) lists every genre written in more than one way, like "Drum & Bass", "Drum and Bass", "Drum And Bass" and "DnB", with the number of tracks per spelling. Pick the spelling to keep (the genre map's name is suggested) and Tagwerk creates pending changes that write it into every track spelling the genre differently. Other genres in the tag stay as they are ("Drum And Bass; Liquid" becomes "Drum & Bass; Liquid"). Nothing is written until you apply the changes; final tracks are skipped, and undo works as usual.
+
+### Fixed
+- **One genre, one bar on Statistics**: spellings of a genre that differ only in upper/lower case ("Drum and Bass", "Drum And Bass") or that your genre map lists as the same genre ("DnB", "Drum and Bass" → "Drum & Bass") were separate bars with their own percentages. They now count as one, and clicking it lists exactly those tracks. Before, the list for "Drum and Bass" already showed "Drum And Bass" tracks too, so the number and the list didn't agree. The same rule applies to the genre filter of the track list, "Set-ready by genre" and the heat map. Your tags stay as they are until you merge them.
+
 ## [0.16.0] - 2026-10-09
 
 ### Changed

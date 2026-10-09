@@ -16,6 +16,8 @@ from datetime import datetime
 from sqlalchemy import Integer, and_, cast, distinct, func
 from sqlmodel import Session, select
 
+from app import genre_merge
+from app import genres as genre_maps
 from app.duplicates import group_count
 from app.keys import CAMELOT_CODES, display
 from app.library import (
@@ -85,6 +87,7 @@ class LibraryStats:
     top_artists: list[Bar] = field(default_factory=list)
     set_ready: int = 0  # title, artist, genre, BPM, key and cover tagged
     set_ready_genres: list[Bar] = field(default_factory=list)  # set-ready share per genre
+    genre_spellings: int = 0  # genres written in several ways (the Genre spellings page)
     bpm: list[Bar] = field(default_factory=list)
     keys: list[KeyCell] = field(default_factory=list)
     with_bpm_and_key: int = 0
@@ -154,6 +157,7 @@ def _add_dj(session: Session, stats: LibraryStats, prefs: Preferences) -> None:
     stats.with_bpm_and_key = _flag(session, "bpm_and_key")
     stats.set_ready = _flag(session, "set_ready")
     stats.set_ready_genres = _set_ready_genres(session)
+    stats.genre_spellings = len(genre_merge.groups(session))
     stats.unrecognized_keys = _flag(session, "key_unrecognized")
     stats.bpm_zero = _flag(session, "bpm_zero")
     stats.lossless = _flag(session, "lossless")
@@ -176,19 +180,30 @@ def _formats(session: Session, tracks: int) -> list[Bar]:
 
 
 def _genres(session: Session, tracks: int, limit: int = 12) -> list[Bar]:
-    """Most common genres. A track tagged "House; Tech House" counts for both."""
-    counter: Counter[str] = Counter()
+    """Most common genres. A track tagged "House; Tech House" counts for both.
+
+    Spellings of one genre count together, like the genre filter finds them: upper/lower case
+    ("Drum and Bass", "Drum And Bass") and the genre map's variants ("DnB" -> "Drum & Bass").
+    The tags stay as they are; the Changes page proposes unifying them.
+    """
+    genre_map = genre_maps.active(session)
+    counter: Counter[str] = Counter()  # per genre (lower case)
+    spellings: dict[str, Counter[str]] = {}  # how each genre is written, to pick a label
     for genre, n in session.exec(
         select(Track.genre, func.count(Track.id))
         .where(Track.genre.is_not(None))
         .group_by(Track.genre)
     ):
-        for name in {g.strip() for g in genre.split(";") if g.strip()}:
-            counter[name] += n
-    return [
-        Bar(name, n, _pct(n, tracks), url=TrackFilter(genre=name).url())
-        for name, n in counter.most_common(limit)
-    ]
+        names = {genre_map.canonical(g) for g in genre.split(";") if g.strip()}
+        for key in {genre_map.key(name) for name in names}:
+            counter[key] += n
+        for name in names:
+            spellings.setdefault(genre_map.key(name), Counter())[name] += n
+    bars = []
+    for key, n in counter.most_common(limit):
+        label = spellings[key].most_common(1)[0][0]  # the most used spelling
+        bars.append(Bar(label, n, _pct(n, tracks), url=TrackFilter(genre=label).url()))
+    return bars
 
 
 def _bpm_histogram(session: Session) -> list[Bar]:
@@ -341,10 +356,11 @@ def _top(session: Session, column, param: str, limit: int = 15) -> list[Bar]:
 
 def _set_ready_genres(session: Session, limit: int = 12) -> list[Bar]:
     """Set-ready share of the most common genres: count = set-ready tracks, of ``total``."""
+    genre_map = genre_maps.active(session)
     bars = []
     for genre in _genres(session, 1, limit):
-        total = count(session, Track.error.is_(None), genre_is(genre.label))
-        ready = count(session, SET_READY, genre_is(genre.label))
+        total = count(session, Track.error.is_(None), genre_is(genre.label, genre_map))
+        ready = count(session, SET_READY, genre_is(genre.label, genre_map))
         url = TrackFilter(genre=genre.label, flag="set_ready").url()
         bars.append(Bar(genre.label, ready, _pct(ready, total), url=url, total=total))
     return bars
@@ -442,10 +458,11 @@ def heatmap(session: Session, rows: str, cols: str, notation: str = "camelot") -
     else:  # one axis is the genre: one query per genre
         genre_first = row_expr is None
         other = col_expr if genre_first else row_expr
+        genre_map = genre_maps.active(session)
         for g in row_values if genre_first else col_values:
             query = (
                 select(other, func.count(Track.id))
-                .where(genre_is(g.value), other.is_not(None), *extra)
+                .where(genre_is(g.value, genre_map), other.is_not(None), *extra)
                 .group_by(other)
             )
             for v, n in session.exec(query):

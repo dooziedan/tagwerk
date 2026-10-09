@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, col, select
 from starlette.datastructures import FormData, UploadFile
 
-from app import changes, final, folders, preferences, writer
+from app import changes, final, folders, genres, preferences, writer
 from app.config import Settings, SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
@@ -317,7 +317,7 @@ def _selected(request: Request, session: Session, f: TrackFilter) -> list[Track]
     """Tracks picked in the track list: ids=…, or all=true with the list's filters."""
     query = parse_qs(request.url.query)
     if query.get("all") == ["true"]:
-        conditions = f.conditions()
+        conditions = f.conditions(genres.active(session))
         return list(session.exec(select(Track).where(*conditions).order_by(Track.path)).all())
     ids = [int(i) for i in query.get("ids", []) if i.isdigit()]
     return list(

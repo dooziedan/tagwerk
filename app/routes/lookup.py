@@ -54,7 +54,7 @@ async def lookup_many(request: Request, session: SessionDep, settings: SettingsD
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
     form = await read_form(request)
     if form.get("all") == "true":
-        ids = list(session.exec(select(Track.id).where(*f.conditions())))
+        ids = list(session.exec(select(Track.id).where(*f.conditions(genres.active(session)))))
     else:
         ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     if ids:

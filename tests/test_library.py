@@ -97,6 +97,24 @@ def test_genre_filter_matches_single_genres_in_multi_genre_tags(engine, music_di
     assert paths == {"Unsorted/a.flac", "Unsorted/b.flac"}  # not "Tech House" or "Deep House"
 
 
+def test_spellings_of_a_genre_count_as_one(engine, music_dir):
+    """ "Drum and Bass", "Drum And Bass" and "DnB" are one genre: in the statistics and the list."""
+    tags = {"a": "Drum & Bass", "b": "Drum and Bass", "c": "Drum And Bass; Liquid", "d": "DnB"}
+    for name, genre in tags.items():
+        path = music_dir / "Unsorted" / f"{name}.flac"
+        shutil.copy(FIXTURES / "tagged.flac", path)
+        audio = FLAC(path)
+        audio["genre"] = genre
+        audio.save()
+    scan(engine, music_dir)
+    with Session(engine) as session:
+        bars = library_stats(session, Preferences()).genres
+        dnb = [bar for bar in bars if "bass" in bar.label.lower() or bar.label == "DnB"]
+        assert [(bar.label, bar.count) for bar in dnb] == [("Drum & Bass", 4)]
+        listed = find_tracks(session, filter_from_url(dnb[0].url)).tracks
+    assert {t.path for t in listed} == {f"Unsorted/{name}.flac" for name in tags}
+
+
 @pytest.mark.parametrize(
     ("filters", "expected"),
     [

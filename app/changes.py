@@ -41,6 +41,7 @@ SOURCES = {
     "clean-up": "Clean-up (spelling, spacing)",
     "fix-ids": "Fix IDs",
     "private-data": "Private data removed",
+    "genre-merge": "Genre spellings merged",
     "copy": "From another copy",
 }
 

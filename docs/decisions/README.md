@@ -43,3 +43,4 @@ What gets easier, what gets harder.
 | [0022](0022-library-duplicates.md) | Duplicates in the library: stored groups, shown side by side, never deleted | Accepted |
 | [0023](0023-library-trash.md) | A trash for library copies, emptied only by the owner | Accepted |
 | [0024](0024-made-for-djs.md) | Made for DJs: no Collector mode | Accepted |
+| [0025](0025-genre-spellings.md) | One genre, however it is spelled: counted and filtered as one, merged on review | Accepted |

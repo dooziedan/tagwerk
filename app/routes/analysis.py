@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlmodel import select
 
-from app import analysis, changes
+from app import analysis, changes, genres
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
@@ -144,7 +144,9 @@ async def analyse_many(request: Request, session: SessionDep, settings: Settings
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
     form = await read_form(request)
     if form.get("all") == "true":  # skips tracks that already have a result
-        track_ids = list(session.exec(select(Track.id).where(*f.conditions())))
+        track_ids = list(
+            session.exec(select(Track.id).where(*f.conditions(genres.active(session))))
+        )
         force = False
     else:  # ticked on purpose: analysed again even if they have a result
         track_ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]

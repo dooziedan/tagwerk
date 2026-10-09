@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlmodel import select
 
-from app import ids
+from app import genres, ids
 from app.db import SessionDep
 from app.forms import read_form
 from app.library import TrackFilter
@@ -37,7 +37,9 @@ async def fix_ids_many(request: Request, session: SessionDep, f: FilterDep):
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
     form = await read_form(request)
     if form.get("all") == "true":
-        track_ids = list(session.exec(select(Track.id).where(*f.conditions())))
+        track_ids = list(
+            session.exec(select(Track.id).where(*f.conditions(genres.active(session))))
+        )
     else:
         track_ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     saved = ids.stage_fixes(session, track_ids)

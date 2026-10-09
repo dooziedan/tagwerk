@@ -1302,3 +1302,10 @@ article table thead th, table.kv thead th { background: none; }
 .job-card progress { height: 0.75rem; margin: 0 0 0.5rem; }
 .job-foot { display: block; }
 .job-foot .current-file { max-width: 28rem; }
+
+/* Genre spellings page: one card per genre, its spellings as radio buttons */
+.genre-group .card-head label { display: inline-flex; gap: 0.5rem; align-items: center; margin: 0; }
+.genre-choices { margin: 0; }
+.genre-choices label { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; }
+.genre-choices input { margin: 0; }
+.genre-count { font-size: 0.85rem; }
