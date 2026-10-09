@@ -289,7 +289,6 @@ def test_tags_that_differ_from_the_audio_are_flagged(client, engine, settings, m
     assert octave >= 7  # the fixtures say 126 BPM: double the 63 the audio "hears"
     assert key >= 7  # Am (8A) in the files, D minor (7A) from the audio
     assert missing == 0
-    client.put("/api/settings", json=client.get("/api/settings").json() | {"mode": "dj"})
     page = client.get("/stats").text
     assert "with a BPM at probably half or double the real tempo" in page
     assert "tracks with a BPM at probably half or double time" in client.get("/").text  # Home

@@ -29,18 +29,6 @@ SCHEMES = ("dark",)  # one dark look since 1.0 (ADR 0021)
 DEVICES = {"desktop": {"width": 1280, "height": 900}, "phone": {"width": 390, "height": 844}}
 
 
-def put_settings(base: str, **changes) -> None:
-    with urllib.request.urlopen(f"{base}/api/settings") as r:
-        current = json.load(r)
-    request = urllib.request.Request(
-        f"{base}/api/settings",
-        data=json.dumps({**current, **changes}).encode(),
-        headers={"content-type": "application/json"},
-        method="PUT",
-    )
-    urllib.request.urlopen(request).close()
-
-
 def first_track_id(base: str, query: str = "") -> int | None:
     with urllib.request.urlopen(f"{base}/api/tracks?{query}") as r:
         tracks = json.load(r)["tracks"]
@@ -86,7 +74,6 @@ def main(base: str, out: Path) -> int:
     errors: list[str] = []
     count = 0
     with sync_playwright() as p:
-        put_settings(base, mode="dj")
         for style in ("night",):
             for engine in ENGINES:
                 browser = getattr(p, engine).launch()

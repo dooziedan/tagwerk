@@ -15,7 +15,6 @@
     document.getElementById("analyse-selected").disabled = n === 0;
   }
 </script>
-{% set dj = prefs.mode == "dj" %}
 {% set n = prefs.key_notation %}
 <div class="page-head">
   <h1>Tracks</h1>
@@ -92,11 +91,9 @@
     <tr>
       <th scope="col" class="check-col"><input type="checkbox" aria-label="Select all on this page" onclick="document.querySelectorAll('input[name=ids]').forEach(b => b.checked = this.checked); updateSelection()"></th>
       <th scope="col">Title / Artist</th>
-      {% if dj %}
+      
       <th scope="col" class="num">BPM</th><th scope="col">Key</th><th scope="col">Genre</th><th scope="col">Label</th>
-      {% else %}
-      <th scope="col">Album</th><th scope="col" class="num">#</th><th scope="col" class="num">Year</th><th scope="col">Genre</th>
-      {% endif %}
+      
       <th scope="col">Format</th>
       <th scope="col" class="num">Length</th>
     </tr>
@@ -113,17 +110,12 @@
         <br><small class="muted">{{ t.artist or "Unknown artist" }}</small>
         </div>
       </div></td>
-      {% if dj %}
+      
       <td class="num">{{ t.bpm | bpm if t.bpm else "–" }}</td>
       <td>{% if t.key_camelot %}{{ key_label(t.key_camelot, n) }}{% elif t.key %}<span class="muted" title="Not recognized">{{ t.key }}</span>{% else %}–{% endif %}</td>
       <td><small>{{ t.genre or "–" }}</small></td>
       <td><small>{{ t.label or "–" }}</small></td>
-      {% else %}
-      <td><small>{{ t.album or "–" }}</small></td>
-      <td class="num">{{ t.tracknumber or "–" }}</td>
-      <td class="num">{{ t.year or "–" }}</td>
-      <td><small>{{ t.genre or "–" }}</small></td>
-      {% endif %}
+      
       <td><small>{{ t.format | upper }}{% if t.bitrate and t.format not in ("flac", "wav", "aiff") %} · {{ (t.bitrate / 1000) | round | int }}k{% endif %}</small></td>
       <td class="num"><small>{{ t.duration | mmss }}</small></td>
     </tr>

@@ -14,11 +14,6 @@ from app.db import SessionDep
 from app.keys import NOTATIONS
 from app.models import AppSetting
 
-MODES = {
-    "dj": "DJ",
-    "collector": "Collector",
-}
-
 # The night-sky look (ADR 0021): full effects, or lighter ones for weak devices.
 EFFECTS = {
     "full": "Full",
@@ -38,15 +33,12 @@ AUTOMATIONS = {
     "auto": "Import complete tracks automatically",
 }
 
-Mode = Literal["dj", "collector"]
 KeyNotation = Literal["camelot", "openkey", "musical"]
 Effects = Literal["full", "light"]
 
 
 @dataclass
 class Preferences:
-    # DJ: BPM, key, label, quality. Collector: albums, years, covers, lyrics.
-    mode: Mode = "collector"
     key_notation: KeyNotation = "camelot"
     # MusicBrainz IDs are irrelevant for edits, bootlegs and promos, so they're opt-in.
     show_musicbrainz: bool = False
@@ -100,8 +92,6 @@ def save(session: Session, prefs: Preferences) -> Preferences:
 def _validated(prefs: Preferences) -> Preferences:
     """Fall back to defaults for unknown values (e.g. from a newer or older version)."""
     default = Preferences()
-    if prefs.mode not in MODES:
-        prefs.mode = default.mode
     if prefs.key_notation not in NOTATIONS:
         prefs.key_notation = default.key_notation
     prefs.show_musicbrainz = bool(prefs.show_musicbrainz)

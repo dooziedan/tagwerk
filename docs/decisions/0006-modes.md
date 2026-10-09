@@ -1,5 +1,5 @@
 # 0006: DJ and Collector modes change the view, never the data
-Date: 2026-10-04 · Status: Accepted
+Date: 2026-10-04 · Status: Superseded by [0024](0024-made-for-djs.md)
 
 ## Context
 The owner is a DJ. For DJ work, BPM, key, label and audio quality matter, and MusicBrainz IDs mostly don't, because edits, bootlegs and promos aren't on MusicBrainz. Other people (or the owner on another day) care about albums, years, cover art and lyrics instead. One dashboard for both would either be cluttered or call half the library "incomplete" for the wrong reasons.

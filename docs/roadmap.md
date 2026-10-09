@@ -65,8 +65,7 @@ In this order:
 Noted by the owner (2026-10-08); not yet placed before or after 1.0.
 
 - **ReplayGain: analysis and editing**
-  ([issue #39](https://github.com/dooziedan/tagwerk/issues/39)). Tagwerk reads the track gain today (Collector mode
-  counts it as missing) but can't measure or change it. Measure loudness from the audio inside
+  ([issue #39](https://github.com/dooziedan/tagwerk/issues/39)). Tagwerk reads the track gain today but can't measure or change it. Measure loudness from the audio inside
   the container (EBU R128 / ReplayGain 2.0: track gain and peak, album gain and peak for real
   albums; ffmpeg is already in the image), offer the results as pending changes like BPM and
   key, and make the ReplayGain fields editable in all 7 formats, including Opus's own

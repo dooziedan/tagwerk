@@ -29,8 +29,8 @@ PER_PAGE = 50
 # That's also how Navidrome groups its artist list.
 ALBUM_ARTIST = func.coalesce(func.nullif(Track.albumartist, ""), Track.artist)
 
-# Lossy files below this are flagged in DJ mode. 2% tolerance, because some encoders report
-# a constant 320 kbps file as e.g. 319 kbps.
+# Lossy files below this are flagged (a DJ plays 320 kbps or lossless). 2% tolerance, because
+# some encoders report a constant 320 kbps file as e.g. 319 kbps.
 LOW_BITRATE_KBPS = 320
 _LOW_BITRATE_LIMIT = LOW_BITRATE_KBPS * 1000 * 0.98
 
@@ -140,7 +140,6 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
         "Key not recognized",
         and_(not_(is_missing(Track.key)), Track.key_camelot.is_(None)),
     ),
-    "has_lyrics": ("With lyrics", or_(col(Track.has_lyrics), col(Track.has_lrc))),
     "bpm_and_key": (
         "BPM and key set",
         and_(Track.bpm.is_not(None), Track.key_camelot.is_not(None)),

@@ -31,7 +31,7 @@
 </article>
 {% else %}
 {% if write.running or (write.status in ("done", "failed") and write.progress.action == "import") %}
-{% with job = write %}{% include "partials/write_status.html" %}{% endwith %}
+{% with job = write, actions = ["import"] %}{% include "partials/write_status.html" %}{% endwith %}
 {% endif %}
 {% set auto = job.auto_import %}
 {% if auto and auto.written %}

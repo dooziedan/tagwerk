@@ -10,7 +10,7 @@ A new decision gets the next number. A decision that is replaced is marked "Supe
 | [0003](0003-review-before-write.md) | Files are only changed through review → apply, with snapshots | Accepted |
 | [0004](0004-license.md) | License AGPL-3.0-or-later | Accepted |
 | [0005](0005-reading-tags.md) | One common tag format, Picard conventions, honest about bad data | Accepted |
-| [0006](0006-modes.md) | DJ and Collector modes change the view, never the data | Accepted |
+| [0006](0006-modes.md) | DJ and Collector modes change the view, never the data | Superseded by 0024 |
 | [0009](0009-writing-tags.md) | How tags are written and undone | Accepted |
 | [0008](0008-design-language.md) | Two themes from one palette, contrast-checked tokens, no newer CSS | Accepted |
 | [0007](0007-import-inbox.md) | Import inbox with opt-in automatic tagging (amends 0003) | Accepted |
@@ -42,3 +42,4 @@ What gets easier, what gets harder.
 | [0021](0021-night-sky-rebrand.md) | The night-sky look (visual rebrand), replaces Calm and Pop | Accepted |
 | [0022](0022-library-duplicates.md) | Duplicates in the library: stored groups, shown side by side, never deleted | Accepted |
 | [0023](0023-library-trash.md) | A trash for library copies, emptied only by the owner | Accepted |
+| [0024](0024-made-for-djs.md) | Made for DJs: no Collector mode | Accepted |

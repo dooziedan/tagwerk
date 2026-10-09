@@ -222,3 +222,20 @@ def test_applying_more_than_a_thousand_ticked_changes(client):
     assert response.status_code == 303 and "error" not in response.headers["location"]
     write_job.wait(30)
     assert client.get("/api/changes").json() == []  # written
+
+
+def test_the_writing_card_shows_only_on_the_changes_page(client):
+    """While an apply runs, Changes shows "Writing your changes"; a track page doesn't."""
+    from app.jobs import scan_job, write_job
+
+    client.post("/api/scan")
+    scan_job.wait(30)
+    track = client.get("/api/tracks").json()["tracks"][0]["id"]
+    saved = write_job.status, write_job.progress
+    write_job.status, write_job.progress = "running", WriteProgress("apply", total=5)
+    try:
+        assert "Writing your changes" in client.get("/changes").text
+        assert "Writing your changes" not in client.get(f"/tracks/{track}").text
+        assert "Writing your changes" not in client.get("/changes/history").text
+    finally:
+        write_job.status, write_job.progress = saved

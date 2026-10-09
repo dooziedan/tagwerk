@@ -27,7 +27,7 @@ The owner is learning to code: explain changes in plain language and keep the co
 - **No `color-mix()` or other newer CSS for anything essential**: the owner's browser didn't apply it (white-on-white wheel in v0.3.1). Chart colours go into SVG attributes; CSS custom properties are fine.
 - New NOT NULL columns need a `server_default` in the migration: real databases already have rows.
 - **Everything must run inside the Docker image** (the owner deploys to Unraid). No host tools at runtime; any new library (e.g. audio analysis) goes into the image. ffmpeg and ffprobe are in the image for converting to AIFF (`app/convert.py`, [ADR 0013](docs/decisions/0013-convert-to-aiff.md)); the owner chose them knowingly over a smaller library (widely used, big community). They also generate the test fixtures.
-- Modes (DJ / Collector) only change what is shown and checked, never what is stored ([ADR 0006](docs/decisions/0006-modes.md)). The owner is a DJ: many tracks are edits/bootlegs not on MusicBrainz.
+- **Tagwerk is made for DJs** ([ADR 0024](docs/decisions/0024-made-for-djs.md)): no modes; every page puts BPM, key, genre, label, set-readiness and audio quality first. Don't add mode switches or collector-only views. Many of the owner's tracks are edits/bootlegs not on MusicBrainz.
 - Scope: Tagwerk manages the Unraid library (the owner's master). Rekordbox / the DJ SSD are out of scope. Plan: `docs/roadmap.md`.
 - Dashboard numbers and track lists share the conditions in `app/library.py`; a new dashboard number needs a `TrackFilter` URL, and `test_every_dashboard_number_matches_its_track_list` must keep passing.
 - Scans store tags as found on disk. Flag bad data (`mbid_invalid`, `error`), don't silently fix it.

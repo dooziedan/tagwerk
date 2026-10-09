@@ -143,7 +143,6 @@ def build(db_url: str, n: int) -> None:
              for t in rnd.sample(range(1, n + 1), n // 20)],
         )  # fmt: skip
         session.add(AppSetting(key="setup_done", value="true"))
-        session.add(AppSetting(key="mode", value='"dj"'))
         session.commit()
 
 

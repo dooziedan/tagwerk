@@ -97,7 +97,7 @@ def home_api(session: SessionDep, prefs: PreferencesDep) -> dict:
 
 @router.get("/api/stats", tags=["library"])
 def stats(request: Request, session: SessionDep, prefs: PreferencesDep) -> dict:
-    """The numbers shown on the Statistics page, for the current mode."""
+    """The numbers shown on the Statistics page."""
     if getattr(request.app.state, "db_error", None):
         raise HTTPException(503, "Database not available, see /api/status")
     return asdict(library_stats(session, prefs))

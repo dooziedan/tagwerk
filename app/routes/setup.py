@@ -19,7 +19,7 @@ from app.forms import read_form
 from app.inbox import review
 from app.keys import NOTATIONS
 from app.models import InboxTrack, Track
-from app.preferences import AUTOMATIONS, LAYOUTS, MODES, Preferences
+from app.preferences import AUTOMATIONS, LAYOUTS, Preferences
 from app.routes.system import setup_status
 from app.templating import templates
 
@@ -28,7 +28,7 @@ router = APIRouter()
 # The wizard's steps, in order: (key, title)
 STEPS = [
     ("welcome", "Welcome"),
-    ("style", "How you work"),
+    ("style", "Keys"),
     ("folders", "Import folders"),
     ("automation", "Independence"),
     ("final", "Final tracks"),
@@ -43,7 +43,6 @@ def apply_choices(prefs: Preferences, step: str, form) -> tuple[Preferences, dic
     if step == "style":
         prefs = replace(
             prefs,
-            mode=form.get("mode", prefs.mode),
             key_notation=form.get("key_notation", prefs.key_notation),
         )
     elif step == "folders":
@@ -132,7 +131,6 @@ def choices_context(session: Session, prefs: Preferences) -> dict:
     return {
         "layouts": LAYOUTS,
         "automations": AUTOMATIONS,
-        "modes": MODES,
         "notations": NOTATIONS,
         "placeholders": naming.PLACEHOLDERS,
         "folder_placeholders": sorted(naming.FOLDER_PLACEHOLDERS),

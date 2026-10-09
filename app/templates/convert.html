@@ -8,7 +8,7 @@
 
 {% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
 {% if job.running or (job.status in ("done", "failed") and job.progress.action == "convert") %}
-{% include "partials/write_status.html" %}
+{% with actions = ["convert"] %}{% include "partials/write_status.html" %}{% endwith %}
 {% endif %}
 {% if unavailable %}<article class="result-warn"><p>⚠️ {{ unavailable }}</p></article>{% endif %}
 

@@ -8,7 +8,7 @@
 </div>
 <p class="muted">Every “Apply”, newest first, 50 per page. Undo writes the saved old tags back. Files changed again afterwards (by Tagwerk or another tool) are skipped, so newer edits aren't lost.</p>
 {% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
-{% if job.running or job.status in ("done", "failed") %}{% include "partials/write_status.html" %}{% endif %}
+{% if job.running or job.status in ("done", "failed") %}{% with actions = ["undo"] %}{% include "partials/write_status.html" %}{% endwith %}{% endif %}
 
 {% if not changesets %}
 <article><p>Nothing applied yet.</p></article>

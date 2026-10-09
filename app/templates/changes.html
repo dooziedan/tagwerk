@@ -16,7 +16,7 @@
 </div>
 
 {% if job.running or (job.status in ("done", "failed") and job.progress.action) %}
-{% include "partials/write_status.html" %}
+{% with actions = ["apply", "folder"] %}{% include "partials/write_status.html" %}{% endwith %}
 {% endif %}
 
 {% if folders %}
