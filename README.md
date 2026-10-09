@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.16, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
+> **Status: v0.17, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
 
 ![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
 
@@ -37,6 +37,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Edit tags** of one track or many at once, in all 7 formats.
 - **BPM and key from the audio**, made for bass-heavy music like drum & bass: an exact tempo, half/double time settled by genre, filename and online sources, keys tuned for sub-bass. Empty fields get filled, tags that differ get flagged. Uses all CPU cores you give the container.
 - **Online identification:** MusicBrainz, AcoustID (by the sound), Discogs, Deezer and iTunes fill empty fields and covers; a value is *sure* when two sources agree. MusicBrainz checks are optional, since edits, bootlegs and promos usually aren't on MusicBrainz.
+- **Genre spellings:** one genre written in several ways ("Drum & Bass", "Drum and Bass", "DnB") counts as one in the statistics and the track list; merge them into one spelling of your choice, through review and undo like every change.
 - **Fix IDs:** MusicBrainz fields holding Discogs numbers are cleaned up; the numbers move to their own fields.
 - **Final tracks:** mark checked tracks as final (locked), optionally renamed by a pattern you choose.
 - **Convert to AIFF:** lossless tracks (FLAC, WAV, ALAC) with all tags and covers; the originals are kept.
