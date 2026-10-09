@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-10-09
+
+### Changed
+- **Duplicates: decide first, apply once.** **Move to trash** on the Duplicates page no longer moves the file right away (and no longer opens the trash list). The copy is marked "Goes to the trash on Apply" and you stay where you were on the page, so you can go through all your groups, take tags over and mark copies as you go. **Don't trash** takes a mark back. The marked copies move to the trash when you press Apply on the Changes page, together with the tag changes; there they show as "Move to trash" and can be unticked or discarded like any change. The trash itself works as before: restorable until you empty it.
+- **Duplicates: every button brings you back to the same place.** **Use** and **Take over missing tags** used to switch to a view of that one group; now the page stays as it was (same filter, same page) and scrolls back to the group.
+- API: `POST /api/duplicates/trash` now queues the copy as a pending change instead of moving it; `DELETE /api/duplicates/trash/{track_id}` takes the mark back.
+
 ## [0.17.1] - 2026-10-09
 
 ### Added

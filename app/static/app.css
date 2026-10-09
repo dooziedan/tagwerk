@@ -1320,3 +1320,6 @@ article table thead th, table.kv thead th { background: none; }
   .diff.mix-names .check-col { grid-row: span 3; }
   .diff.mix-names .arrow { display: none; }
 }
+
+/* Duplicates: a copy marked for the trash (moved when the pending changes are applied) */
+.dup-table th.queued .dup-file { opacity: 0.55; text-decoration: line-through; }

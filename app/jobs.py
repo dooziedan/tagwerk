@@ -174,7 +174,7 @@ class WriteJob(Job):
         def work() -> None:
             apply_pending(engine, settings.music_dir, progress, images, change_ids)
             after_library_change(engine, settings)
-            navidrome.rescan_after_write(settings, progress.written)
+            navidrome.rescan_after_write(settings, progress.written + progress.trashed)
 
         return self._start(work, progress)
 

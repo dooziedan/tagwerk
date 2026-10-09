@@ -6,12 +6,11 @@
 <div class="page-head">
   <div>
     <h1>Duplicates</h1>
-    <p class="muted page-sub">Tracks that are in your library more than once, with their copies side by side. Tagwerk suggests the copy to keep; the others can go to the trash, which only you empty.</p>
+    <p class="muted page-sub">Tracks that are in your library more than once, with their copies side by side. Tagwerk suggests the copy to keep. Take tags over and mark the other copies for the trash as you go: nothing happens to the files until you apply the pending changes on the Changes page. The trash is only emptied by you.</p>
   </div>
 </div>
 
 <div class="toasts">
-{% if note.trashed %}{% call toast() %}🗑️ Moved to the trash. It stays there, restorable, until you empty the trash (<a href="#trash">below</a>).{% endcall %}{% endif %}
 {% if note.restored %}{% call toast() %}↩️ Restored: <code>{{ note.restored }}</code> is back in the library.{% endcall %}{% endif %}
 {% if note.emptied %}{% call toast() %}Emptied the trash: {{ note.emptied | int | plural('file') }} removed for good.{% endcall %}{% endif %}
 {% if note.error %}{% call toast("warn") %}{{ note.error }}{% endcall %}{% endif %}
@@ -55,7 +54,7 @@
         <tr>
           <th scope="col"><span class="visually-hidden">Field</span></th>
           {% for c in g.ordered %}{% set t = c.track %}
-          <th scope="col"{% if c is sameas k %} class="keep"{% endif %}>
+          <th scope="col"{% if c is sameas k %} class="keep"{% elif t.id in queued %} class="queued"{% endif %}>
             <span class="dup-file">
               {% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}
               <span><a href="/tracks/{{ t.id }}">{{ t.path.rsplit("/", 1)[-1] }}</a>
@@ -63,11 +62,16 @@
             </span>
             <span class="dup-badges">
               {% if c is sameas k %}<span class="status status-final">Keep</span>{% else %}<a class="small-link" href="/duplicates?group={{ g.id }}&keep={{ t.id }}">Keep this one instead</a>{% endif %}
-              {% if c is not sameas k and not c.final %}
-              <form method="post" action="/duplicates/trash" class="dup-trash" data-confirm="Move {{ t.path.rsplit('/', 1)[-1] }} to the trash? It leaves the library (and Navidrome) and can be restored until you empty the trash." data-confirm-ok="Move to trash">
-                <input type="hidden" name="track_id" value="{{ t.id }}"><input type="hidden" name="keep" value="{{ k.track.id }}">
-                <input type="hidden" name="back" value="{{ request.url.path }}?{{ request.url.query }}">
-                <button class="outline secondary small" {% if busy %}disabled{% endif %}>Move to trash</button>
+              {% if c is not sameas k and t.id in queued %}
+              <span class="status status-warn">Goes to the trash on Apply</span>
+              <form method="post" action="/duplicates/untrash" data-keep-place class="dup-trash">
+                <input type="hidden" name="track_id" value="{{ t.id }}"><input type="hidden" name="group" value="{{ g.id }}"><input type="hidden" name="back" value="{{ here }}">
+                <button class="outline secondary small">Don't trash</button>
+              </form>
+              {% elif c is not sameas k and not c.final %}
+              <form method="post" action="/duplicates/trash" data-keep-place class="dup-trash">
+                <input type="hidden" name="track_id" value="{{ t.id }}"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="group" value="{{ g.id }}"><input type="hidden" name="back" value="{{ here }}">
+                <button class="outline secondary small" title="Marks it for the trash; it moves there when you apply the pending changes">Move to trash</button>
               </form>
               {% endif %}
               {% if c.most_tags %}<span class="status">Most tags</span>{% endif %}
@@ -91,7 +95,7 @@
             {% if v in (none, "") %}<span class="muted">–</span>{% elif field == "key" and c.track.key_camelot %}{{ key_label(c.track.key_camelot, n) }}{% else %}{{ v }}{% endif %}
             {% if c is sameas k and field in mine %}<span class="dup-pending">→ {{ mine[field] if mine[field] not in (none, "") else "(removed)" }} <span class="status status-you">pending</span></span>{% endif %}
             {% if not k.final and g.offers(c, field) and mine.get(field) != v %}
-            <form method="post" action="/duplicates/take" class="dup-use"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ c.track.id }}"><input type="hidden" name="field" value="{{ field }}"><button class="outline secondary small" title="Take this value over to the copy you keep (a pending change)">Use</button></form>
+            <form method="post" action="/duplicates/take" data-keep-place class="dup-use"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ c.track.id }}"><input type="hidden" name="field" value="{{ field }}"><input type="hidden" name="back" value="{{ here }}"><button class="outline secondary small" title="Take this value over to the copy you keep (a pending change)">Use</button></form>
             {% endif %}
           </td>
           {% endfor %}
@@ -104,7 +108,7 @@
             {% if c.track.has_cover %}<img class="dup-cover" src="/tracks/{{ c.track.id }}/cover?v={{ c.track.mtime }}" alt="Cover" width="44" height="44" loading="lazy">{% else %}<span class="muted">–</span>{% endif %}
             {% if c is sameas k and cover_field in mine %}<span class="dup-pending">→ new cover <span class="status status-you">pending</span></span>{% endif %}
             {% if c is not sameas k and covers.get(c.track.id) and covers.get(c.track.id) != covers.get(k.track.id) and not k.final %}
-            <form method="post" action="/duplicates/take" class="dup-use"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ c.track.id }}"><input type="hidden" name="field" value="{{ cover_field }}"><button class="outline secondary small" title="Take this cover over to the copy you keep (a pending change)">Use</button></form>
+            <form method="post" action="/duplicates/take" data-keep-place class="dup-use"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ c.track.id }}"><input type="hidden" name="field" value="{{ cover_field }}"><input type="hidden" name="back" value="{{ here }}"><button class="outline secondary small" title="Take this cover over to the copy you keep (a pending change)">Use</button></form>
             {% endif %}
           </td>{% endfor %}</tr>
         <tr><th scope="row">Added</th>{% for c in g.ordered %}<td{% if c is sameas k %} class="keep"{% endif %}>{% if c.track.added_at %}<time data-local data-date-only datetime="{{ c.track.added_at | isoutc }}">{{ c.track.added_at | isoutc }}</time>{% else %}<span class="muted">–</span>{% endif %}</td>{% endfor %}</tr>
@@ -112,15 +116,16 @@
     </table>
   </div>
   <footer class="dup-foot">
-    <small class="muted">{% if mine %}<a href="/changes">Review and apply the pending changes →</a> Then move{% else %}When the tags are right, move{% endif %} the other copies to the trash.</small>
+    {% set marked = g.copies | selectattr("track.id", "in", queued) | list | length %}
+    <small class="muted">{% if mine or marked %}{% if mine %}{{ mine | length | plural('tag change') }}{% endif %}{% if mine and marked %} and {% endif %}{% if marked %}{{ marked | plural('copy', 'copies') }} for the trash{% endif %} waiting: <a href="/changes">review and apply →</a>{% else %}Take over the tags you want, then mark the other copies for the trash.{% endif %}</small>
     <span class="button-row">
       {% set missing = g.missing %}
       {% if missing and not k.final %}
-      <form method="post" action="/duplicates/take"><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ k.track.id }}"><input type="hidden" name="field" value="missing"><button class="small" title="{% for f in missing %}{{ field_label(f) }}{{ ', ' if not loop.last }}{% endfor %}">Take over {{ missing | length | plural('missing tag') }}</button></form>
+      <form method="post" action="/duplicates/take" data-keep-place><input type="hidden" name="keep" value="{{ k.track.id }}"><input type="hidden" name="source" value="{{ k.track.id }}"><input type="hidden" name="field" value="missing"><input type="hidden" name="back" value="{{ here }}"><button class="small" title="{% for f in missing %}{{ field_label(f) }}{{ ', ' if not loop.last }}{% endfor %}">Take over {{ missing | length | plural('missing tag') }}</button></form>
       {% endif %}
-      <form method="post" action="/duplicates/keep">
+      <form method="post" action="/duplicates/keep" data-keep-place>
         {% for c in g.copies %}<input type="hidden" name="track_ids" value="{{ c.track.id }}">{% endfor %}
-        <input type="hidden" name="back" value="/duplicates?reason={{ reason }}&page={{ page }}">
+        <input type="hidden" name="back" value="{{ here }}">
         <button class="outline secondary small" title="They're different tracks, or you want every copy: this group isn't shown again (unless another copy turns up)">Keep them all</button>
       </form>
     </span>
@@ -152,7 +157,7 @@
 {# The library trash (ADR 0023): copies moved here wait until the owner empties it. #}
 {% if trash %}
 {% set trash_size = trash | sum(attribute="size") %}
-<details id="trash" class="glass panel trash-list"{% if note.trashed or note.restored %} open{% endif %}>
+<details id="trash" class="glass panel trash-list"{% if note.restored %} open{% endif %}>
   <summary>Trash <span class="view-count">{{ trash | length }}</span> <small class="muted">· {{ trash_size | filesize }}</small></summary>
   <p class="muted"><small>Copies you moved to the trash wait in the hidden folder <code>.tagwerk-trash</code> in your music folder (Navidrome skips it). They stay until you empty the trash; Tagwerk never removes them on its own.</small></p>
   <table>
