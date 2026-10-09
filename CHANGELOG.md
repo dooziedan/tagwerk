@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-09
+
 ### Changed
 - **Tagwerk is made for DJs; Collector mode is gone.** Every page shows what a DJ needs: BPM, key, genre, label, set-readiness and audio quality first. The mode setting (Settings → Display and the setup wizard's first question) and the Collector views (decades and lyrics on Statistics, the album-first edit form) are removed. Nothing in your files or tags changes.
 - The progress card shows only on the page where its job started: "Writing your changes" on Changes, an import in the Inbox, an undo in History, converting on Convert, marking final on Final check and the track page. Track pages no longer show an Apply that is running.
