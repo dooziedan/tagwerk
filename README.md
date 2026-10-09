@@ -36,7 +36,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 **Tagging**
 - **Edit tags** of one track or many at once, in all 7 formats, including ReplayGain (track and album gain and peak).
 - **BPM and key from the audio**, made for bass-heavy music like drum & bass: an exact tempo, half/double time settled by genre, filename and online sources, keys tuned for sub-bass. Empty fields get filled, tags that differ get flagged. Uses all CPU cores you give the container.
-- **Online identification:** MusicBrainz, AcoustID (by the sound), Discogs, Deezer and iTunes fill empty fields and covers; a value is *sure* when two sources agree. MusicBrainz checks are optional, since edits, bootlegs and promos usually aren't on MusicBrainz.
+- **Online identification:** MusicBrainz, AcoustID (by the sound), Discogs, Deezer and iTunes fill empty fields and covers; a value is *sure* when two sources agree.
 - **Genre spellings:** one genre written in several ways ("Drum & Bass", "Drum and Bass", "DnB") counts as one in the statistics and the track list; merge them into one spelling of your choice, through review and undo like every change.
 - **Mix names:** titles with the mix name in lower case ("Rio (club remix)", "[vip]") are listed and written with capital letters ("Rio (Club Remix)", "[VIP]"), through review and undo; remixer names stay as written.
 - **Fix IDs:** MusicBrainz fields holding Discogs numbers are cleaned up; the numbers move to their own fields.
