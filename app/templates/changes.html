@@ -103,9 +103,15 @@
       <tr>
         <td class="check-col"><input type="checkbox" name="change" value="{{ c.id }}" form="apply-form" data-track="{{ item.track.id }}" checked aria-label="Apply {{ field_label(c.field) }}" onchange="updateTicked()"></td>
         <th scope="row">{{ field_label(c.field) }}{% if c.source and c.source != "you" %}<br><small class="muted change-source">{{ source_label(c.source) }}</small>{% endif %}</th>
+        {% if c.field == "trash" %}
+        <td class="old">In the library</td>
+        <td class="arrow" aria-hidden="true">→</td>
+        <td class="new"><ins>Library trash</ins><br><small class="muted">Restorable on the Duplicates page until you empty the trash; its other changes aren't written.</small></td>
+        {% else %}
         <td class="old">{% if c.old_value is none %}<span class="muted">(empty)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/tracks/{{ item.track.id }}/cover?v={{ item.track.mtime }}" alt="Current cover art">{% else %}<del>{{ c.old_value }}</del>{% endif %}</td>
         <td class="arrow" aria-hidden="true">→</td>
         <td class="new">{% if c.new_value is none %}<span class="muted">(removed)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/images/{{ c.new_value }}" alt="New cover art">{% else %}<ins>{{ c.new_value }}</ins>{% endif %}</td>
+        {% endif %}
         <td class="num">
           <form method="post" action="/changes/{{ c.id }}/discard"><button class="outline secondary small" aria-label="Discard this change" {% if busy %}disabled{% endif %}>Discard</button></form>
         </td>

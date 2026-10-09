@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Engine, and_, exists, not_, or_
 from sqlmodel import Session, col, delete, func, select
 
-from app import writer
+from app import duplicates, writer
 from app.images import ImageStore
 from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, RawTag, Track
 from app.rawtags import BINARY
@@ -44,6 +44,7 @@ SOURCES = {
     "genre-merge": "Genre spellings merged",
     "mix-names": "Mix names capitalised",
     "copy": "From another copy",
+    "duplicates": "Duplicates page",
 }
 
 
@@ -206,6 +207,7 @@ class WriteProgress:
     current: str = ""
     changeset_id: int | None = None
     errors: list[str] = field(default_factory=list)  # "path: reason"
+    trashed: int = 0  # copies moved to the library trash (queued on the Duplicates page)
     # An apply's ticked changes (None: all pending ones): the Changes page leaves them out while
     # they are being written, so they don't show up again after the list burnt away.
     change_ids: list[int] | None = None
@@ -219,60 +221,89 @@ def apply_pending(
     change_ids: list[int] | None = None,
 ) -> None:
     """Write pending changes: all of them, or only ``change_ids`` (the ticked ones; the others
-    stay pending). Failed files keep their pending changes for another try."""
+    stay pending). Failed files keep their pending changes for another try.
+
+    Copies queued on the Duplicates page go to the library trash afterwards (their other
+    pending changes aren't written: the file leaves the library). Trash moves aren't part of
+    the change set; the trash is their record, with Restore (ADR 0023, ADR 0027).
+    """
     with Session(engine) as session:
         items = pending(session, change_ids)
         progress.total = len(items)
-        fields = sorted({c.field for item in items for c in item.changes}, key=writer.label_order)
-        labels = [writer.label(f) for f in fields]
-        changeset = ChangeSet(tracks=len(items), fields=", ".join(labels))
-        session.add(changeset)
-        session.commit()
-        progress.changeset_id = changeset.id
-
-        for item in items:
-            track = item.track
-            progress.current = track.path
-            values = {c.field: c.new_value for c in item.changes}
-            entry = ChangeEntry(
-                changeset_id=changeset.id,
-                track_id=track.id,
-                path=track.path,
-                changes=json.dumps({c.field: [c.old_value, c.new_value] for c in item.changes}),
-                sources=sources_json({c.field: c.source for c in item.changes}),
-            )
-            try:
-                path = music_dir / track.path
-                stat = path.stat()
-                if stat.st_mtime != track.mtime or stat.st_size != track.size:
-                    raise writer.WriteError(
-                        "the file changed since the last scan; scan again, then apply"
-                    )
-                snapshot = writer.write(path, values, images)
-                entry.snapshot = json.dumps(snapshot)
-                refreshed = refresh_track(session, music_dir, track)
-                entry.mtime_after = refreshed.mtime
-                raw = {
-                    r.name for r in session.exec(select(RawTag).where(RawTag.track_id == track.id))
-                }
-                mismatch = _verify(refreshed, values, snapshot["system"], raw)
-                if mismatch:
-                    entry.error = "written, but reads back differently: " + mismatch
-                for change in item.changes:
-                    session.delete(change)
-                progress.written += 1
-                changeset.written += 1
-            except Exception as exc:
-                log.warning("Could not write %s: %s", track.path, exc)
-                session.rollback()
-                entry.error = str(exc)[:500]
-                progress.failed += 1
-                changeset.failed += 1
-                progress.errors.append(f"{track.path}: {entry.error}")
-            session.add(entry)
-            session.commit()
-            progress.processed += 1
+        trashed = [i for i in items if any(c.field == writer.TRASH for c in i.changes)]
+        items = [i for i in items if i not in trashed]
+        if items:
+            _write_items(session, music_dir, progress, images, items)
+        for item in trashed:
+            _trash_item(session, music_dir, progress, item)
     progress.current = ""
+
+
+def _trash_item(session: Session, music_dir: Path, progress: WriteProgress, item) -> None:
+    """Move one queued copy to the library trash; it stays queued if that's not possible."""
+    track = item.track
+    progress.current = track.path
+    keep = next(c.new_value for c in item.changes if c.field == writer.TRASH)
+    try:
+        duplicates.trash_copy(session, music_dir, track.id, int(keep or 0))
+        progress.trashed += 1
+    except Exception as exc:
+        log.warning("Could not move %s to the trash: %s", track.path, exc)
+        session.rollback()
+        progress.failed += 1
+        progress.errors.append(f"{track.path}: {str(exc)[:500]}")
+    progress.processed += 1
+
+
+def _write_items(session: Session, music_dir: Path, progress, images, items) -> None:
+    """Write the tag changes of these tracks, as one change set."""
+    fields = sorted({c.field for item in items for c in item.changes}, key=writer.label_order)
+    labels = [writer.label(f) for f in fields]
+    changeset = ChangeSet(tracks=len(items), fields=", ".join(labels))
+    session.add(changeset)
+    session.commit()
+    progress.changeset_id = changeset.id
+
+    for item in items:
+        track = item.track
+        progress.current = track.path
+        values = {c.field: c.new_value for c in item.changes}
+        entry = ChangeEntry(
+            changeset_id=changeset.id,
+            track_id=track.id,
+            path=track.path,
+            changes=json.dumps({c.field: [c.old_value, c.new_value] for c in item.changes}),
+            sources=sources_json({c.field: c.source for c in item.changes}),
+        )
+        try:
+            path = music_dir / track.path
+            stat = path.stat()
+            if stat.st_mtime != track.mtime or stat.st_size != track.size:
+                raise writer.WriteError(
+                    "the file changed since the last scan; scan again, then apply"
+                )
+            snapshot = writer.write(path, values, images)
+            entry.snapshot = json.dumps(snapshot)
+            refreshed = refresh_track(session, music_dir, track)
+            entry.mtime_after = refreshed.mtime
+            raw = {r.name for r in session.exec(select(RawTag).where(RawTag.track_id == track.id))}
+            mismatch = _verify(refreshed, values, snapshot["system"], raw)
+            if mismatch:
+                entry.error = "written, but reads back differently: " + mismatch
+            for change in item.changes:
+                session.delete(change)
+            progress.written += 1
+            changeset.written += 1
+        except Exception as exc:
+            log.warning("Could not write %s: %s", track.path, exc)
+            session.rollback()
+            entry.error = str(exc)[:500]
+            progress.failed += 1
+            changeset.failed += 1
+            progress.errors.append(f"{track.path}: {entry.error}")
+        session.add(entry)
+        session.commit()
+        progress.processed += 1
 
 
 def sources_json(sources: dict[str, str | None]) -> str | None:

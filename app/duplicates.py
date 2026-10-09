@@ -28,7 +28,7 @@ from sqlalchemy import Engine, delete, distinct, func
 from sqlmodel import Session, col, select
 
 from app import trash, writer
-from app.models import DuplicateTrack, FinalTrack, InboxTrack, NotDuplicate, Track
+from app.models import DuplicateTrack, FinalTrack, InboxTrack, NotDuplicate, PendingChange, Track
 
 # Two versions of a track whose lengths differ more than this are different edits.
 LENGTH_TOLERANCE = 3  # seconds
@@ -476,6 +476,60 @@ def trash_copy(session: Session, music_dir: Path, track_id: int, keep_id: int) -
     session.delete(track)  # its analysis, pending changes and duplicate rows go with it
     session.commit()
     return entry
+
+
+def queue_trash(session: Session, track_id: int, keep_id: int) -> None:
+    """Queue one copy for the library trash: a pending change (field TRASH) that moves the file
+    when the owner applies the pending changes, together with the tag changes (ADR 0027).
+
+    The same checks as trash_copy(). The copy to keep is never queued itself: a decision
+    queued for it earlier (with another copy kept) is dropped, so one copy always stays.
+    """
+    group = next((g for g in load_groups(session) if track_id in {c.track.id for c in g.copies}),
+                 None)  # fmt: skip
+    if group is None or track_id == keep_id or keep_id not in {c.track.id for c in group.copies}:
+        raise trash.TrashError("Only a copy other than the one you keep can go to the trash")
+    if session.get(FinalTrack, track_id):
+        raise trash.TrashError("It's final (locked): remove the mark on its track page first")
+    unqueue_trash(session, keep_id)
+    copies = [c.track.id for c in group.copies]
+    queued = {
+        c.track_id: c
+        for c in session.exec(
+            select(PendingChange).where(
+                col(PendingChange.track_id).in_(copies), PendingChange.field == writer.TRASH
+            )
+        )
+    }
+    if track_id not in queued:
+        queued[track_id] = PendingChange(
+            track_id=track_id,
+            field=writer.TRASH,
+            old_value=session.get(Track, track_id).path,
+            source="duplicates",
+        )
+    for change in queued.values():  # every queued copy of the group keeps the same copy
+        change.new_value = str(keep_id)  # checked again when applied
+        session.add(change)
+    session.commit()
+
+
+def unqueue_trash(session: Session, track_id: int) -> None:
+    """Forget a queued trash decision ("Don't trash")."""
+    session.exec(
+        delete(PendingChange).where(
+            PendingChange.track_id == track_id, PendingChange.field == writer.TRASH
+        )
+    )
+    session.commit()
+
+
+def queued_trash(session: Session) -> dict[int, int]:
+    """Tracks queued for the library trash -> the copy kept instead of them."""
+    query = select(PendingChange.track_id, PendingChange.new_value).where(
+        PendingChange.field == writer.TRASH
+    )
+    return {track_id: int(keep or 0) for track_id, keep in session.exec(query)}
 
 
 def restore_copy(session: Session, music_dir: Path, entry: str) -> Track:

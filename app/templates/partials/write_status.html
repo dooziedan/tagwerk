@@ -28,7 +28,7 @@
     {% elif p.action in ("final", "unfinal") %}{% if p.written %}{{ "Marked as final" if p.action == "final" else "Final mark removed" }}{% else %}Not done{% endif %}{% if p.errors %}: {{ p.errors[0].split(": ", 1)[-1] }}{% endif %}.
     {% elif p.action == "convert" %}Converted {{ p.written | plural('track') }} to AIFF{% if p.failed %}; {{ p.failed | plural('track') }} not converted{% endif %}.
     {% elif p.action == "folder" %}Moved {{ p.written | plural('track') }} out of _Unsorted{% if p.failed %}; {{ p.failed | plural('track') }} stayed in _Unsorted{% endif %}.
-    {% else %}{{ "Undid" if p.action == "undo" else "Wrote" }} {{ p.written | plural('file') }}{% if p.failed %}, {{ p.failed | plural('file') }} failed{% endif %}.{% endif %}
+    {% else %}{% if p.written or not p.trashed %}{{ "Undid" if p.action == "undo" else "Wrote" }} {{ p.written | plural('file') }}{% endif %}{% if p.written and p.trashed %}, {% endif %}{% if p.trashed %}{{ "moved" if p.written else "Moved" }} {{ p.trashed | plural('copy', 'copies') }} to the <a href="/duplicates#trash">trash</a>{% endif %}{% if p.failed %}, {{ p.failed | plural('file') }} failed{% endif %}.{% endif %}
     {% if p.changeset_id %}<a href="/changes/history/{{ p.changeset_id }}">Details</a>{% endif %}
   {% if p.errors %}<details><summary>What went wrong</summary><ul class="notes">{% for e in p.errors %}<li><code>{{ e }}</code></li>{% endfor %}</ul></details>{% endif %}
   {% endif %}

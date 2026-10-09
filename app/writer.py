@@ -68,6 +68,9 @@ LABELS = {**EDITABLE, **IDS, COVER: "Cover art"}
 # Removing one program's private ID3 frames (PRIV), e.g. "private:TRAKTOR4" for the waveform,
 # beat grid and cue points Traktor keeps in the file. Only removal; only ID3 has them.
 PRIVATE = "private:"
+# Not a tag: a copy on the Duplicates page queued for the library trash (ADR 0027). Moved by
+# app/duplicates.py when the pending changes are applied, never written by this module.
+TRASH = "trash"
 
 
 TRAKTOR = PRIVATE + "TRAKTOR4"  # Traktor's waveform, beat grid and cue points
@@ -86,6 +89,8 @@ def label(field: str) -> str:
     """A change's field as shown on the pages."""
     if field.startswith(PRIVATE):
         return f"Private data ({field.removeprefix(PRIVATE)})"
+    if field == TRASH:
+        return "Move to trash"
     return LABELS[field]
 
 

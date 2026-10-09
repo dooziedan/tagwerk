@@ -5,11 +5,13 @@ import pytest
 from mutagen.flac import FLAC
 from sqlmodel import Session, select
 
-from app import duplicates, trash
+from app import changes, duplicates, trash
+from app.changes import WriteProgress
 from app.duplicates import LibraryIndex, main_artist, normalized
 from app.inbox import save_values, scan_inbox
 from app.models import InboxTrack, Track
 from app.scanner import ScanProgress, scan_library
+from app.tags import read_file
 from tests.conftest import FIXTURES
 
 # In the test library (tests/conftest.py): "Artist One; Artist Two - Silent Track", MBID 1111…
@@ -347,7 +349,14 @@ def test_taking_tags_over_from_another_copy(client, music_dir):
     ids = {t["path"].rsplit("/", 1)[-1]: t["id"] for t in group["tracks"]}
     keep, other = ids["tagged.flac"], ids["tagged.mp3"]
 
-    client.post("/duplicates/take", data={"keep": keep, "source": other, "field": "label"})
+    back = "/duplicates?reason=file&page=1&saved=3"  # an old note isn't carried back
+    taken = client.post(
+        "/duplicates/take",
+        data={"keep": keep, "source": other, "field": "label", "back": back},
+        follow_redirects=False,
+    )  # back to the same place on the page
+    location = f"/duplicates?reason=file&page=1&saved=1#group-{group['group']}"
+    assert taken.headers["location"] == location
     client.post("/duplicates/take", data={"keep": keep, "source": keep, "field": "missing"})
     pending = client.get("/api/changes").json()
     assert [p["track_id"] for p in pending] == [keep]  # only the copy to keep gets changes
@@ -356,7 +365,7 @@ def test_taking_tags_over_from_another_copy(client, music_dir):
     assert changes["label"]["source"] == "copy"
     assert changes["genre"]["new_value"] == "Electronic"  # the other copies agree on it
     page = client.get("/duplicates", params={"group": group["group"], "keep": keep}).text
-    assert "→ Hospital Records" in page and "Review and apply the pending changes" in page
+    assert "→ Hospital Records" in page and "2 tag changes waiting" in page
     other_group = client.post("/api/duplicates/take", json={"keep": keep, "source": 999999,
                                                              "fields": ["label"]})  # fmt: skip
     assert other_group.status_code == 400
@@ -382,10 +391,15 @@ def test_the_library_trash(client, engine, music_dir):
     final = client.post("/api/duplicates/trash", json={"track_id": ogg, "keep": keep})
     assert final.status_code == 409 and "final" in final.json()["detail"]
 
-    page = client.post(
-        "/duplicates/trash", data={"track_id": mp3, "keep": keep, "back": "/duplicates"}
-    )
-    assert "Moved to the trash" in page.text
+    queued = client.post(
+        "/duplicates/trash",
+        data={"track_id": mp3, "keep": keep, "group": group["group"], "back": "/duplicates"},
+        follow_redirects=False,
+    )  # only queued: the owner stays on the page, the file stays where it is
+    assert queued.headers["location"] == f"/duplicates#group-{group['group']}"
+    assert (music_dir / "Fixture Artist/Fixture Album/tagged.mp3").exists()
+    assert "Goes to the trash on Apply" in client.get("/duplicates").text
+    changes.apply_pending(engine, music_dir, WriteProgress())
     in_trash = list((music_dir / trash.TRASH).rglob("tagged.mp3"))
     assert len(in_trash) == 1 and (music_dir / trash.TRASH / ".ndignore").exists()
     assert not (music_dir / "Fixture Artist/Fixture Album/tagged.mp3").exists()
@@ -411,6 +425,53 @@ def test_the_library_trash(client, engine, music_dir):
 
     wav = ids["tagged.wav"]
     client.post("/api/duplicates/trash", json={"track_id": wav, "keep": keep})
+    changes.apply_pending(engine, music_dir, WriteProgress())
     assert client.delete("/api/library-trash").json() == {"removed": 1}
     assert client.get("/api/library-trash").json() == []
     assert not list((music_dir / trash.TRASH).rglob("tagged.wav"))  # gone for good
+
+
+def test_trash_decisions_wait_for_apply_and_one_copy_always_stays(client, engine, music_dir):
+    """Marking copies for the trash and taking tags over are queued together; Apply writes the
+    tags, then moves the marked copies. The copy to keep is never marked."""
+    scan_job_run(client)
+    group = next(g for g in client.get("/api/duplicates").json() if len(g["tracks"]) == 7)
+    ids = {t["path"].rsplit("/", 1)[-1]: t["id"] for t in group["tracks"]}
+    flac, mp3, ogg, wav = (ids[f"tagged.{f}"] for f in ("flac", "mp3", "ogg", "wav"))
+    album = music_dir / "Fixture Artist/Fixture Album"
+
+    client.post("/api/duplicates/trash", json={"track_id": mp3, "keep": flac})
+    client.post("/api/duplicates/trash", json={"track_id": ogg, "keep": flac})
+    # Changing their mind: keep the MP3 after all, the FLAC goes instead.
+    client.post("/api/duplicates/trash", json={"track_id": flac, "keep": mp3})
+    with Session(engine) as session:
+        assert duplicates.queued_trash(session) == {ogg: mp3, flac: mp3}  # the MP3 stays
+    assert "Your choice." in client.get("/duplicates").text  # the page keeps the MP3 too
+    client.delete(f"/api/duplicates/trash/{ogg}")  # "Don't trash"
+    with Session(engine) as session:
+        changes.stage(session, [mp3], {"label": "Hospital"}, "copy")
+        changes.stage(session, [wav], {"label": "Not written"})
+        assert len(duplicates.queued_trash(session)) == 1
+    pending = {c["field"] for p in client.get("/api/changes").json() for c in p["changes"]}
+    assert pending == {"label", "trash"}
+    assert (
+        "Move to trash" in client.get("/changes").text
+        and "Library trash" in client.get("/changes").text
+    )
+
+    client.post("/api/duplicates/trash", json={"track_id": wav, "keep": mp3})
+    progress = WriteProgress()
+    changes.apply_pending(engine, music_dir, progress)
+    assert (progress.written, progress.trashed, progress.failed) == (1, 2, 0)
+    assert read_file(album / "tagged.mp3").label == "Hospital"
+    assert not (album / "tagged.flac").exists() and not (album / "tagged.wav").exists()
+    assert (album / "tagged.ogg").exists()
+    assert sorted(
+        e["path"].rsplit("/", 1)[-1] for e in client.get("/api/library-trash").json()
+    ) == [
+        "tagged.flac",
+        "tagged.wav",
+    ]
+    with Session(engine) as session:
+        assert changes.pending_count(session) == 0
+        assert changes.history(session)[0].tracks == 1  # trash moves aren't in the change set

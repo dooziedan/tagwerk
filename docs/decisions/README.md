@@ -45,3 +45,4 @@ What gets easier, what gets harder.
 | [0024](0024-made-for-djs.md) | Made for DJs: no Collector mode | Accepted |
 | [0025](0025-genre-spellings.md) | One genre, however it is spelled: counted and filtered as one, merged on review | Accepted |
 | [0026](0026-mix-names.md) | Mix names with capital letters: one rule for inbox and library, fixed on review | Accepted |
+| [0027](0027-queued-trash-decisions.md) | Trash decisions on the Duplicates page wait for Apply | Accepted |

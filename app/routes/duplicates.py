@@ -2,12 +2,14 @@
 
 Tagwerk suggests the copy to keep (the best sound) and lets the owner take over tags and the
 cover from the other copies: they become pending changes, reviewed and applied as usual. The
-other copies can then go to the library trash (ADR 0023), where they wait until the owner
-empties it. "Keep them all" remembers that a group isn't a problem.
+other copies can be queued for the library trash (ADR 0023): they move there when the owner
+applies the pending changes (ADR 0027) and wait until the owner empties the trash. Every
+button brings the owner back to the same place on the page. "Keep them all" remembers that a
+group isn't a problem.
 """
 
 import hashlib
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -23,7 +25,6 @@ from app.duplicates import REASONS, load_groups
 from app.forms import read_form
 from app.jobs import busy, image_store, run_now
 from app.models import NotDuplicate, PendingChange, Track
-from app.navigation import with_saved_note
 from app.templating import templates
 
 router = APIRouter()
@@ -36,7 +37,7 @@ class KeepRequest(BaseModel):
 
 
 class TrashRequest(BaseModel):
-    track_id: int  # the copy to move to the library trash
+    track_id: int  # the copy to queue for the library trash
     keep: int  # the copy that stays (never trashed)
 
 
@@ -110,14 +111,23 @@ def take_api(body: TakeRequest, session: SessionDep, settings: SettingsDep) -> d
     return {"staged": staged}
 
 
-@router.post("/api/duplicates/trash", tags=["library"])
-def trash_api(body: TrashRequest, settings: SettingsDep) -> dict:
-    """Move a copy into the library trash (``/music/.tagwerk-trash``); restorable until the
-    trash is emptied. Never the copy to keep, never a final track."""
-    ok, result = _trash(settings, body.track_id, body.keep)
-    if not ok:
-        raise HTTPException(409, result)
-    return {"trash_id": result}
+@router.post("/api/duplicates/trash", tags=["changes"])
+def trash_api(body: TrashRequest, session: SessionDep) -> dict:
+    """Queue a copy for the library trash (``/music/.tagwerk-trash``) as a pending change: it
+    moves there when the pending changes are applied, restorable until the trash is emptied.
+    Never the copy to keep, never a final track."""
+    try:
+        duplicates.queue_trash(session, body.track_id, body.keep)
+    except trash.TrashError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"queued": body.track_id}
+
+
+@router.delete("/api/duplicates/trash/{track_id}", tags=["changes"])
+def untrash_api(track_id: int, session: SessionDep) -> dict:
+    """Forget a queued trash decision: the copy stays in the library."""
+    duplicates.unqueue_trash(session, track_id)
+    return {"queued": None}
 
 
 @router.get("/api/library-trash", tags=["library"])
@@ -142,26 +152,6 @@ def empty_api(settings: SettingsDep) -> dict:
     if not ran:
         raise HTTPException(409, "A scan or write is running")
     return {"removed": removed}
-
-
-def _trash(settings, track_id: int, keep: int) -> tuple[bool, str]:
-    """(True, trash id) or (False, why not). Takes the job lock: never during a scan or write."""
-
-    def work() -> tuple[bool, str]:
-        with Session(get_engine(settings.database_url)) as session:
-            try:
-                entry = duplicates.trash_copy(session, settings.music_dir, track_id, keep)
-            except (trash.TrashError, OSError) as exc:
-                return False, str(exc)
-        duplicates.refresh_library(get_engine(settings.database_url), settings.music_dir)
-        return True, entry
-
-    ran, result = run_now(work)
-    if not ran:
-        return False, "A scan or write is running; try again when it's finished"
-    if result[0]:
-        navidrome.rescan_after_write(settings, 1)  # the file left the library
-    return result
 
 
 def _restore(settings, entry: str) -> tuple[bool, str]:
@@ -206,10 +196,13 @@ def duplicates_page(
 ):
     everything = load_groups(session)
     groups = [g for g in everything if not reason or reason in g.reasons]
-    if group:  # one group, from a track page or after taking tags over
+    queued = duplicates.queued_trash(session)
+    for g in groups:  # the copy kept by queued trash decisions, unless one is picked now
+        g.chosen = next((queued[c.track.id] for c in g.copies if c.track.id in queued), None)
+    if group:  # one group, from a track page or "Keep this one instead"
         groups = [g for g in groups if g.id == group]
         for g in groups:
-            g.chosen = keep or None  # "Keep this one instead"
+            g.chosen = keep or g.chosen
     keepers = [g.keeper.track.id for g in groups]
     pending: dict[int, dict[str, str | None]] = {}
     for change in session.exec(select(PendingChange).where(PendingChange.track_id.in_(keepers))):
@@ -230,6 +223,8 @@ def duplicates_page(
             "reason": reason if reason in REASONS else "",
             "group": group,
             "pending": pending,
+            "queued": queued,
+            "here": _here(request),
             "covers": _cover_ids(settings, groups[(page - 1) * PER_PAGE : page * PER_PAGE]),
             "compared": duplicates.COMPARED,
             "cover_field": writer.COVER,
@@ -239,10 +234,29 @@ def duplicates_page(
             "trash": trash.items(settings.music_dir),
             "busy": busy(),
             "note": {
-                k: request.query_params.get(k) for k in ("trashed", "restored", "emptied", "error")
+                k: request.query_params.get(k) for k in ("restored", "emptied", "error")
             },  # fmt: skip
         },
     )
+
+
+_NOTES = {"saved", "restored", "emptied", "error", "done"}  # shown once, not carried back
+
+
+def _here(request: Request) -> str:
+    """This page's address without one-off notes: where the buttons bring the owner back."""
+    query = [(k, v) for k, v in parse_qsl(request.url.query) if k not in _NOTES]
+    return request.url.path + (f"?{urlencode(query)}" if query else "")
+
+
+def _back(form, group_id: int | str = "", **notes) -> RedirectResponse:
+    """Back to the page the button was on, scrolled to its group, with an optional note."""
+    back = urlsplit(str(form.get("back", "")))
+    url = back.path if back.path == "/duplicates" else "/duplicates"
+    query = [(k, v) for k, v in parse_qsl(back.query) if k not in _NOTES]
+    query += [(k, str(v)) for k, v in notes.items()]
+    url += f"?{urlencode(query)}" if query else ""
+    return RedirectResponse(url + (f"#group-{group_id}" if group_id else ""), status_code=303)
 
 
 def _cover_ids(settings, groups) -> dict[int, str]:
@@ -261,8 +275,7 @@ async def keep_form(request: Request, session: SessionDep, settings: SettingsDep
     ids = [int(i) for i in form.getlist("track_ids") if str(i).isdigit()]
     if len(ids) > 1:
         keep_api(KeepRequest(track_ids=ids), session, settings)
-    back = str(form.get("back", ""))
-    return RedirectResponse(back if back.startswith("/duplicates") else "/duplicates", 303)
+    return _back(form)
 
 
 @router.post("/duplicates/take", include_in_schema=False)
@@ -271,11 +284,11 @@ async def take_form(request: Request, session: SessionDep, settings: SettingsDep
     form = await read_form(request)
     keep, source, field = (str(form.get(k, "")) for k in ("keep", "source", "field"))
     if not (keep.isdigit() and source.isdigit()):
-        return RedirectResponse("/duplicates", status_code=303)
+        return _back(form)
     group = next((g for g in load_groups(session) if int(keep) in {c.track.id for c in g.copies}),
                  None)  # fmt: skip
     if group is None:
-        return RedirectResponse("/duplicates", status_code=303)
+        return _back(form)
     group.chosen = int(keep)
     if field == "missing":  # every tag the keeper lacks, each from a copy that has it
         sources = {
@@ -288,22 +301,31 @@ async def take_form(request: Request, session: SessionDep, settings: SettingsDep
     for name, copy_id in sources.items():
         body = TakeRequest(keep=int(keep), source=copy_id, fields=[name])
         staged += take_api(body, session, settings)["staged"]
-    url = f"/duplicates?group={group.id}&keep={keep}"
-    return RedirectResponse(with_saved_note(url, staged), status_code=303)
+    return _back(form, group.id, saved=staged)
 
 
 @router.post("/duplicates/trash", include_in_schema=False)
-async def trash_form(request: Request, settings: SettingsDep):
+async def trash_form(request: Request, session: SessionDep):
+    """ "Move to trash": queued as a pending change, moved when the owner applies them."""
     form = await read_form(request)
-    track, keep = (str(form.get(k, "")) for k in ("track_id", "keep"))
-    back = str(form.get("back", ""))
-    back = back if back.startswith("/duplicates") else "/duplicates"
-    sep = "&" if "?" in back else "?"
+    track, keep, group = (str(form.get(k, "")) for k in ("track_id", "keep", "group"))
     if not (track.isdigit() and keep.isdigit()):
-        return RedirectResponse(back, status_code=303)
-    ok, result = _trash(settings, int(track), int(keep))
-    note = "trashed=1" if ok else f"error={quote(result)}"
-    return RedirectResponse(f"{back}{sep}{note}", status_code=303)
+        return _back(form, group)
+    try:
+        duplicates.queue_trash(session, int(track), int(keep))
+    except trash.TrashError as exc:
+        return _back(form, group, error=str(exc))
+    return _back(form, group)
+
+
+@router.post("/duplicates/untrash", include_in_schema=False)
+async def untrash_form(request: Request, session: SessionDep):
+    """ "Don't trash": the copy stays in the library."""
+    form = await read_form(request)
+    track = str(form.get("track_id", ""))
+    if track.isdigit():
+        duplicates.unqueue_trash(session, int(track))
+    return _back(form, str(form.get("group", "")))
 
 
 @router.post("/duplicates/trash/{entry}/restore", include_in_schema=False)

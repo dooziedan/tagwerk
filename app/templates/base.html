@@ -174,13 +174,29 @@
       dialog.showModal();
     }, true);
 
+    // Forms with data-keep-place bring the owner back to the same spot: the card the button
+    // was in (the closest element with an id) is put back where it was on the screen.
+    let place = null;
+    document.addEventListener("htmx:beforeRequest", (e) => {
+      const form = e.detail.elt && e.detail.elt.closest && e.detail.elt.closest("form[data-keep-place]");
+      const card = form && form.closest("[id]");
+      place = form ? { id: card && card.id, top: card ? card.getBoundingClientRect().top : 0, y: scrollY } : null;
+    });
+    document.addEventListener("htmx:afterSettle", () => {
+      if (!place) return;
+      const card = place.id && document.getElementById(place.id);
+      if (card) scrollTo(0, scrollY + card.getBoundingClientRect().top - place.top);
+      else scrollTo(0, place.y); // the card is gone (e.g. "Keep them all"): same height
+      place = null;
+    });
+
     // Page changes (boosted links and forms) replace only #page; the play bar stays.
     // Pages with form errors come back as 422 and are shown too.
     document.addEventListener("htmx:beforeSwap", (e) => {
       if (!e.detail.boosted) return;
       e.detail.target = document.getElementById("page");
       e.detail.selectOverride = "#page";
-      e.detail.swapOverride = "outerHTML";
+      e.detail.swapOverride = place ? "outerHTML show:none" : "outerHTML"; // keep-place: no jump to the top
       document.body.classList.remove("with-action-bar"); // the inbox's selection bar is gone
       if (e.detail.xhr.status >= 400) {
         e.detail.shouldSwap = true;
