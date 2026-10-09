@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-09
+
 ### Added
 - **Merge genre spellings**: a new **Genre spellings** page (linked from the Genres chart on Statistics) lists every genre written in more than one way, like "Drum & Bass", "Drum and Bass", "Drum And Bass" and "DnB", with the number of tracks per spelling. Pick the spelling to keep (the genre map's name is suggested) and Tagwerk creates pending changes that write it into every track spelling the genre differently. Other genres in the tag stay as they are ("Drum And Bass; Liquid" becomes "Drum & Bass; Liquid"). Nothing is written until you apply the changes; final tracks are skipped, and undo works as usual.
 
