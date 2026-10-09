@@ -11,6 +11,7 @@ from sqlmodel import col, select
 from app import convert, preferences
 from app.config import SettingsDep
 from app.db import SessionDep
+from app.forms import read_form
 from app.jobs import busy, write_job
 from app.library import TrackFilter
 from app.models import Track
@@ -77,7 +78,7 @@ def convert_page(request: Request, session: SessionDep, settings: SettingsDep, f
 
 @router.post("/convert", include_in_schema=False)
 async def convert_start(request: Request, settings: SettingsDep):
-    form = await request.form()
+    form = await read_form(request)
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     back = "/convert?" + urlencode([("ids", i) for i in ids])
     if not ids or convert.available(settings):

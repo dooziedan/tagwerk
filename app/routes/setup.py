@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 from app import genres, naming, navidrome, preferences, writer
 from app.config import SettingsDep, get_settings
 from app.db import SessionDep
+from app.forms import read_form
 from app.inbox import review
 from app.keys import NOTATIONS
 from app.models import InboxTrack, Track
@@ -161,7 +162,7 @@ def setup_skip(session: SessionDep):
 async def setup_save(request: Request, step: str, session: SessionDep, settings: SettingsDep):
     if step not in STEP_KEYS:
         return RedirectResponse("/setup", status_code=303)
-    form = await request.form()
+    form = await read_form(request)
     prefs, errors = apply_choices(preferences.load(session), step, form)
     if errors:
         return _page(request, session, settings, prefs, step, errors, status_code=422)

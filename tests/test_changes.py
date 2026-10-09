@@ -204,3 +204,21 @@ def test_changes_being_written_are_not_shown_again(client):
     finally:
         write_job.status, write_job.progress = saved
     assert "Written Now" not in page and "Stays Pending" in page
+
+
+def test_applying_more_than_a_thousand_ticked_changes(client):
+    """A real library ticked 1,196 changes: the form must not be refused (the web framework's
+    default limit is 1,000 fields)."""
+    from app.jobs import scan_job, write_job
+
+    client.post("/api/scan")
+    scan_job.wait(30)
+    track = client.get("/api/tracks").json()["tracks"][0]["id"]
+    client.post("/api/changes", json={"track_ids": [track], "values": {"label": "Big List"}})
+    real = client.get("/api/changes").json()[0]["changes"][0]["id"]
+    ticked = [str(real)] + [str(i) for i in range(100_000, 101_200)]  # 1,201 fields
+    response = client.post("/changes/apply", data={"ticked": "1", "change": ticked, "backup": "on"},
+                           follow_redirects=False)  # fmt: skip
+    assert response.status_code == 303 and "error" not in response.headers["location"]
+    write_job.wait(30)
+    assert client.get("/api/changes").json() == []  # written

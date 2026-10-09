@@ -10,6 +10,7 @@
 <div class="toasts">
 {% if staged is not none %}{% call toast() %}✅ Saved {{ staged | plural('pending change') }}. Review below, then apply.{% endcall %}{% endif %}
 {% if error == "busy" %}{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}{% endif %}
+{% if error == "send" %}{% call toast("warn") %}The changes couldn't be sent to Tagwerk, so nothing was written. Check that Tagwerk is running and try again.{% endcall %}{% endif %}
 {% if error == "none" %}{% call toast("warn") %}Tick at least one change.{% endcall %}{% endif %}
 {% if error == "backup" %}{% call toast("warn") %}Please confirm you have a backup before the first write.{% endcall %}{% endif %}
 </div>
@@ -55,7 +56,8 @@
 {% endif %}
 
 {% if not items %}
-{% if not folders %}<article><p>No pending changes. Edit a track from its page, or select tracks in the <a href="/tracks">track list</a>.</p></article>{% endif %}
+{# While an apply runs, the card above says what happens: "no pending changes" would mislead. #}
+{% if not folders and not (job.running and job.progress.action == "apply") %}<article><p>No pending changes. Edit a track from its page, or select tracks in the <a href="/tracks">track list</a>.</p></article>{% endif %}
 {% else %}
 {% if folders %}<h2>Tag changes</h2>{% endif %}
 {% set total = items | sum(attribute="changes", start=[]) | length %}

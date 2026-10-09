@@ -3,10 +3,15 @@
 {% set p = job.progress %}
 {% set verb = {"undo": "Undoing", "import": "Importing", "folder": "Moving", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting to AIFF"}.get(p.action, "Writing") %}
 {% if job.running %}
-<article id="write" hx-get="/partials/write?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
+{# A clear status card at the top: what is happening, how far, which file. #}
+{% set heading = {"apply": "Writing your changes", "undo": "Undoing", "import": "Importing into the library", "folder": "Moving tracks", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting to AIFF"}.get(p.action, verb) %}
+<article id="write" class="job-card" role="status" hx-get="/partials/write?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
+  <div class="job-head">
+    <strong><span aria-busy="true"></span>{{ heading }}…</strong>
+    {% if p.total %}<span class="job-count"><b>{{ p.processed | number }}</b> of {{ p.total | plural('file') }} · {{ p.processed | percent_of(p.total) }}%</span>{% endif %}
+  </div>
   <progress {% if p.total %}value="{{ p.processed }}" max="{{ p.total }}"{% endif %}></progress>
-  <small>{{ verb }}… {{ p.processed | number }} / {{ p.total | number }} files
-    {% if p.current %}<br><span class="muted current-file">{{ p.current }}</span>{% endif %}</small>
+  <small class="muted job-foot">{% if p.current %}<span class="current-file">{{ p.current }}</span> · {% endif %}You can leave this page: it goes on in the background.{% if p.failed %} ⚠️ {{ p.failed | plural('file') }} failed so far.{% endif %}</small>
 </article>
 {% elif job.status in ("done", "failed") and request.query_params.get("done") %}
 {# Done: the result slides in as a notification, once: on the reload right after the job

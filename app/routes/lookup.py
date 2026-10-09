@@ -15,6 +15,7 @@ from sqlmodel import select
 from app import changes, genres, identify, writer
 from app.config import SettingsDep
 from app.db import SessionDep
+from app.forms import read_form
 from app.images import ImageError
 from app.jobs import identify_job, image_store
 from app.library import TrackFilter
@@ -51,7 +52,7 @@ def online_api(track_id: int, session: SessionDep) -> list[dict]:
 @router.post("/tracks/lookup", include_in_schema=False)
 async def lookup_many(request: Request, session: SessionDep, settings: SettingsDep, f: FilterDep):
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
-    form = await request.form()
+    form = await read_form(request)
     if form.get("all") == "true":
         ids = list(session.exec(select(Track.id).where(*f.conditions())))
     else:
@@ -86,7 +87,7 @@ async def use_online(request: Request, track_id: int, session: SessionDep, setti
     """One online result's values (and cover) become pending changes for this track."""
     if session.get(Track, track_id) is None:
         raise HTTPException(404)
-    form = await request.form()
+    form = await read_form(request)
     found = {r.source: r for r in identify.results(session, track_id, library=True)}
     result = found.get(form.get("source"))
     n = int(form.get("n", 0)) if str(form.get("n", "0")).isdigit() else 0

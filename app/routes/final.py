@@ -11,6 +11,7 @@ from sqlmodel import col, select
 from app import final, preferences, writer
 from app.config import SettingsDep
 from app.db import SessionDep
+from app.forms import read_form
 from app.jobs import busy, write_job
 from app.library import CHANGED_OUTSIDE, IS_FINAL, count
 from app.models import FinalTrack, Track
@@ -120,7 +121,7 @@ async def unmark_final(request: Request, track_id: int, session: SessionDep, set
     mark = session.get(FinalTrack, track_id)
     if mark is None:
         return RedirectResponse(f"/tracks/{track_id}", status_code=303)
-    form = await request.form()
+    form = await read_form(request)
     choice = form.get("name_choice", "keep")
     name = None
     if choice == "previous" and mark.name_before:

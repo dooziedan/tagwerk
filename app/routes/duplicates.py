@@ -20,6 +20,7 @@ from app.config import SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import REASONS, load_groups
+from app.forms import read_form
 from app.jobs import busy, image_store, run_now
 from app.models import NotDuplicate, PendingChange, Track
 from app.navigation import with_saved_note
@@ -256,7 +257,7 @@ def _cover_ids(settings, groups) -> dict[int, str]:
 
 @router.post("/duplicates/keep", include_in_schema=False)
 async def keep_form(request: Request, session: SessionDep, settings: SettingsDep):
-    form = await request.form()
+    form = await read_form(request)
     ids = [int(i) for i in form.getlist("track_ids") if str(i).isdigit()]
     if len(ids) > 1:
         keep_api(KeepRequest(track_ids=ids), session, settings)
@@ -267,7 +268,7 @@ async def keep_form(request: Request, session: SessionDep, settings: SettingsDep
 @router.post("/duplicates/take", include_in_schema=False)
 async def take_form(request: Request, session: SessionDep, settings: SettingsDep):
     """The "Use" buttons (one tag or the cover) and "Take over missing tags" on the page."""
-    form = await request.form()
+    form = await read_form(request)
     keep, source, field = (str(form.get(k, "")) for k in ("keep", "source", "field"))
     if not (keep.isdigit() and source.isdigit()):
         return RedirectResponse("/duplicates", status_code=303)
@@ -293,7 +294,7 @@ async def take_form(request: Request, session: SessionDep, settings: SettingsDep
 
 @router.post("/duplicates/trash", include_in_schema=False)
 async def trash_form(request: Request, settings: SettingsDep):
-    form = await request.form()
+    form = await read_form(request)
     track, keep = (str(form.get(k, "")) for k in ("track_id", "keep"))
     back = str(form.get("back", ""))
     back = back if back.startswith("/duplicates") else "/duplicates"

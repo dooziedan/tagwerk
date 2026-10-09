@@ -14,6 +14,7 @@ from sqlmodel import select
 from app import analysis, changes
 from app.config import SettingsDep
 from app.db import SessionDep
+from app.forms import read_form
 from app.jobs import analysis_job
 from app.keys import display
 from app.library import TrackFilter
@@ -141,7 +142,7 @@ def audio_context(session, track, library: bool = True, genre: str | None = None
 @router.post("/tracks/analyse", include_in_schema=False)
 async def analyse_many(request: Request, session: SessionDep, settings: SettingsDep, f: FilterDep):
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
-    form = await request.form()
+    form = await read_form(request)
     if form.get("all") == "true":  # skips tracks that already have a result
         track_ids = list(session.exec(select(Track.id).where(*f.conditions())))
         force = False
@@ -192,7 +193,7 @@ async def use_audio(request: Request, track_id: int, session: SessionDep):
     track = session.get(Track, track_id)
     if track is None:
         raise HTTPException(404)
-    field = (await request.form()).get("field")
+    field = (await read_form(request)).get("field")
     found = analysis.decide_for(session, track, library=True)
     values = {}
     if field == "bpm" and found.bpm:
