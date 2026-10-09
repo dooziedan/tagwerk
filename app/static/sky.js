@@ -108,9 +108,12 @@
       // To the top: the progress and what is still pending are there (a long list was scrolled).
       window.htmx.ajax("GET", url.pathname + url.search, { target: "#page", select: "#page", swap: "outerHTML show:window:top" });
     };
+    // If the server refused or couldn't be reached, nothing was written: back to the page with
+    // a note, never a page that just stops.
+    const failed = new URL(form.action, location.href).pathname.replace(/\/[^/]*$/, "") + "?error=send";
     fetch(form.action, { method: "POST", body: new FormData(form) })
-      .then((response) => { answer = response.url || form.action; show(); })
-      .catch(() => location.reload()); // offline or the server is gone: show what is true
+      .then((response) => { answer = response.ok && response.redirected ? response.url : failed; show(); })
+      .catch(() => { answer = failed; show(); });
     setTimeout(() => window.twDissolve(burning, () => { burnt = true; show(); }), 220); // the sparks reach the list first
   }, true);
 

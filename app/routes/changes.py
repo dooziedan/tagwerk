@@ -15,6 +15,7 @@ from starlette.datastructures import FormData, UploadFile
 from app import changes, final, folders, preferences, writer
 from app.config import Settings, SettingsDep
 from app.db import SessionDep
+from app.forms import read_form
 from app.images import MAX_SIZE, ImageError, image_info
 from app.jobs import busy, image_store, write_job
 from app.library import TrackFilter
@@ -171,7 +172,7 @@ def edit_track_form(request: Request, track_id: int, session: SessionDep):
 @router.post("/tracks/{track_id}/edit", include_in_schema=False)
 async def edit_track(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
     track = _track(session, track_id)
-    form = await request.form()
+    form = await read_form(request)
     values = {f: str(form.get(f, "")) for f in writer.EDITABLE}
     cover, errors = await cover_choice(form, settings)
     if not errors:
@@ -199,7 +200,7 @@ def edit_many_form(request: Request, session: SessionDep, f: FilterDep):
 
 @router.post("/tracks/edit", include_in_schema=False)
 async def edit_many(request: Request, session: SessionDep, settings: SettingsDep):
-    form = await request.form()
+    form = await read_form(request)
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     tracks = list(session.exec(select(Track).where(col(Track.id).in_(ids))).all())
     values = {f: str(form.get(f, "")) for f in writer.EDITABLE if form.get(f"change_{f}") == "on"}
@@ -369,7 +370,7 @@ def changes_page(
 
 @router.post("/changes/apply", include_in_schema=False)
 async def apply_changes(request: Request, session: SessionDep, settings: SettingsDep):
-    form = await request.form()
+    form = await read_form(request)
     prefs = preferences.load(session)
     if not prefs.backup_confirmed:
         if form.get("backup") != "on":
@@ -395,7 +396,7 @@ def _ticked(form) -> list[int] | None:
 
 @router.post("/changes/folders/create", include_in_schema=False)
 async def create_folder(request: Request, settings: SettingsDep):
-    genre = str((await request.form()).get("genre", ""))
+    genre = str((await read_form(request)).get("genre", ""))
     if genre and not write_job.create_folder(settings, genre):
         return RedirectResponse("/changes?error=busy", status_code=303)
     return RedirectResponse("/changes", status_code=303)
@@ -403,7 +404,7 @@ async def create_folder(request: Request, settings: SettingsDep):
 
 @router.post("/changes/folders/keep", include_in_schema=False)
 async def keep_unsorted(request: Request, session: SessionDep):
-    genre = str((await request.form()).get("genre", ""))
+    genre = str((await read_form(request)).get("genre", ""))
     if genre:
         folders.keep_unsorted(session, genre)
     return RedirectResponse("/changes", status_code=303)
@@ -418,7 +419,7 @@ def propose_again(session: SessionDep):
 @router.post("/changes/discard", include_in_schema=False)
 async def discard_ticked(request: Request, session: SessionDep):
     """Discard the ticked pending changes (all of them without tick boxes)."""
-    ticked = _ticked(await request.form())
+    ticked = _ticked(await read_form(request))
     if ticked == []:
         return RedirectResponse("/changes?error=none", status_code=303)
     changes.discard(session, ticked)

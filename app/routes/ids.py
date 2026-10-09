@@ -12,6 +12,7 @@ from sqlmodel import select
 
 from app import ids
 from app.db import SessionDep
+from app.forms import read_form
 from app.library import TrackFilter
 from app.models import Track
 from app.navigation import back_url, with_saved_note
@@ -34,7 +35,7 @@ def fix_ids_api(body: FixRequest, session: SessionDep) -> dict:
 @router.post("/tracks/fix-ids", include_in_schema=False)
 async def fix_ids_many(request: Request, session: SessionDep, f: FilterDep):
     """The tracks ticked in the list, or all tracks matching its filters (all=true)."""
-    form = await request.form()
+    form = await read_form(request)
     if form.get("all") == "true":
         track_ids = list(session.exec(select(Track.id).where(*f.conditions())))
     else:

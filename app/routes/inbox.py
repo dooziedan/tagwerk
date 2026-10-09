@@ -12,6 +12,7 @@ from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import LibraryIndex, Match
+from app.forms import read_form
 from app.images import ImageError
 from app.importer import plan
 from app.inbox import (
@@ -197,7 +198,7 @@ async def inbox_track_save(
     request: Request, track_id: int, session: SessionDep, settings: SettingsDep
 ):
     track = _inbox_track(session, track_id)
-    form = await request.form()
+    form = await read_form(request)
     show = _view(form.get("show"))
     # The next track in the chosen tab, worked out before saving (saving may move this track
     # out of the tab, e.g. from "Needs help" to "Ready").
@@ -223,7 +224,7 @@ async def inbox_track_save(
 
 @router.post("/inbox/import", include_in_schema=False)
 async def inbox_import(request: Request, settings: SettingsDep):
-    form = await request.form()
+    form = await read_form(request)
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     return _start_import(ids, settings)
 
@@ -279,7 +280,7 @@ def inbox_online_api(track_id: int, session: SessionDep) -> list[dict]:
 @router.post("/inbox/{track_id:int}/lookup", include_in_schema=False)
 async def inbox_lookup(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
     _inbox_track(session, track_id)
-    show = _view((await request.form()).get("show"))
+    show = _view((await read_form(request)).get("show"))
     identify_job.start(settings, [track_id], force=True)
     return RedirectResponse(_shown(f"/inbox/{track_id}", show) + "#online", status_code=303)
 
@@ -290,7 +291,7 @@ async def inbox_use_online(
 ):
     """Take over one online result's values (and cover) as the owner's values."""
     track = _inbox_track(session, track_id)
-    form = await request.form()
+    form = await read_form(request)
     show = _view(form.get("show"))
     found = {f.source: f for f in identify.results(session, track_id)}.get(form.get("source"))
     n = int(form.get("n", 0)) if str(form.get("n", "0")).isdigit() else 0
@@ -353,7 +354,7 @@ def inbox_restore_api(entry: str, settings: SettingsDep) -> dict:
 @router.post("/inbox/delete", include_in_schema=False)
 async def inbox_delete(request: Request, session: SessionDep, settings: SettingsDep):
     """Delete the tracks ticked in the list."""
-    form = await request.form()
+    form = await read_form(request)
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
     ran, (deleted, errors) = _move_to_trash(session, settings, ids)
     if not ran:
@@ -368,7 +369,7 @@ async def inbox_delete_one(
 ):
     """Delete one track from its review page, then show the next one."""
     track = _inbox_track(session, track_id)
-    show = _view((await request.form()).get("show"))
+    show = _view((await read_form(request)).get("show"))
     _, after = _neighbours(session, track, show)
     ran, (deleted, errors) = _move_to_trash(session, settings, [track.id])
     if not ran:

@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-09
+
+### Fixed
+- **Applying more than 1,000 changes at once did nothing**: the list burnt, then the page stopped, and every change was still pending. The web framework refused forms with more than 1,000 fields, and each ticked change is one. Every form in Tagwerk now takes far longer lists (also the inbox's tick lists for big record-pool drops), so all 1,196 changes go through.
+- **Following a long Apply is clear**: after the list burns, the page goes to the top and shows a status card: "Writing your changes… 120 of 806 files · 15%", a big progress bar and the file being written, with a note that you can leave the page. "No pending changes" no longer shows while they are being written.
+- If Apply ever can't reach Tagwerk or is refused, the page no longer freezes after the burn: it comes back with a note that nothing was written, and the changes are still there to try again.
+
 ## [0.15.0] - 2026-10-08
 
 ### Added

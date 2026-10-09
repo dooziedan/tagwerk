@@ -1295,3 +1295,14 @@ article table thead th, table.kv thead th { background: none; }
 .dup-trash button { width: auto; margin: 0; padding: 0.08rem 0.6rem; font-size: 0.75rem; }
 #trash.trash-list > form { margin: 0.75rem 0 0; }
 #trash.trash-list > form button { width: auto; margin: 0; }
+
+/* A running job (apply, import, undo …): a clear status card at the top of the page. */
+.job-card { border-color: var(--tw-gold-line); }
+.job-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.3rem 1rem; margin-bottom: 0.6rem; }
+.job-head strong { font-size: 1.1rem; }
+.job-head [aria-busy] { margin-right: 0.5rem; }
+.job-count { color: var(--tw-ink-2); font-variant-numeric: tabular-nums; }
+.job-count b { color: var(--tw-ink); font-size: 1.1rem; }
+.job-card progress { height: 0.75rem; margin: 0 0 0.5rem; }
+.job-foot { display: block; }
+.job-foot .current-file { max-width: 28rem; }

@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from app import identify, navidrome, preferences
 from app.config import SettingsDep
 from app.db import SessionDep
+from app.forms import read_form
 from app.genres import DEFAULT_MAP, GenreMap
 from app.keys import NOTATIONS
 from app.preferences import EFFECTS, MODES, Preferences, PreferencesDep
@@ -94,7 +95,7 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
 @router.post("/settings/choices/{section}", include_in_schema=False)
 async def save_choices(request: Request, section: str, session: SessionDep, settings: SettingsDep):
     """Settings sections that match wizard steps: Import (folders + independence), Final."""
-    form = await request.form()
+    form = await read_form(request)
     prefs, errors = preferences.load(session), {}
     for step in {"import": ["folders", "automation"], "final": ["final"]}.get(section, []):
         prefs, step_errors = apply_choices(prefs, step, form)
@@ -108,7 +109,7 @@ async def save_choices(request: Request, section: str, session: SessionDep, sett
 @router.post("/settings/genres", include_in_schema=False)
 async def save_genre_map(request: Request, session: SessionDep, settings: SettingsDep):
     """The genre map as plain text; "reset" goes back to the built-in one."""
-    form = await request.form()
+    form = await read_form(request)
     prefs = preferences.load(session)
     text = "" if form.get("reset") else str(form.get("genre_map", "")).replace("\r\n", "\n")
     bad = GenreMap.problems(text)
@@ -126,7 +127,7 @@ async def save_genre_map(request: Request, session: SessionDep, settings: Settin
 @router.post("/settings/online", include_in_schema=False)
 async def save_online(request: Request, session: SessionDep):
     """Which online sources to ask about inbox tracks."""
-    form = await request.form()
+    form = await read_form(request)
     names = {cls.name for cls in identify.SOURCES}
     chosen = [str(n) for n in form.getlist("online_sources") if n in names]
     preferences.save(session, replace(preferences.load(session), online_sources=chosen))
