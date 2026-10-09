@@ -61,6 +61,25 @@ In this order:
    motion: no constant movement, nothing with reduced motion.
 9. **Release `v1.0.0`** once the owner's real-library run (5.) shows nothing more to fix.
 
+## Planned features
+Noted by the owner (2026-10-08); not yet placed before or after 1.0.
+
+- **ReplayGain: analysis and editing**
+  ([issue #39](https://github.com/dooziedan/tagwerk/issues/39)). Tagwerk reads the track gain today (Collector mode
+  counts it as missing) but can't measure or change it. Measure loudness from the audio inside
+  the container (EBU R128 / ReplayGain 2.0: track gain and peak, album gain and peak for real
+  albums; ffmpeg is already in the image), offer the results as pending changes like BPM and
+  key, and make the ReplayGain fields editable in all 7 formats, including Opus's own
+  `R128_TRACK_GAIN` and exact undo. Navidrome uses these tags to even out playback volume.
+- **Advanced tags on the edit page**
+  ([issue #40](https://github.com/dooziedan/tagwerk/issues/40)). A switch on a track's edit page that shows every tag field
+  in the file (the raw fields the track page lists, with what each one feeds) and lets the owner
+  change, add or remove them, through pending changes with review, apply and undo like every
+  other edit. Binary fields (pictures, private data) can be removed but not typed into; a field
+  that feeds a Tagwerk field (e.g. `TBPM` → BPM) says so, so the two never fight. Needs a raw
+  field path in the writer for every format, with snapshots for exact undo
+  ([ADR 0009](decisions/0009-writing-tags.md)).
+
 ## Released
 Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/README.md).
 
