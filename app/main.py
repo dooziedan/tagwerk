@@ -23,6 +23,7 @@ from app.routes import (
     inbox,
     library,
     lookup,
+    mix_names,
     player,
     scan,
     settings,
@@ -69,6 +70,7 @@ app.include_router(settings.router)
 app.include_router(setup.router)
 app.include_router(fields.router)
 app.include_router(genres.router)
+app.include_router(mix_names.router)
 # Before library: /tracks/edit must not be taken for the track page /tracks/{id}.
 app.include_router(inbox.router)
 app.include_router(changes.router)

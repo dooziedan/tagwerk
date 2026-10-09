@@ -93,6 +93,12 @@ MIX_TYPES = {
         "RMX",
     ]
 }
+# Track types that make a bracket a mix name on their own; the others ("club", "long",
+# "radio", ...) only count next to them: "(the long road)" is part of the title.
+_MIX_NAMES = set(MIX_TYPES) - {
+    "club", "original", "short", "long", "radio", "vocal", "live", "cut", "clean", "dirty",
+    "extended", "intro", "outro",
+}  # fmt: skip
 _BRACKETED = re.compile(r"[(\[][^()\[\]]*[)\]]")
 # Kept as written when a name in CAPITALS or lower case gets normal capitalisation.
 _KEEP_CASE = {"dj", "vip", "mc", "uk", "usa", "ep", "lp", "ii", "iii", "iv", "rmx", "feat."}
@@ -193,14 +199,27 @@ def _text_reason(value: str) -> str:
 
 
 def capitalise_mix_types(title: str) -> str:
-    """ "Rio (club remix) [vip]" -> "Rio (Club Remix) [VIP]". Remixer names stay as written."""
+    """ "Rio (club remix) [vip]" -> "Rio (Club Remix) [VIP]". Remixer names stay as written.
+
+    Only brackets that name a mix are touched: one with a mix word like "remix" or "edit"
+    ("(nocapz. remix)"), or made only of track types ("(extended)", "(dirty intro)"). Left
+    alone: "(the long road)", "(feat. dub phizix)" and words in CAPITALS ("(CLUB REMIX)").
+    """
+
+    def word(w: re.Match) -> str:
+        text = w.group(0)
+        if len(text) > 1 and text.isupper():  # written in CAPITALS on purpose
+            return text
+        return MIX_TYPES.get(text.lower(), text)
 
     def fix(match: re.Match) -> str:
-        return re.sub(
-            r"[\w'-]+",
-            lambda w: MIX_TYPES.get(w.group(0).lower(), w.group(0)),
-            match.group(0),
-        )
+        inside = match.group(0)[1:-1].strip()
+        words = [w.lower() for w in re.findall(r"[\w'-]+", inside)]
+        if not words or _FEAT.match(inside + " ") or words[0] == "with":
+            return match.group(0)
+        if not (any(w in _MIX_NAMES for w in words) or all(w in MIX_TYPES for w in words)):
+            return match.group(0)
+        return re.sub(r"[\w'-]+", word, match.group(0))
 
     return _BRACKETED.sub(fix, title)
 

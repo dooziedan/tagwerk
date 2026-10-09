@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-09
+
+### Added
+- **Mix names with capital letters**: a new **Mix names** page (linked from "Worth a look" on Home) lists every library track whose title writes the mix name in lower case, like "Rio (club remix)" or "Body (radio edit) [vip]", next to the fixed title: "Rio (Club Remix)", "Body (Radio Edit) [VIP]". Untick what you want to keep and Tagwerk creates pending changes. Nothing is written until you apply them on the Changes page; final tracks are skipped, and undo works as usual. Remixer names and words written in CAPITALS stay as they are.
+
+### Changed
+- **The inbox's mix name clean-up is more careful**: it now only capitalises brackets that name a mix (with a word like "remix", "edit", "VIP", or made only of track types like "(extended)"). "(the long road)", "(feat. dub phizix)" and "(DJ HYPE REMIX)" stay as written.
+
 ## [0.17.0] - 2026-10-09
 
 ### Added

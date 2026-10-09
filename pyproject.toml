@@ -1,6 +1,6 @@
 [project]
 name = "tagwerk"
-version = "0.17.0"
+version = "0.17.1"
 description = "Self-hosted music library manager: dashboard, tag editing, MusicBrainz lookup and Navidrome integration."
 readme = "README.md"
 license = "AGPL-3.0-or-later"

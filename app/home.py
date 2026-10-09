@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import distinct, func
 from sqlmodel import Session, select
 
+from app import mix_names
 from app.duplicates import group_count
 from app.library import FLAGS, TrackFilter, count
 from app.models import RawTag, Track
@@ -87,6 +88,18 @@ def home_data(session: Session, prefs: Preferences) -> HomeData:
                 "in the library more than once",
                 "/duplicates",
                 "Compare the copies side by side.",
+                False,
+            )
+        )
+    mix_name_fixes = len(mix_names.fixes(session))
+    if mix_name_fixes:
+        data.problems.append(
+            Problem(
+                mix_name_fixes,
+                "track",
+                'with the mix name in lower case, like "(club remix)"',
+                "/mix-names",
+                "Write them with capital letters.",
                 False,
             )
         )

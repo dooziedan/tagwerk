@@ -42,6 +42,7 @@ SOURCES = {
     "fix-ids": "Fix IDs",
     "private-data": "Private data removed",
     "genre-merge": "Genre spellings merged",
+    "mix-names": "Mix names capitalised",
     "copy": "From another copy",
 }
 
