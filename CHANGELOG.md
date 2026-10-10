@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-10-10
+
+### Changed
+- **A Tools section in the menu** with **ReplayGain**, **Convert**, **Mix names** and **Genre spellings**. ReplayGain, Mix names and Genre spellings were only linked when there was something to fix, so the ReplayGain page couldn't be found before the first measurement. Duplicates stays under Work.
+- **Home points to unmeasured tracks**: "Worth a look" shows how many tracks don't have their loudness measured yet, with a link to the ReplayGain page.
+
+### Fixed
+- **The analysis progress on Home ran out of its box**: in the narrow "Waiting for you" card, the line "Analysing the audio …: 671 of 1,355 tracks" didn't wrap, and the sentence under it was broken into separate pieces. It now wraps as one paragraph, with Stop below it.
+
 ## [0.19.0] - 2026-10-10
 
 ### Added

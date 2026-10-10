@@ -46,7 +46,12 @@
       <nav class="side-group" aria-label="Work">
         <span class="eyebrow">Work</span>
         {{ nav("/inbox", "Inbox", "inbox", inbox_n, "tracks") }}{{ nav("/changes", "Changes", "changes", pending_n, "pending") }}
-        {{ nav("/final", "Final check", "final") }}{{ nav("/duplicates", "Duplicates", "copies") }}{{ nav("/convert", "Convert", "wave") }}
+        {{ nav("/final", "Final check", "final") }}{{ nav("/duplicates", "Duplicates", "copies") }}
+      </nav>
+      <nav class="side-group" aria-label="Tools">
+        <span class="eyebrow">Tools</span>
+        {{ nav("/replaygain", "ReplayGain", "volume") }}{{ nav("/convert", "Convert", "wave") }}
+        {{ nav("/mix-names", "Mix names", "letters") }}{{ nav("/genres", "Genre spellings", "merge") }}
       </nav>
       <nav class="side-group" aria-label="System">
         <span class="eyebrow">System</span>
@@ -69,7 +74,8 @@
           <ul dir="rtl">
             <li><a href="/">Home</a></li><li><a href="/stats">Statistics</a></li><li><a href="/tracks">Tracks</a></li>
             <li><a href="/albums">Albums</a></li><li><a href="/artists">Artists</a></li><li><a href="/fields">Tag fields</a></li>
-            <li><a href="/final">Final check</a></li><li><a href="/duplicates">Duplicates</a></li><li><a href="/convert">Convert</a></li><li><a href="/settings">Settings</a></li>
+            <li><a href="/final">Final check</a></li><li><a href="/duplicates">Duplicates</a></li>
+            <li><a href="/replaygain">ReplayGain</a></li><li><a href="/convert">Convert</a></li><li><a href="/mix-names">Mix names</a></li><li><a href="/genres">Genre spellings</a></li><li><a href="/settings">Settings</a></li>
           </ul>
         </details>
       </nav>

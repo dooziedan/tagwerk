@@ -134,6 +134,10 @@ def test_the_page_measures_and_fixes(client, engine, settings, monkeypatch):
     ids = library(engine, settings.music_dir)
     page = client.get("/replaygain").text
     assert "not measured yet" in page and "CDJs and XDJs don't read them" in page
+    home = client.get("/").text
+    assert "without measured loudness" in home  # found before anything is measured
+    for url in ("/replaygain", "/convert", "/mix-names", "/genres"):  # the Tools menu
+        assert f'href="{url}"' in home
 
     started = []
     monkeypatch.setattr(
