@@ -1415,6 +1415,65 @@ article table thead th, table.kv thead th { background: none; }
   .diff.mix-names .arrow { display: none; }
 }
 
+/* Changes and their history on phones (portrait): side by side, old and new got only a few
+   letters per line. Each change becomes a small block instead: tick box, field and Discard on
+   top, the old value below, the new value under it with the arrow in front. Landscape and
+   wider screens keep the columns.
+     [x] Genre                 [Discard]
+         House
+     ->  House; Deep House                                                                    */
+@media (max-width: 576px) {
+  .change-card .diff, .change-card .diff tbody { display: block; }
+  .change-card .diff tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "check field discard" ". old old" "arrow new new";
+    gap: 0.2rem 0.65rem;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--tw-line-soft);
+  }
+  .change-card .diff tr:last-child { border-bottom: 0; padding-bottom: 0; }
+  .change-card .diff th, .change-card .diff td { width: auto; padding: 0; border: 0; }
+  .change-card .diff .old, .change-card .diff .new { width: auto; }  /* folder moves: was 50% */
+  .change-card .diff .check-col { grid-area: check; }
+  .change-card .diff th { grid-area: field; }
+  .change-card .diff td.num { grid-area: discard; }
+  .change-card .diff .old { grid-area: old; }
+  .change-card .diff .arrow { grid-area: arrow; align-self: start; }  /* next to the first line */
+  .change-card .diff .new { grid-area: new; }
+}
+
+/* History list on phones: five columns ran off the screen. Each Apply becomes a block: when
+   (the link to its details) and Undo on top, the fields below, then "2 files · applied". */
+.history-list .files-word { display: none; }
+@media (max-width: 576px) {
+  .history-list, .history-list tbody { display: block; }
+  .history-list thead { display: none; }
+  .history-list tbody tr {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "when when when undo" "fields fields fields fields" "files outcome . .";
+    gap: 0.2rem 0.5rem;
+    align-items: center;
+    padding: 0.75rem var(--pico-spacing);
+    border-bottom: 1px solid var(--tw-line-soft);
+  }
+  .history-list tbody tr:last-child { border-bottom: 0; }
+  /* The stripes go on the whole block, not on each cell. */
+  .history-list tbody tr:nth-child(odd) { background: var(--pico-table-row-stripped-background-color); }
+  table.history-list tbody td, table.history-list tbody tr:nth-child(odd) td {  /* 2nd: beats Pico's stripes */
+    padding: 0; border: 0; background: none; text-align: left;
+  }
+  .history-list .when { grid-area: when; }
+  .history-list .fields { grid-area: fields; }
+  .history-list .files { grid-area: files; }
+  .history-list .files-word { display: inline; }
+  .history-list .outcome { grid-area: outcome; }
+  .history-list .outcome::before { content: "· "; color: var(--tw-ink-2); }
+  .history-list .undo { grid-area: undo; }
+}
+
 /* Duplicates: a copy marked for the trash (moved when the pending changes are applied) */
 .dup-table th.queued .dup-file { opacity: 0.55; text-decoration: line-through; }
 
