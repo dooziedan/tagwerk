@@ -96,6 +96,23 @@ def test_discogs_numbers_move_to_their_own_fields():
     }
 
 
+def test_discogs_release_and_position_keeps_the_release_number():
+    # Seen in the owner's library: track 10 of Discogs release 33199809.
+    t = track(mb_trackid="33199809-10", mb_albumid="33199809", mb_artistid="5-2")
+    wrong = ids.wrong_ids(t)
+    assert [(w.field, w.moves_to, w.number) for w in wrong] == [
+        ("mb_trackid", "discogs_releaseid", "33199809"),
+        ("mb_albumid", "discogs_releaseid", "33199809"),
+        ("mb_artistid", None, None),  # not a form Discogs uses for artists: removed
+    ]
+    assert ids.fixes(t) == {
+        "mb_trackid": None,
+        "mb_albumid": None,
+        "mb_artistid": None,
+        "discogs_releaseid": "33199809",
+    }
+
+
 def test_other_values_are_removed_and_existing_discogs_ids_kept():
     t = track(mb_albumid="unknown", mb_artistid="789", discogs_artistid="5")
     assert ids.wrong_ids(t)[0].explanation == "not an ID Tagwerk knows: removed"
@@ -165,6 +182,68 @@ def test_final_tracks_are_not_fixed(client, engine, wrong):
     assert client.post("/api/tracks/fix-ids", json={"track_ids": [wrong]}).json() == {
         "pending_changes": 0
     }
+
+
+# --- On import (ADR 0030) --------------------------------------------------------------
+
+
+@pytest.fixture
+def inbox_wrong(engine, settings) -> int:
+    from app.inbox import save_values, scan_inbox
+    from app.models import InboxTrack
+
+    settings.import_dir.mkdir()
+    shutil.copy(FIXTURES / "discogs-ids.flac", settings.import_dir / "wrong.flac")
+    scan_inbox(engine, settings.import_dir, ScanProgress())
+    with Session(engine) as session:
+        track = session.exec(select(InboxTrack)).one()
+        save_values(session, track, {"artist": "Fisher"})  # an import needs an artist
+        return track.id
+
+
+def test_review_page_shows_what_the_import_fixes(client, inbox_wrong):
+    page = client.get(f"/inbox/{inbox_wrong}").text
+    assert "Other values in MusicBrainz ID fields" in page
+    assert "Discogs number 25124086: moves to Discogs release ID" in page
+    assert "Fixed on import" in page
+
+
+def test_import_fixes_ids_and_undo_puts_them_back(engine, settings, inbox_wrong):
+    from app.importer import import_tracks
+    from app.models import ChangeSet
+
+    progress = WriteProgress(action="import")
+    import_tracks(engine, settings.import_dir, settings.music_dir, [inbox_wrong], progress)
+    assert progress.written == 1, progress.errors
+    with Session(engine) as session:
+        row = session.exec(select(Track).where(Track.path.endswith("wrong.flac"))).one()
+        assert not row.mbid_invalid and row.discogs_releaseid == "25124086"
+        changeset = session.exec(select(ChangeSet)).one()
+        entry = session.exec(select(ChangeEntry)).one()
+    tags = FLAC(settings.music_dir / row.path).tags
+    assert "musicbrainz_albumid" not in tags and tags["discogs_release_id"] == ["25124086"]
+    assert "MusicBrainz album ID" in changeset.fields and "Discogs release ID" in changeset.fields
+    assert '"mb_albumid": "fix-ids"' in entry.sources
+
+    undo = WriteProgress(action="undo")
+    changes.undo_changeset(
+        engine, settings.music_dir, changeset.id, undo, None, settings.import_dir, settings
+    )
+    tags = FLAC(settings.import_dir / "wrong.flac").tags
+    assert tags["musicbrainz_albumid"] == ["25124086"] and "discogs_release_id" not in tags
+
+
+def test_inbox_tracks_with_correct_ids_import_without_id_changes(engine, settings, inbox_wrong):
+    from app.importer import plan
+    from app.models import InboxTrack
+
+    path = settings.import_dir / "wrong.flac"
+    audio = FLAC(path)
+    audio["musicbrainz_albumid"] = MBID
+    audio.save()
+    with Session(engine) as session:
+        item = plan(session, session.get(InboxTrack, inbox_wrong), settings.music_dir)
+    assert not item.wrong_ids and not set(item.changes) & set(writer.IDS)
 
 
 def test_discogs_fields_are_read_and_named(tmp_path):

@@ -39,7 +39,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Online identification:** MusicBrainz, AcoustID (by the sound), Discogs, Deezer and iTunes fill empty fields and covers; a value is *sure* when two sources agree.
 - **Genre spellings:** one genre written in several ways ("Drum & Bass", "Drum and Bass", "DnB") counts as one in the statistics and the track list; merge them into one spelling of your choice, through review and undo like every change.
 - **Mix names:** titles with the mix name in lower case ("Rio (club remix)", "[vip]") are listed and written with capital letters ("Rio (Club Remix)", "[VIP]"), through review and undo; remixer names stay as written.
-- **Fix IDs:** MusicBrainz fields holding Discogs numbers are cleaned up; the numbers move to their own fields.
+- **Fix IDs:** MusicBrainz fields holding Discogs numbers are cleaned up, in the library and on import; the numbers move to their own fields.
 - **Final tracks:** mark checked tracks as final (locked), optionally renamed by a pattern you choose.
 - **Convert to AIFF:** lossless tracks (FLAC, WAV, ALAC) with all tags and covers; the originals are kept.
 
