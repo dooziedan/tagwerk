@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.18.3] - 2026-10-10
+
+### Changed
+- **Discogs IDs in MusicBrainz fields are fixed on import.** Some taggers write Discogs numbers into the MusicBrainz ID fields. Until now Tagwerk only fixed them in the library (**Fix IDs**), so every import brought them in again. Now the import does the same fix: real MusicBrainz IDs stay, Discogs numbers and links move to **Discogs release ID** / **Discogs artist ID**, anything else is removed. The inbox review page lists each value and what happens to it. Undoing the import puts the old values back.
+
+### Fixed
+- **Discogs IDs like `33199809-10`** (release 33199809, track 10), as some taggers write the MusicBrainz track ID, were treated as unknown and would have been removed. They are now recognised: the release number moves to **Discogs release ID**, on import and with **Fix IDs**.
+- **The ID panel on the track page was cut off** at the bottom (the **ⓘ** button): with many IDs, the artist rows were hidden behind the header's edge. It now shows in full, on a solid background, and fits on a phone screen.
+
 ## [0.18.2] - 2026-10-10
 
 ### Fixed

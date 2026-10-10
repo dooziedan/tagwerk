@@ -4,6 +4,7 @@ Per track (ADR 0007):
 1. The values come from the review: the owner's value, else Tagwerk's suggestion, else the file.
 2. The destination is checked first: an existing file is never overwritten.
 3. Tags are written with a snapshot (app/writer.py), exactly like an applied edit.
+   MusicBrainz fields holding other values (e.g. Discogs numbers) are fixed (app/ids.py).
 4. The file is copied into the library folder, the copy is verified, then the original is
    deleted. **The filename never changes.**
 5. The track joins the library database; the import is recorded in the history, and undo
@@ -22,7 +23,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import analysis, genres, identify, naming, preferences, writer
+from app import analysis, genres, identify, ids, naming, preferences, writer
 from app.changes import WriteProgress, sources_json
 from app.config import get_settings
 from app.duplicates import LibraryIndex
@@ -48,6 +49,8 @@ class ImportPlan:
     # The main genre when it has no folder yet: the track goes to _Unsorted, and the Changes
     # page proposes the folder (app/folders.py).
     new_genre: str | None = None
+    # Values in MusicBrainz fields that aren't MusicBrainz IDs: fixed on import (app/ids.py).
+    wrong_ids: list[ids.WrongId] = field(default_factory=list)
 
     @property
     def destination(self) -> str:
@@ -84,12 +87,19 @@ def plan(
             changes[writer.TRAKTOR] = None  # removed while importing; undo puts it back
             old[writer.TRAKTOR] = BINARY
             sources[writer.TRAKTOR] = "private-data"
+    found = None if track.error else ids.in_file(get_settings().import_dir / track.path)
+    if found:  # e.g. Discogs numbers in MusicBrainz fields: they move to their own fields
+        for name, new in ids.fixes(found).items():
+            changes[name] = writer.normalize(name, new)
+            old[name] = getattr(found, name)
+            sources[name] = "fix-ids"
     names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
     existing = naming.existing_folders(music_dir)
     folder = naming.folder(
         prefs.folder_layout, prefs.folder_pattern, names, prefs.genre_folders, existing
     )
     result = ImportPlan(track, changes, old, sources, folder)
+    result.wrong_ids = ids.wrong_ids(found) if found else []
     if prefs.folder_layout == "genre" and folder == naming.UNSORTED and names["genre"]:
         result.new_genre = names["genre"]
     if track.error:
