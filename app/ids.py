@@ -4,21 +4,27 @@ Some taggers write Discogs numbers (or links) into the MusicBrainz ID fields. Th
 flags this (``Track.mbid_invalid``); "Fix IDs" proposes pending changes that
 
 - keep every real MusicBrainz ID,
-- move Discogs numbers into their own fields: ``DISCOGS_RELEASE_ID`` from the track and
-  album fields, ``DISCOGS_ARTIST_ID`` from the artist fields (Mp3tag's names),
+- move Discogs numbers (also "release-position", e.g. 33199809-10) into their own fields:
+  ``DISCOGS_RELEASE_ID`` from the track and album fields, ``DISCOGS_ARTIST_ID`` from the
+  artist fields (Mp3tag's names),
 - remove anything else (it isn't an ID Tagwerk or Navidrome could use).
 
 Nothing is written before the owner applies the changes; undo restores the old values.
+Inbox tracks are fixed while importing (ADR 0030): the review page shows what happens.
 """
 
+import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from sqlmodel import Session, col, select
 
 from app import changes, writer
 from app.models import Track
-from app.tags import MBID_FIELDS, MBID_RE
+from app.tags import MBID_FIELDS, MBID_RE, FileInfo, read_file
+
+log = logging.getLogger(__name__)
 
 # Where a Discogs number found in a MusicBrainz field belongs.
 DISCOGS_FOR = {
@@ -30,6 +36,9 @@ DISCOGS_FOR = {
 # Discogs links and the short forms in Discogs' own markup: [r123] release, [a123] artist.
 _DISCOGS_LINK = re.compile(r"discogs\.com/(?:.*/)?(release|artist)/(\d+)", re.I)
 _DISCOGS_MARKUP = re.compile(r"^\[([ra])=?(\d+)\]$", re.I)
+# Release number and position, as some taggers write the track ID: "33199809-10" is track 10
+# of release 33199809. Only the release number is kept.
+_DISCOGS_POSITION = re.compile(r"^(\d+)-\d+$")
 
 
 @dataclass
@@ -54,6 +63,8 @@ def _discogs_number(field: str, value: str) -> tuple[str, str] | None:
     """(Discogs field, number) if the value is a Discogs number or link."""
     if value.isdigit():
         return DISCOGS_FOR[field], value
+    if (match := _DISCOGS_POSITION.match(value)) and DISCOGS_FOR[field] == "discogs_releaseid":
+        return "discogs_releaseid", match.group(1)
     if match := _DISCOGS_LINK.search(value) or _DISCOGS_MARKUP.match(value):
         kind, number = match.groups()
         kind = kind.lower()[0]  # "release"/"r" or "artist"/"a"
@@ -65,7 +76,7 @@ def _parts(value: str | None) -> list[str]:
     return [p.strip() for p in (value or "").split(";") if p.strip()]
 
 
-def wrong_ids(track: Track) -> list[WrongId]:
+def wrong_ids(track: Track | FileInfo) -> list[WrongId]:
     """Every value in a MusicBrainz field that isn't a MusicBrainz ID."""
     found = []
     for field in MBID_FIELDS:
@@ -77,7 +88,7 @@ def wrong_ids(track: Track) -> list[WrongId]:
     return found
 
 
-def fixes(track: Track) -> dict[str, str | None]:
+def fixes(track: Track | FileInfo) -> dict[str, str | None]:
     """The new values that fix a track's IDs (only fields that change)."""
     wrong = wrong_ids(track)
     if not wrong:
@@ -90,6 +101,19 @@ def fixes(track: Track) -> dict[str, str | None]:
         numbers = _parts(getattr(track, target)) + [w.number for w in wrong if w.moves_to == target]
         result[target] = "; ".join(dict.fromkeys(numbers))
     return result
+
+
+def in_file(path: Path) -> FileInfo | None:
+    """The tags of a file whose MusicBrainz fields need fixing, else None.
+
+    For inbox tracks: they don't keep every ID field, so the file is read when needed.
+    """
+    try:
+        info = read_file(path)
+    except Exception as exc:  # unreadable files are reported by the inbox check
+        log.warning("Could not read the IDs of %s: %s", path, exc)
+        return None
+    return info if info.mbid_invalid else None
 
 
 def stage_fixes(session: Session, track_ids: list[int]) -> int:

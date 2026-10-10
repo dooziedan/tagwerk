@@ -29,6 +29,16 @@
 {% if request.query_params.get("error") == "busy" %}{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}{% endif %}
 </div>
 
+{% if plan.wrong_ids %}
+<div class="notice" role="note">
+  <p><strong>Other values in MusicBrainz ID fields</strong></p>
+  <ul>
+    {% for w in plan.wrong_ids %}<li>{{ w.label }}: <code>{{ w.value }}</code> – {{ w.explanation }}</li>{% endfor %}
+  </ul>
+  <p><small class="muted">Fixed on import; real MusicBrainz IDs stay. Undoing the import puts the old values back.</small></p>
+</div>
+{% endif %}
+
 {% if summary.duplicates %}
 <article class="duplicate-box">
   <p><strong>Already in your library?</strong> This looks like {{ "a track" if summary.duplicates | length == 1 else summary.duplicates | length ~ " tracks" }} you already have.</p>
@@ -60,7 +70,7 @@
 {% endif %}
 
 {% if not t.error %}
-{% with base = "/inbox/" ~ t.id, hidden = {"show": show}, note = "Suggestions from these sources fill empty fields above." %}{% include "partials/online_box.html" %}{% endwith %}
+{% with base = "/inbox/" ~ t.id, hidden = {"show": show}, note = "Suggestions from these sources fill empty fields above.", remind = true %}{% include "partials/online_box.html" %}{% endwith %}
 {% with base = "/inbox/" ~ t.id %}{% include "partials/audio_box.html" %}{% endwith %}
 {% endif %}
 
