@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from sqlalchemy import distinct, func
 from sqlmodel import Session, select
 
-from app import mix_names
+from app import loudness, mix_names
 from app.duplicates import group_count
 from app.library import FLAGS, TrackFilter, count
 from app.models import RawTag, Track
@@ -97,6 +97,18 @@ def home_data(session: Session) -> HomeData:
                 'with the mix name in lower case, like "(club remix)"',
                 "/mix-names",
                 "Write them with capital letters.",
+                False,
+            )
+        )
+    replaygain = loudness.fix_count(session)
+    if replaygain:
+        data.problems.append(
+            Problem(
+                replaygain,
+                "track",
+                "with ReplayGain missing or not matching the audio",
+                "/replaygain",
+                "Navidrome plays them louder or quieter than the rest.",
                 False,
             )
         )

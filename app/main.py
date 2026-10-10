@@ -27,6 +27,7 @@ from app.routes import (
     lookup,
     mix_names,
     player,
+    replaygain,
     scan,
     settings,
     setup,
@@ -83,6 +84,7 @@ app.include_router(setup.router)
 app.include_router(fields.router)
 app.include_router(genres.router)
 app.include_router(mix_names.router)
+app.include_router(replaygain.router)
 # Before library: /tracks/edit must not be taken for the track page /tracks/{id}.
 app.include_router(inbox.router)
 app.include_router(changes.router)

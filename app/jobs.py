@@ -24,6 +24,7 @@ from app import (
     final,
     folders,
     identify,
+    loudness,
     navidrome,
     preferences,
     trash,
@@ -35,7 +36,7 @@ from app.duplicates import LibraryIndex
 from app.images import ImageStore
 from app.importer import import_tracks, ready_for_auto_import
 from app.inbox import scan_inbox
-from app.models import InboxTrack, Track
+from app.models import InboxTrack, LibraryLoudness, Track
 from app.scanner import ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
@@ -360,6 +361,8 @@ class AnalysisJob:
         # (library?, track id) -> force (analyse again even if the result is fresh), in order
         self._queue: dict[tuple[bool, int], bool] = {}
         self._current: set[tuple[bool, int]] = set()  # being analysed now
+        # Library tracks that only get their loudness measured (the ReplayGain page)
+        self._loudness_only: set[tuple[bool, int]] = set()
         self._threads: list[threading.Thread] = []
         self.workers = 0  # how many run side by side in this run
         self.progress = AnalysisProgress()
@@ -374,8 +377,12 @@ class AnalysisJob:
         track_ids: list[int] | None = None,
         force: bool = False,
         library: bool = False,
+        loudness_only: bool = False,
     ) -> None:
-        """Analyse these tracks (default: every inbox track without a fresh result)."""
+        """Analyse these tracks (default: every inbox track without a fresh result).
+
+        ``loudness_only``: library tracks only get the quick loudness pass (app/loudness.py),
+        not BPM and key; asking for a full analysis later still does both."""
         engine = get_engine(settings.database_url)
         if track_ids is None:
             with Session(engine) as session:
@@ -387,6 +394,10 @@ class AnalysisJob:
         with self._lock:
             for track_id in track_ids:
                 key = (library, track_id)
+                if loudness_only and key not in self._queue:
+                    self._loudness_only.add(key)
+                elif not loudness_only:
+                    self._loudness_only.discard(key)
                 self._queue[key] = self._queue.get(key, False) or force
             if self.running or not self._queue:
                 return
@@ -419,6 +430,8 @@ class AnalysisJob:
                     return
                 (library, track_id), force = picked
                 self._current.add((library, track_id))
+                only_loudness = (library, track_id) in self._loudness_only
+                self._loudness_only.discard((library, track_id))
                 self.progress.total = (
                     self.progress.processed + len(self._current) + len(self._queue)
                 )
@@ -427,7 +440,14 @@ class AnalysisJob:
                 with Session(engine) as session:
                     track = session.get(Track if library else InboxTrack, track_id)
                     self.progress.current = track.path if track else ""
-                if analysis.analyse_track(engine, settings, track_id, library, force):
+                if only_loudness:
+                    if loudness.measure_track(engine, settings.music_dir, track_id, force):
+                        with Session(engine) as session:
+                            found = session.get(LibraryLoudness, track_id)
+                            failed = bool(found and found.error)
+                    else:
+                        skipped = True
+                elif analysis.analyse_track(engine, settings, track_id, library, force):
                     with Session(engine) as session:
                         found = analysis.result(session, track_id, library)
                         failed = bool(found and found.error)
@@ -454,6 +474,7 @@ class AnalysisJob:
         with self._lock:
             count = len(self._queue)
             self._queue.clear()
+            self._loudness_only.clear()
             return count
 
     def wait(self, timeout: float | None = None) -> None:

@@ -1480,3 +1480,8 @@ article table thead th, table.kv thead th { background: none; }
 /* Edit page: the ReplayGain section under the main tags */
 .edit-section { margin: 1.75rem 0 0; padding: 0; border: 0; }
 .edit-section legend { padding: 0; margin-bottom: 0.75rem; }
+
+/* ReplayGain page: tracks whose gain is missing or off */
+.diff.replaygain th[scope="row"] { width: 45%; font-weight: 400; }
+.diff.replaygain td.num, .diff.replaygain td:last-child { white-space: nowrap; }
+.replaygain-counts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }

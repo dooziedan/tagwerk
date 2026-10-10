@@ -50,6 +50,7 @@ def main(base: str, out: Path) -> int:
         "stats": "/stats",
         "genres": "/genres",
         "mix-names": "/mix-names",
+        "replaygain": "/replaygain",
         "stats-heat-year-genre": "/stats?rows=year&cols=genre",
         "stats-work": "/stats#work",
         "history": "/changes/history",

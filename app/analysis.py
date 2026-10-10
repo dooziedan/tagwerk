@@ -26,6 +26,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
+from app import loudness
 from app.audio_analysis import ANALYSIS_VERSION
 from app.config import Settings
 from app.keys import display, to_camelot
@@ -182,18 +183,21 @@ def store(session: Session, track_id: int, library: bool, found: dict, duration)
 def analyse_track(
     engine: Engine, settings: Settings, track_id: int, library: bool = False, force: bool = False
 ) -> bool:
-    """Analyse one inbox or library track unless its result is still fresh.
+    """Analyse one inbox or library track unless its result is still fresh. Library tracks
+    also get their loudness measured (app/loudness.py), a quick pass of its own.
 
-    Returns True if it was analysed. Tracks whose tags couldn't be read are skipped.
+    Returns True if anything was analysed. Tracks whose tags couldn't be read are skipped.
     """
     with Session(engine) as session:
         track = session.get(Track if library else InboxTrack, track_id)
         if track is None or track.error:
             return False
-        if not force and fresh(result(session, track_id, library), track):
-            return False
+        audio_fresh = not force and fresh(result(session, track_id, library), track)
         folder = settings.music_dir if library else settings.import_dir
         path, duration = folder / track.path, track.duration
+    measured = library and loudness.measure_track(engine, settings.music_dir, track_id, force)
+    if audio_fresh:
+        return measured
     # The database isn't held open during the analysis (seconds).
     found = run_analysis(path)
     with Session(engine) as session:
