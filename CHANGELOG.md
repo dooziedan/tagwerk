@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- **Changes page on phones**: held upright, a phone squeezed each change into narrow columns, so old and new values were only a few letters wide. Each change is now a small block: the tick box, the field and **Discard** on top, the old value below, and the new value under it. Proposed genre folders show the old and the new path the same way, and so does a change's detail page in the history. Turned sideways, on a tablet or a computer, the page keeps old and new side by side.
+- **History on phones**: the list ran off the right edge of the screen, hiding the status and the **Undo** button. On a phone held upright, each Apply is now a small block: when it happened (tap for the details) and **Undo** on top, the fields below, then "2 files · applied".
+
 ## [0.18.3] - 2026-10-10
 
 ### Changed

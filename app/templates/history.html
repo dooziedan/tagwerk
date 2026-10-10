@@ -14,16 +14,17 @@
 <article><p>Nothing applied yet.</p></article>
 {% else %}
 <div class="overflow-auto">
-<table class="striped">
+<table class="striped history-list">
   <thead><tr><th scope="col">Applied</th><th scope="col">Fields</th><th scope="col" class="num">Files</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
   <tbody>
     {% for c in changesets %}
     <tr>
-      <td><a href="/changes/history/{{ c.id }}"><time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></a></td>
-      <td>{{ c.fields }}</td>
-      <td class="num">{{ c.written | number }}{% if c.failed %} <small title="failed">(+{{ c.failed }} ⚠️)</small>{% endif %}</td>
-      <td>{% if c.undone_at %}<span class="muted">undone</span>{% elif c.written %}applied{% else %}<span class="muted">nothing written</span>{% endif %}</td>
-      <td class="num">
+      <td class="when"><a href="/changes/history/{{ c.id }}"><time data-local datetime="{{ c.applied_at | isoutc }}">{{ c.applied_at | isoutc }}</time></a></td>
+      <td class="fields">{{ c.fields }}</td>
+      {# "files" only shows on phones, where the column headings are hidden #}
+      <td class="num files">{{ c.written | number }}<span class="files-word"> {{ "file" if c.written == 1 else "files" }}</span>{% if c.failed %} <small title="failed">(+{{ c.failed }} ⚠️)</small>{% endif %}</td>
+      <td class="outcome">{% if c.undone_at %}<span class="muted">undone</span>{% elif c.written %}applied{% else %}<span class="muted">nothing written</span>{% endif %}</td>
+      <td class="num undo">
         {% if c.written and not c.undone_at %}
         <form method="post" action="/changes/history/{{ c.id }}/undo" data-confirm="Undo this change on {{ c.written }} file(s)?" data-confirm-ok="Undo">
           <button class="outline secondary small" {% if busy %}disabled{% endif %}>Undo</button>
