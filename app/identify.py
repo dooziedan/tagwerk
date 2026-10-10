@@ -320,6 +320,8 @@ class Found:
     candidates: list[Candidate] = field(default_factory=list)
     error: str | None = None
     looked_up_at: datetime | None = None
+    about: str = ""  # what the source is good for (Source.about)
+    fields: list[list["Compared"]] = field(default_factory=list)  # per candidate, see review()
 
     @property
     def best(self) -> Candidate | None:
@@ -339,8 +341,61 @@ def results(session: Session, track_id: int, library: bool = False) -> list[Foun
             asked = Query(artist, title, duration or None)
             for candidate in candidates:
                 candidate.why = explain(candidate, asked)
-            found.append(Found(cls.name, cls.label, candidates, row.error, row.looked_up_at))
+            found.append(
+                Found(cls.name, cls.label, candidates, row.error, row.looked_up_at, cls.about)
+            )
     return found
+
+
+# What the "Online sources" card shows of each candidate, beside title and artist.
+SHOWN = {
+    "album": "Album",
+    "date": "Released",
+    "label": "Label",
+    "catalognumber": "Catalog no.",
+    "genre": "Genre",
+    "bpm": "BPM",
+}
+
+
+@dataclass
+class Compared:
+    """One value a source found, next to what the file says: "same", "new" (the file has
+    nothing there) or "differs" (``yours`` is the file's value)."""
+
+    name: str
+    label: str
+    value: str
+    state: str
+    yours: str | None = None
+
+
+def review(session: Session, track, library: bool = False) -> list[Found]:
+    """results() for the track and inbox pages: each candidate's values compared with the
+    file's tags, so the owner sees what "Use these values" would change."""
+    found = results(session, track.id, library)
+    genre_map = genres.active(session)
+    for f in found:
+        f.fields = [compare(c, track, genre_map) for c in f.candidates]
+    return found
+
+
+def compare(candidate: Candidate, track, genre_map) -> list[Compared]:
+    out = []
+    for name, label in SHOWN.items():
+        value = candidate.values.get(name)
+        if not value:
+            continue
+        yours = writer.current_value(track, name)
+        if not yours:
+            state = "new"
+        else:
+            # Like suggestions: dates by year, text without case or spelling differences.
+            mine, theirs = _value(name, yours, genre_map), _value(name, value, genre_map)
+            same = mine and theirs and _same(name, mine) == _same(name, theirs)
+            state = "same" if same else "differs"
+        out.append(Compared(name, label, value, state, yours))
+    return out
 
 
 def suggestions(session: Session, track, taken: set[str], library: bool = False) -> list[Proposal]:

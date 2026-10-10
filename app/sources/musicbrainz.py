@@ -14,6 +14,7 @@ _SPECIAL = re.compile(r'([+\-&|!(){}\[\]^"~*?:\\/])')  # Lucene's special charac
 class MusicBrainz(Source):
     name = "musicbrainz"
     label = "MusicBrainz"
+    about = "Open music encyclopedia"
     gap = 1.1
 
     def lookup(self, query: Query) -> list[Candidate]:

@@ -120,7 +120,7 @@ def online_context(session, track: Track) -> dict:
 
     sources = identify.enabled(get_settings(), load(session))
     return {
-        "online": identify.results(session, track.id, library=True),
+        "online": identify.review(session, track, library=True),
         "online_sources": [s.label for s in sources],
         "looking_up": identify_job.queued(track.id, library=True),
     }

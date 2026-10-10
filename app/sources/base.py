@@ -85,6 +85,7 @@ class Source:
 
     name = ""
     label = ""
+    about = ""  # what it is good for, in a few words (track page)
     gap = 1.0  # seconds between requests (the API's rate limit)
     needs = ""  # what the owner must set up, e.g. "DISCOGS_TOKEN"
 
