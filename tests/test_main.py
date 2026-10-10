@@ -45,7 +45,6 @@ def test_scan_then_statistics(client):
 def test_settings_api(client):
     assert client.get("/api/settings").json() == {
         "key_notation": "camelot",
-        "show_musicbrainz": False,
         "effects": "full",
         "backup_confirmed": False,
         "setup_done": True,  # set by the client fixture (tests/conftest.py)
@@ -63,7 +62,8 @@ def test_settings_api(client):
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}
     ).json()
-    assert saved["key_notation"] == "musical" and "mode" not in saved  # unknown names ignored
+    assert saved["key_notation"] == "musical"
+    assert "mode" not in saved and "show_musicbrainz" not in saved  # old names ignored
     assert client.get("/api/settings").json() == saved
 
 
@@ -77,7 +77,6 @@ def test_settings_form_and_unknown_values(client):
     assert response.status_code == 303
     prefs = client.get("/api/settings").json()
     assert prefs["key_notation"] == "camelot"  # unknown value falls back to the default
-    assert prefs["show_musicbrainz"] is False  # unchecked box
     assert "Settings" in client.get("/settings").text
 
 
