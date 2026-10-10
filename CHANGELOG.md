@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Release notes on GitHub**: every new version now gets its own page under [Releases](https://github.com/dooziedan/tagwerk/releases), with that version's changes from this changelog and the image to pull. Choose *Watch → Custom → Releases* on GitHub to get notified about new versions.
+
 ## [0.18.2] - 2026-10-10
 
 ### Fixed
