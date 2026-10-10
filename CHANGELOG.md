@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-10
+
+### Fixed
+- **No more error in the log after a double click**: clicking **Use these values** (or **Look up online**) twice quickly made the browser cancel the first request, and the log showed a long `ClientDisconnect` error. Nothing went wrong, as the second click did the work. The buttons are now locked while their request is sent, and a cancelled request is no longer logged as an error.
+
 ## [0.18.0] - 2026-10-09
 
 ### Added

@@ -6,7 +6,7 @@
   {% if looking_up %}<div hx-get="{{ base }}/lookup-status" hx-trigger="every 2s" hx-swap="none" aria-hidden="true"></div>{% endif %}
   <div class="online-head">
     <strong>Found online</strong>
-    <form method="post" action="{{ base }}/lookup">
+    <form method="post" action="{{ base }}/lookup" hx-disabled-elt="find button">
       {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
       <button type="submit" class="outline secondary small" {% if not online_sources %}disabled{% endif %}>{% if online %}Look up again{% else %}Look up online{% endif %}</button>
     </form>
@@ -28,7 +28,7 @@
         <small class="muted"><span class="match-why">{{ "%d" % (c.score * 100) }}% match{% if c.why %} · {{ c.why }}{% endif %}</span><br>{% if c.duration %}{{ c.duration | mmss }}{% endif %}{% for key in ("album", "date", "label", "catalognumber", "genre", "bpm") if c.values[key] %} · {{ c.values[key] }}{% endfor %}{% if c.cover_url and not c.cover_image %} · with cover{% endif %}</small>
         {% if c.url %}<small><a href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open at {{ f.label }} ↗</a></small>{% endif %}
       </div>
-      <form method="post" action="{{ base }}/online">
+      <form method="post" action="{{ base }}/online" hx-disabled-elt="find button">{# no second click while it is sent #}
         {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}<input type="hidden" name="source" value="{{ f.source }}"><input type="hidden" name="n" value="{{ loop.index0 }}">
         <button type="submit" class="outline small">Use these values</button>
       </form>
