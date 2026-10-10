@@ -472,7 +472,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "view_label": VIEWS[show][0],
             "deleted": request.query_params.get("deleted", ""),
             "keep_days": trash.KEEP_DAYS,
-            "online": identify.results(session, track.id),
+            "online": identify.review(session, track),
             "online_sources": [s.label for s in identify.enabled(get_settings(), prefs)],
             "looking_up": identify_job.queued(track.id),
             **audio_context(

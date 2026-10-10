@@ -62,10 +62,24 @@ def test_final_tracks_get_nothing_staged(web, engine, settings, track):  # noqa:
 def test_track_page_shows_results_and_stages_one(web, client, engine, settings, track):  # noqa: F811
     identify.lookup(engine, settings, track, library=True)
     page = client.get(f"/tracks/{track}").text
-    assert "Found online" in page and "Open at Discogs" in page
+    assert "Online sources" in page and "Open at Discogs" in page
+    assert " data-remember>" in page and "online-remind" not in page  # no inbox reminder here
     client.post(f"/tracks/{track}/online", data={"source": "discogs", "n": "0"})
     staged = pending(engine, track)
     assert staged["catalognumber"] == "CATCH109" and staged["label"] == "Catch & Release"
+
+
+def test_each_value_is_compared_with_the_file(web, engine, settings, track):  # noqa: F811
+    identify.lookup(engine, settings, track, library=True)
+    with Session(engine) as session:
+        row = session.get(Track, track)
+        row.label, row.date = "catch & release", "2017"  # same label, spelled differently
+        found = {f.source: f for f in identify.review(session, row, library=True)}
+    discogs = {v.name: v for v in found["discogs"].fields[0]}
+    assert discogs["label"].state == "same"
+    assert discogs["catalognumber"].state == "new"  # the file has none
+    assert discogs["date"].state == "differs" and discogs["date"].yours == "2017"
+    assert found["discogs"].about  # each source says what it is good for
 
 
 def test_look_up_ticked_tracks_from_the_list(web, client, engine, settings, track):  # noqa: F811
