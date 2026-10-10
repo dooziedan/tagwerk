@@ -111,7 +111,7 @@ All settings are environment variables (the fields in the Unraid template):
 - [Architecture](docs/architecture.md): how the app is built
 - [Development](docs/development.md): run it locally, tests, releases
 - [Decisions](docs/decisions/): why things are the way they are
-- [Changelog](CHANGELOG.md)
+- [Changelog](CHANGELOG.md), and per version on the [Releases page](https://github.com/dooziedan/tagwerk/releases)
 
 The REST API is documented at `/docs` on any running instance.
 
