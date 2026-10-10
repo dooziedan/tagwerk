@@ -5,9 +5,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Changed
-- **Changes page on phones**: held upright, a phone squeezed each change into narrow columns, so old and new values were only a few letters wide. Each change is now a small block: the tick box, the field and **Discard** on top, the old value below, and the new value under it. Proposed genre folders show the old and the new path the same way, and so does a change's detail page in the history. Turned sideways, on a tablet or a computer, the page keeps old and new side by side.
-- **History on phones**: the list ran off the right edge of the screen, hiding the status and the **Undo** button. On a phone held upright, each Apply is now a small block: when it happened (tap for the details) and **Undo** on top, the fields below, then "2 files · applied".
+## [0.19.0] - 2026-10-10
 
 ### Added
 - **Release notes on GitHub**: every new version now gets its own page under [Releases](https://github.com/dooziedan/tagwerk/releases), with that version's changes from this changelog and the image to pull. Choose *Watch → Custom → Releases* on GitHub to get notified about new versions.
@@ -16,6 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Analysing a library track also measures its loudness** (track page, ticked tracks, or all tracks of the list). Tracks whose BPM and key were analysed before only get the quick loudness pass.
 
 ### Changed
+- **Changes page on phones**: held upright, a phone squeezed each change into narrow columns, so old and new values were only a few letters wide. Each change is now a small block: the tick box, the field and **Discard** on top, the old value below, and the new value under it. Proposed genre folders show the old and the new path the same way, and so does a change's detail page in the history. Turned sideways, on a tablet or a computer, the page keeps old and new side by side.
+- **History on phones**: the list ran off the right edge of the screen, hiding the status and the **Undo** button. On a phone held upright, each Apply is now a small block: when it happened (tap for the details) and **Undo** on top, the fields below, then "2 files · applied".
 - **A new "Online sources" card** on the track page and the inbox review page (it was "Found online"). It is folded by default, so the page stays calm: the closed card shows one pill per source with its best match (green: found, orange: no good match, red: couldn't ask). Click it to open; it remembers whether you left it open. Inside, every source has its own panel, with plenty of space around it, a coloured edge, its score and a few words on what it is good for (AcoustID recognises the sound itself, Discogs knows labels and catalog numbers, …). The best match comes first with its values side by side, each marked **✓** (same as your tags), **new** (fills an empty field) or **yours: …** (your file says something else), so you see what **Use these values** would change before you press it. Weaker results are folded away below. **Look up again** stays in the top corner, also when the card is closed.
 - **On the inbox review page** the card always starts closed and shows an orange **Check 2 matches** tag while sources found the track, so you don't forget to look before importing. The tag goes away when you open the card.
 
