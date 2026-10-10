@@ -100,15 +100,26 @@ def home_data(session: Session) -> HomeData:
                 False,
             )
         )
-    replaygain = loudness.fix_count(session)
-    if replaygain:
+    levels = loudness.overview(session)
+    if levels.to_fix:
         data.problems.append(
             Problem(
-                replaygain,
+                len(levels.to_fix),
                 "track",
                 "with ReplayGain missing or not matching the audio",
                 "/replaygain",
                 "Navidrome plays them louder or quieter than the rest.",
+                False,
+            )
+        )
+    if levels.unmeasured:
+        data.problems.append(
+            Problem(
+                len(levels.unmeasured),
+                "track",
+                "without measured loudness",
+                "/replaygain",
+                "Measure them to check their ReplayGain.",
                 False,
             )
         )

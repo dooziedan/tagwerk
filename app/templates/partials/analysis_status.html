@@ -4,8 +4,9 @@
 <div id="analysis-status"{% if job.running %} hx-get="/partials/analysis" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
   {% if job.running %}
   <form method="post" action="/analysis/stop" class="notice" role="status">
-    <span aria-busy="true">Analysing the audio (BPM, key, loudness): {{ p.processed }} of {{ p.total | plural('track') }}{% if job.workers > 1 %}, {{ job.workers }} at a time{% endif %}{% if p.failed %} ({{ p.failed }} couldn't be analysed){% endif %}.</span>
-    Sure values for empty fields become <a href="/changes">pending changes</a>. Pages stay fast meanwhile.
+    {# One text block: loose text and the link would each become a separate piece of the box. #}
+    <span class="job-text"><span aria-busy="true">Analysing the audio (BPM, key, loudness): {{ p.processed | number }} of {{ p.total | plural('track') }}{% if job.workers > 1 %}, {{ job.workers }} at a time{% endif %}{% if p.failed %} ({{ p.failed | number }} couldn't be analysed){% endif %}.</span>
+    Sure values for empty fields become <a href="/changes">pending changes</a>. Pages stay fast meanwhile.</span>
     <button type="submit" class="outline secondary small">Stop</button>
   </form>
   {% elif p.finished_at and recent(p.finished_at, 600) %}
