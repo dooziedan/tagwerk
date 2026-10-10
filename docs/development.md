@@ -112,6 +112,14 @@ scan. Run it after changing queries on Home, Statistics or the track list.
    git tag v0.2.0 && git push origin v0.2.0
    ```
 4. CI publishes `:0.2.0`, `:0.2` and `:latest`. Unraid shows "update available".
+5. CI also creates the [GitHub Release](https://github.com/dooziedan/tagwerk/releases) "Tagwerk 0.2.0",
+   with that version's changelog section as its notes (`.github/workflows/release.yml`,
+   `scripts/release_notes.py`). Check it with `gh release view v0.2.0`. If the section is missing
+   the job fails: fix the changelog on `main`, then run **Release page** by hand in the Actions tab
+   with the tag. The same button creates pages for older tags.
+
+A test checks that the version in `pyproject.toml` has its own changelog section, so steps 1 and 2
+can't drift apart.
 
 Versions follow semantic versioning. While the version is `0.x`, breaking changes can happen in minor versions and are noted in the changelog.
 

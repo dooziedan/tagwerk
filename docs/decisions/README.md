@@ -48,3 +48,4 @@ What gets easier, what gets harder.
 | [0027](0027-queued-trash-decisions.md) | Trash decisions on the Duplicates page wait for Apply | Accepted |
 | [0028](0028-replaygain.md) | ReplayGain fields, read and written in every format (Opus: R128) | Accepted |
 | [0029](0029-loudness-and-replaygain-check.md) | Loudness from the audio, and checking ReplayGain against it | Accepted |
+| [0030](0030-ids-fixed-on-import.md) | Wrong IDs in MusicBrainz fields fixed on import; Discogs `release-position` IDs | Accepted |

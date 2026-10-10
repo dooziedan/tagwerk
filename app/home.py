@@ -15,7 +15,6 @@ from app.duplicates import group_count
 from app.library import FLAGS, TrackFilter, count
 from app.models import RawTag, Track
 from app.percent import percent
-from app.preferences import Preferences
 
 
 @dataclass
@@ -60,7 +59,7 @@ _FLAG_PROBLEMS = [
 RECENT = 10
 
 
-def home_data(session: Session, prefs: Preferences) -> HomeData:
+def home_data(session: Session) -> HomeData:
     tracks, duration = session.exec(
         select(func.count(Track.id), func.coalesce(func.sum(Track.duration), 0))
     ).one()
@@ -74,8 +73,6 @@ def home_data(session: Session, prefs: Preferences) -> HomeData:
         added_this_month_url=this_month.url(),
     )
     for flag, noun, text, hint, warn in _FLAG_PROBLEMS:
-        if flag == "invalid_mbid" and not prefs.show_musicbrainz:
-            continue
         n = count(session, FLAGS[flag][1])
         if n:
             data.problems.append(Problem(n, noun, text, TrackFilter(flag=flag).url(), hint, warn))

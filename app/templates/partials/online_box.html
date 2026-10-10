@@ -1,41 +1,134 @@
 {# What online sources found for a track (app/identify.py): inbox review page and track page.
-   Needs: online, online_sources, looking_up, base (URL prefix for /lookup and /online),
-   hidden (extra form fields), note. #}
-<article class="online-box" id="online">
+   Needs: online (identify.review), online_sources, looking_up, base (URL prefix for /lookup and
+   /online), hidden (extra form fields), note; remind (inbox): always start closed, with a
+   "check" tag while there are matches to look at.
+
+   Folded by default: the closed card still shows one pill per source. Open, every source gets
+   its own panel: the best match first with its values beside the file's, then the rest. #}
+{% set matched = online | selectattr("best") | list %}
+{% macro use_form(f, n) %}
+<form method="post" action="{{ base }}/online" hx-disabled-elt="find button">{# no second click while it is sent #}
+  {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}<input type="hidden" name="source" value="{{ f.source }}"><input type="hidden" name="n" value="{{ n }}">
+  <button type="submit" class="outline small">Use these values</button>
+</form>
+{% endmacro %}
+{% macro title_of(c) %}{{ c.values.artist or "?" }} – {{ c.values.title or c.values.album or "?" }}{% endmacro %}
+<article class="online-card" id="online">
   {# While sources are asked, check every 2 s; when done, the server shows the page again. #}
   {% if looking_up %}<div hx-get="{{ base }}/lookup-status" hx-trigger="every 2s" hx-swap="none" aria-hidden="true"></div>{% endif %}
-  <div class="online-head">
-    <strong>Found online</strong>
-    <form method="post" action="{{ base }}/lookup">
-      {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
-      <button type="submit" class="outline secondary small" {% if not online_sources %}disabled{% endif %}>{% if online %}Look up again{% else %}Look up online{% endif %}</button>
-    </form>
+  <form method="post" action="{{ base }}/lookup" hx-disabled-elt="find button" class="online-action">
+    {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <button type="submit" class="outline secondary small" {% if not online_sources or looking_up %}disabled{% endif %} title="Ask {{ online_sources | join(', ') if online_sources else 'the online sources' }}">
+      <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      <span class="online-action-text">{% if online %}Look up again{% else %}Look up online{% endif %}</span>
+    </button>
+  </form>
+  {% if not online_sources or not online %}
+  <div class="online-bar">
+    <strong class="online-title">Online sources</strong>
+    <small class="online-headline">
+      {%- if not online_sources %}None switched on or set up. <a href="/settings#online">Settings → Online lookups</a>
+      {%- elif looking_up %}<span aria-busy="true">Looking up in {{ online_sources | join(", ") }}…</span>
+      {%- else %}Not looked up yet.{% if base.startswith("/inbox") %} It happens after the next inbox check.{% endif %}{% endif %}</small>
   </div>
-  {% if not online_sources %}
-  <p class="muted"><small>No online sources are switched on or set up. <a href="/settings#online">Settings → Online lookups</a></small></p>
-  {% elif not online %}
-  <p class="muted"><small>{% if looking_up %}<span aria-busy="true">Looking up in {{ online_sources | join(", ") }}…</span>{% else %}Not looked up yet.{% if base.startswith("/inbox") %} It happens after the next inbox check, or press Look up again.{% else %} Press Look up online.{% endif %}{% endif %}</small></p>
   {% else %}
-  {% if looking_up %}<p class="muted"><small aria-busy="true">Still looking up…</small></p>{% endif %}
-  {% for f in online %}
-  <details class="online-source"{% if f.best %} open{% endif %}>
-    <summary>{{ f.label }}: {% if f.error %}<span class="form-error-inline">⚠️ {{ f.error }}</span>{% elif f.best %}<strong>{{ "%d" % (f.best.score * 100) }}% match</strong>{% elif f.candidates %}<span class="muted">nothing that matches well</span>{% else %}<span class="muted">nothing found</span>{% endif %}</summary>
-    {% for c in f.candidates[:3] %}
-    <div class="online-candidate">
-      {% if c.cover_image %}<img class="online-cover" src="/images/{{ c.cover_image }}" alt="Cover from {{ f.label }}" width="56" height="56">{% endif %}
-      <div class="online-text">
-        <strong>{{ c.values.artist or "?" }} – {{ c.values.title or c.values.album or "?" }}</strong>
-        <small class="muted"><span class="match-why">{{ "%d" % (c.score * 100) }}% match{% if c.why %} · {{ c.why }}{% endif %}</span><br>{% if c.duration %}{{ c.duration | mmss }}{% endif %}{% for key in ("album", "date", "label", "catalognumber", "genre", "bpm") if c.values[key] %} · {{ c.values[key] }}{% endfor %}{% if c.cover_url and not c.cover_image %} · with cover{% endif %}</small>
-        {% if c.url %}<small><a href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open at {{ f.label }} ↗</a></small>{% endif %}
-      </div>
-      <form method="post" action="{{ base }}/online">
-        {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}<input type="hidden" name="source" value="{{ f.source }}"><input type="hidden" name="n" value="{{ loop.index0 }}">
-        <button type="submit" class="outline small">Use these values</button>
-      </form>
+  <details class="online-fold"{% if looking_up %} open{% endif %}{% if not remind %} data-remember{% endif %}>
+    <summary class="online-bar">
+      <span class="online-chevron" aria-hidden="true"></span>
+      <strong class="online-title">Online sources</strong>
+      <small class="online-headline">
+        {%- if looking_up %}<span aria-busy="true">Looking up…</span>
+        {%- elif matched %}{{ matched | length }} of {{ online | length }} found this track
+        {%- else %}no good match{% endif %}</small>
+      {% if remind and matched and not looking_up %}<span class="status status-help online-remind"><i aria-hidden="true"></i>Check {{ matched | length }} {{ "match" if matched | length == 1 else "matches" }}</span>{% endif %}
+      <span class="online-pills">
+        {%- for f in online %}
+        {%- set top = f.candidates[0] if f.candidates else none %}
+        <span class="online-pill {% if f.error %}is-error{% elif f.best %}is-match{% elif top %}is-weak{% else %}is-none{% endif %}"><i aria-hidden="true"></i>{{ f.label }} <b>{% if f.error %}error{% elif top %}{{ "%d" % (top.score * 100) }}%{% else %}none{% endif %}</b></span>
+        {%- endfor %}
+      </span>
+    </summary>
+    <div class="online-body">
+      {% if looking_up %}<p class="notice" role="status"><span aria-busy="true">Looking up again…</span> This page updates by itself when the answers are in.</p>{% endif %}
+      {% for f in online %}
+      {% set top = f.candidates[0] if f.candidates else none %}
+      <section class="online-src {% if f.error %}is-error{% elif f.best %}is-match{% elif top %}is-weak{% else %}is-none{% endif %}" aria-label="{{ f.label }}">
+        <header class="src-head">
+          <div class="src-name"><strong>{{ f.label }}</strong><small>{{ f.about }}</small></div>
+          <div class="src-score">
+            {% if top and not f.error %}<span class="src-meter" aria-hidden="true"><i style="width: {{ '%d' % (top.score * 100) }}%"></i></span><b>{{ "%d" % (top.score * 100) }}%</b>{% endif %}
+            {% if f.error %}<span class="status status-warn">couldn't ask</span>
+            {% elif f.best %}<span class="status status-sure">match</span>
+            {% elif top %}<span class="status status-help">no good match</span>
+            {% else %}<span class="status">nothing found</span>{% endif %}
+          </div>
+        </header>
+        {% if f.error %}<p class="src-msg">⚠️ {{ f.error }}</p>{% endif %}
+        {% if f.best %}
+        {% set c = f.best %}
+        <div class="src-best">
+          {% if c.cover_image %}<img class="online-cover" src="/images/{{ c.cover_image }}" alt="Cover from {{ f.label }}" width="72" height="72">{% endif %}
+          <div class="src-main">
+            <strong class="src-track">{{ title_of(c) }}</strong>
+            <small class="src-why">{{ c.why }}{% if c.duration %} · {{ c.duration | mmss }}{% endif %}{% if c.cover_url and not c.cover_image %} · with cover{% endif %}</small>
+            {% if f.fields[0] %}
+            <dl class="src-values">
+              {% for v in f.fields[0] %}
+              <div class="is-{{ v.state }}">
+                <dt>{{ v.label }}</dt>
+                <dd>{{ v.value }}
+                  {%- if v.state == "same" %} <span class="mark" title="Same as your tags">✓</span>
+                  {%- elif v.state == "new" %} <span class="mark">new</span>
+                  {%- else %} <span class="mark">yours: {{ v.yours }}</span>{% endif %}</dd>
+              </div>
+              {% endfor %}
+            </dl>
+            {% endif %}
+            <div class="src-actions">
+              {{ use_form(f, 0) }}
+              {% if c.url %}<a href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open at {{ f.label }} ↗</a>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% set rest = f.candidates[1:3] if f.best else f.candidates[:3] %}
+        {% if rest %}
+        <details class="src-more">
+          <summary>{% if f.best %}{{ rest | length }} more {{ "result" if rest | length == 1 else "results" }}{% else %}Show what was found ({{ rest | length }}){% endif %}</summary>
+          {% for c in rest %}
+          {% set n = loop.index0 + (1 if f.best else 0) %}
+          <div class="online-candidate">
+            {% if c.cover_image %}<img class="online-cover" src="/images/{{ c.cover_image }}" alt="Cover from {{ f.label }}" width="48" height="48">{% endif %}
+            <div class="online-text">
+              <strong>{{ title_of(c) }}</strong>
+              <small class="muted"><span class="match-why">{{ "%d" % (c.score * 100) }}% match{% if c.why %} · {{ c.why }}{% endif %}</span><br>{% if c.duration %}{{ c.duration | mmss }}{% endif %}{% for key in ("album", "date", "label", "catalognumber", "genre", "bpm") if c.values[key] %} · {{ c.values[key] }}{% endfor %}</small>
+              {% if c.url %}<small><a href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open at {{ f.label }} ↗</a></small>{% endif %}
+            </div>
+            {{ use_form(f, n) }}
+          </div>
+          {% endfor %}
+        </details>
+        {% endif %}
+      </section>
+      {% endfor %}
+      <p class="fine">{% if matched %}<span class="legend is-same">✓ same as your tags</span> · <span class="legend is-new">new: fills an empty field</span> · <span class="legend is-differs">yours: what the file says now</span><br>{% endif %}{{ note }} Sure when two sources agree (or the audio matches clearly).</p>
     </div>
-    {% endfor %}
   </details>
-  {% endfor %}
   {% endif %}
-  <small class="muted">{{ note }} Sure when two sources agree (or the audio matches clearly); otherwise marked "check".</small>
 </article>
+<script>
+  // The track page's card remembers whether it was left open or closed (this browser only). It
+  // opens by itself while looking up, and stays open for the answers. The inbox's always starts
+  // closed (no data-remember): its "check" tag is the reminder.
+  (() => {
+    const fold = document.querySelector("#online .online-fold[data-remember]");
+    if (!fold) return;
+    try {
+      if (fold.open) localStorage.setItem("tw-online-open", "1");
+      else if (localStorage.getItem("tw-online-open") === "1") fold.open = true;
+    } catch (e) { /* storage blocked: closed by default */ }
+    fold.addEventListener("toggle", () => {
+      try { localStorage.setItem("tw-online-open", fold.open ? "1" : "0"); } catch (e) { /* ignore */ }
+    });
+  })();
+</script>

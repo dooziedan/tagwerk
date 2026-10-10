@@ -15,6 +15,7 @@ from app.sources.base import Candidate, Query, Source, SourceError
 class AcoustID(Source):
     name = "acoustid"
     label = "AcoustID"
+    about = "Recognises the sound itself"
     gap = 0.4
     needs = "ACOUSTID_KEY"
 

@@ -47,7 +47,7 @@ Files are never modified directly from a form or a lookup:
 | `app/writer.py` | **The only code that writes music files**: writes edited fields per format, captures snapshots, undoes ([ADR 0009](decisions/0009-writing-tags.md)) | 0.6 |
 | `app/changes.py` | Pending changes, apply and undo (run as jobs) | 0.6 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
-| `app/preferences.py` | Key notation, effects, MusicBrainz visibility, import and final-track choices, stored in the `appsetting` table | 0.3 |
+| `app/preferences.py` | Key notation, effects, import and final-track choices, stored in the `appsetting` table | 0.3 |
 | `app/navidrome.py` | Asks Navidrome to rescan after a write (Subsonic `startScan`, salted-token login, standard library only) | 0.7 |
 | `app/inbox.py` | Keeps the `inboxtrack` table in sync with the import folder; the owner's values per track (`inboxvalue`) and the review of each field | 0.7 |
 | `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
@@ -76,7 +76,7 @@ Files are never modified directly from a form or a lookup:
 | `app/audio_analysis.py` | BPM and key from the audio with Essentia (read-only; also runnable by hand: `python -m app.audio_analysis FILE`) ([ADR 0017](decisions/0017-audio-analysis.md)) | 0.9 |
 | `app/analysis.py` | Runs the analysis per track in a low-priority process (as many at once as the container has CPU cores and memory for), stores results (`inboxanalysis`, `libraryanalysis`), combines them with genre, filename and online BPMs, stages sure values | 0.9 |
 | `app/loudness.py`, `app/routes/replaygain.py` | Loudness from the audio (ffmpeg EBU R128, in the analysis job, kept in `libraryloudness`) and the ReplayGain page: tags checked against it, fixes staged as pending changes ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)) | 0.19 |
-| `app/ids.py` | MusicBrainz ID fields holding other values: what's wrong, and the fix (Discogs numbers to their own fields) ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md)) | 0.9 |
+| `app/ids.py` | MusicBrainz ID fields holding other values: what's wrong, and the fix (Discogs numbers to their own fields), also on import ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md), [0030](decisions/0030-ids-fixed-on-import.md)) | 0.9 |
 | `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap. After each, `after_library_change` reworks BPM/key decisions and duplicates | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |

@@ -40,10 +40,9 @@ Effects = Literal["full", "light"]
 @dataclass
 class Preferences:
     key_notation: KeyNotation = "camelot"
-    # MusicBrainz IDs are irrelevant for edits, bootlegs and promos, so they're opt-in.
-    show_musicbrainz: bool = False
     # Look (docs/design.md): "light" turns off blur, star drift and glows for weak devices.
-    # (Old databases may still hold "style"/"appearance" rows: load() ignores unknown keys.)
+    # (Old databases may still hold "style", "appearance", "mode" or "show_musicbrainz" rows:
+    # load() ignores unknown keys.)
     effects: Effects = "full"
     # Set once the owner confirmed having a backup, before the very first write to files.
     backup_confirmed: bool = False
@@ -94,7 +93,6 @@ def _validated(prefs: Preferences) -> Preferences:
     default = Preferences()
     if prefs.key_notation not in NOTATIONS:
         prefs.key_notation = default.key_notation
-    prefs.show_musicbrainz = bool(prefs.show_musicbrainz)
     prefs.backup_confirmed = bool(prefs.backup_confirmed)
     if prefs.effects not in EFFECTS:
         prefs.effects = default.effects

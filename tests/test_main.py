@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 
 from alembic.autogenerate import compare_metadata
@@ -5,6 +6,7 @@ from alembic.migration import MigrationContext
 from sqlmodel import SQLModel
 
 from app.jobs import scan_job
+from app.main import app
 
 
 def test_health(client):
@@ -43,7 +45,6 @@ def test_scan_then_statistics(client):
 def test_settings_api(client):
     assert client.get("/api/settings").json() == {
         "key_notation": "camelot",
-        "show_musicbrainz": False,
         "effects": "full",
         "backup_confirmed": False,
         "setup_done": True,  # set by the client fixture (tests/conftest.py)
@@ -61,7 +62,8 @@ def test_settings_api(client):
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}
     ).json()
-    assert saved["key_notation"] == "musical" and "mode" not in saved  # unknown names ignored
+    assert saved["key_notation"] == "musical"
+    assert "mode" not in saved and "show_musicbrainz" not in saved  # old names ignored
     assert client.get("/api/settings").json() == saved
 
 
@@ -75,7 +77,6 @@ def test_settings_form_and_unknown_values(client):
     assert response.status_code == 303
     prefs = client.get("/api/settings").json()
     assert prefs["key_notation"] == "camelot"  # unknown value falls back to the default
-    assert prefs["show_musicbrainz"] is False  # unchecked box
     assert "Settings" in client.get("/settings").text
 
 
@@ -152,3 +153,24 @@ def test_the_unraid_template_has_every_setting():
             assert "/" + name.removesuffix("_dir") in targets, name
         else:
             assert name.upper() in targets, name
+
+
+def test_browser_gone_while_sending_a_form_is_no_error(client):
+    """A double click: the browser drops the first request while its form is being read."""
+    sent = []
+
+    async def receive():
+        return {"type": "http.disconnect"}  # gone before the form arrived
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/tracks/lookup",
+        "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
+        "query_string": b"",
+    }
+    asyncio.run(app(scope, receive, send))  # no exception
+    assert sent[0]["status"] == 400

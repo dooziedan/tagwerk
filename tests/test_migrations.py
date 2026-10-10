@@ -79,7 +79,7 @@ def test_an_old_database_upgrades_through_every_migration(tmp_path):
         track = session.get(Track, 1)
         assert track.path == "{}" and track.has_lyrics is False and track.scan_version == 0
         prefs = preferences.load(session)  # odd stored values fall back to defaults
-        home_data(session, prefs)
+        home_data(session)
         library_stats(session, prefs)
         work_stats(session)
         duplicates.load_groups(session)

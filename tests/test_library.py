@@ -40,7 +40,7 @@ def test_every_dashboard_number_matches_its_track_list(engine, music_dir):
     """Clicking a number on the dashboard must show exactly that many tracks."""
     scan(engine, music_dir)
     with Session(engine) as session:
-        stats = library_stats(session, Preferences(show_musicbrainz=True))
+        stats = library_stats(session, Preferences())
         bars = stats.missing + stats.formats + stats.genres + stats.bpm
         bars += [cell for cell in stats.keys if cell.url]
         bars += stats.growth + stats.growth_years + stats.lengths + stats.labels

@@ -14,6 +14,7 @@ _KIND = re.compile(r"\s+-\s+(?:Single|EP)$")  # "Losing It - Single" -> "Losing 
 class ITunes(Source):
     name = "itunes"
     label = "iTunes"
+    about = "Store: genre, cover"
     gap = 3.0
 
     def lookup(self, query: Query) -> list[Candidate]:

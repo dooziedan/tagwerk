@@ -162,7 +162,6 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
     updated = replace(
         prefs,
         key_notation=form.get("key_notation", prefs.key_notation),
-        show_musicbrainz=form.get("show_musicbrainz") == "on",  # unchecked boxes aren't sent
         effects=form.get("effects", prefs.effects),
     )
     preferences.save(session, updated)

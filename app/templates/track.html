@@ -9,7 +9,9 @@
 {% set artist = t.albumartist or t.artist %}
 
 <p><a href="{{ back }}">← Back</a></p>
-<div class="track-head hero glass">
+{# The info button sits outside the header: the header clips its edges (the planet), and the
+   panel would be cut off with it. #}
+<div class="track-top">
   <details class="info-pop">
     <summary aria-label="More information: MusicBrainz and Discogs IDs" title="MusicBrainz and Discogs IDs">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5"/><path d="M12 8h.01"/></svg>
@@ -28,6 +30,7 @@
       {% endif %}
     </div>
   </details>
+<div class="track-head hero glass">
   {% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" role="img" aria-label="No cover art">{# a little planet, like on Home #}<span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((t.artist or t.path) | length) % 8] }}"><i></i><b></b><em></em></span></div>{% endif %}
   <div>
     <h1>{{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>
@@ -78,6 +81,7 @@
     {% endif %}
   </div>
 </div>
+</div>
 
 {% if wrong_ids %}
 <div class="notice" role="note">
@@ -94,7 +98,6 @@
 {% endif %}
 
 {% if not t.error %}
-{% if looking_up %}<p class="notice" role="status">🔎 Looking up online… Values that two sources agree on become <a href="/changes">pending changes</a>. This page updates by itself when the answers are in.</p>{% endif %}
 {% with base = "/tracks/" ~ t.id, hidden = {"back": back}, note = ("Final tracks are locked: nothing is staged for them." if final else "Values for empty fields that two sources agree on become pending changes by themselves; Use these values stages one result.") %}{% include "partials/online_box.html" %}{% endwith %}
 {% with base = "/tracks/" ~ t.id %}{% include "partials/audio_box.html" %}{% endwith %}
 {% endif %}
