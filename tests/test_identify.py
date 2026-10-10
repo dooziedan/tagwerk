@@ -169,7 +169,9 @@ def test_cover_is_downloaded_and_suggested(web, monkeypatch, engine, settings, t
 def test_review_page_shows_results_and_takes_them_over(web, client, engine, settings, track):
     identify.lookup(engine, settings, track)
     page = client.get(f"/inbox/{track}").text
-    assert "Found online" in page and "Use these values" in page and "Open at iTunes" in page
+    assert "Online sources" in page and "Use these values" in page and "Open at iTunes" in page
+    # Folded with a reminder; it doesn't remember being opened on another page.
+    assert "online-remind" in page and "Check " in page and " data-remember>" not in page
     client.post(f"/inbox/{track}/online", data={"source": "discogs", "n": "0"})
     with Session(engine) as session:
         values = {f.field: f for f in review(session, session.get(InboxTrack, track), FIELDS)}

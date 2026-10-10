@@ -73,6 +73,9 @@ bar), page heads (glass hero with a rising planet), headline tiles (`.kpi`), her
 gauges (`macros.html` → `ring()`), bar beams (`bars(..., tone=…)`), column charts, heat map, key
 wheel, cover cards with planet placeholders, task lists, chips, status pills, the track page's
 deck readout, notices, toasts, the play bar.
+The track page's **Online sources** card is folded to one line of source pills (a dot and a
+word or number each); open, every source is its own panel with a status edge, and each value it
+found is marked against the file: ✓ same, *new* (fills an empty field), *yours: …* (differs).
 
 ## Camelot wheel
 Standard Camelot colours (hue clockwise from 1 aqua-green through orange at 5 and blue at 10),

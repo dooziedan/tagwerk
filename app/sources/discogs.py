@@ -11,6 +11,7 @@ from app.sources.base import Candidate, Query, Source, year_or_date
 class Discogs(Source):
     name = "discogs"
     label = "Discogs"
+    about = "Labels and catalog numbers"
     gap = 1.1
     needs = "DISCOGS_TOKEN"
 

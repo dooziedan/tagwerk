@@ -13,6 +13,7 @@ DETAILS_FOR = 2  # search results that get the extra track and album requests
 class Deezer(Source):
     name = "deezer"
     label = "Deezer"
+    about = "Store: BPM, label, cover"
     gap = 0.2
 
     def lookup(self, query: Query) -> list[Candidate]:

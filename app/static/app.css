@@ -376,14 +376,12 @@ body.with-action-bar { padding-bottom: calc(6rem + var(--player-height, 0px)); }
 .placeholder-chips .chip { margin: 0; width: auto; padding: 0.1rem 0.55rem; font-size: 0.8rem; font-family: var(--pico-font-family-monospace); background: none; color: var(--pico-primary); border: 1px solid var(--pico-muted-border-color); border-radius: 999px; }
 .genre-map { font-family: var(--pico-font-family-monospace); font-size: 0.85rem; }
 
-/* Inbox review: what online sources found (app/identify.py) */
+/* "From the audio" box head; candidate rows in "Online sources" (app/identify.py) */
 .online-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
 .online-head form, .online-candidate form { margin: 0; }
 /* Buttons in notices ("… probably half time [Use 172]", "[Fix IDs]") stay beside the text. */
 .audio-diff { margin: 0.5rem 0; }
 .notice button { width: auto; margin: 0.3rem 0.4rem 0.3rem 0; }
-.online-source { margin: 0.25rem 0; }
-.online-source summary { font-size: 0.95rem; }
 .online-candidate { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--pico-muted-border-color); }
 .online-cover { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; flex: none; }
 .online-text { display: flex; flex-direction: column; min-width: 0; flex: 1; overflow-wrap: anywhere; }
@@ -1007,6 +1005,101 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
 .notes { margin: 0.6rem 0 0; padding-left: 1.1rem; font-size: 0.84rem; color: var(--tw-ink-2); }
 .notes li { margin: 0 0 0.2rem; }
 .fine { display: block; margin-top: 0.75rem; font-size: 0.8rem; color: var(--tw-ink-3); }
+
+/* "Online sources" (partials/online_box.html): folded to one line of source pills; open, one
+   panel per source. Look up sits top right, outside the fold, so it works while closed.
+   Generous spacing on purpose (the owner asked): open and calm, easy to scan. */
+.online-card { position: relative; }
+.online-action { position: absolute; top: 1.15rem; right: 1.4rem; margin: 0; z-index: 1; }
+.online-action button { display: inline-flex; align-items: center; gap: 0.45rem; width: auto; }
+.online-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.85rem; min-height: 2.25rem; --online-room: 10rem; padding-right: var(--online-room); }
+.online-title { color: var(--tw-ink); font-weight: 600; font-size: 1.02rem; }
+.online-headline { color: var(--tw-ink-2); font-size: 0.86rem; }
+.online-fold { margin: 0; }
+.online-fold > summary.online-bar { cursor: pointer; list-style: none; }
+.online-fold > summary::-webkit-details-marker { display: none; }
+.online-fold > summary::after { display: none; }  /* Pico's chevron: ours sits on the left */
+.online-chevron { width: 0.55rem; height: 0.55rem; margin: 0 0.2rem 0 0.1rem; flex: none; border-right: 2px solid var(--tw-indigo-300); border-bottom: 2px solid var(--tw-indigo-300); transform: rotate(-45deg); transition: transform 160ms ease; }
+.online-fold[open] .online-chevron { transform: rotate(45deg); }
+.online-fold > summary:hover .online-title { color: var(--tw-indigo-200); }
+/* Inbox: a reminder while closed that there are matches to check (gone once it's open). */
+.online-remind { margin: 0; }
+.online-remind i { width: 6px; height: 6px; border-radius: 50%; background: var(--tw-check); box-shadow: 0 0 6px rgba(253, 186, 116, 0.8); }
+.online-fold[open] .online-remind { display: none; }
+/* The pills sit below the button, so they may use the room kept free for it on the first row. */
+.online-pills { display: flex; flex-wrap: wrap; gap: 0.6rem; flex-basis: calc(100% + var(--online-room)); margin: 0.75rem calc(0rem - var(--online-room)) 0 0; }
+.online-pill { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.85rem 0.3rem 0.7rem; border: 1px solid var(--tw-line); border-radius: 999px; font-size: 0.8rem; color: var(--tw-ink-1); background: rgba(3, 3, 8, 0.35); white-space: nowrap; }
+.online-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--tw-ink-4); }
+.online-pill b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tw-ink-2); }
+.online-pill.is-match { border-color: rgba(110, 231, 183, 0.35); }
+.online-pill.is-match i { background: var(--tw-ok); box-shadow: 0 0 6px rgba(110, 231, 183, 0.7); }
+.online-pill.is-match b { color: var(--tw-ok); }
+.online-pill.is-weak i { background: var(--tw-check); }
+.online-pill.is-weak b { color: var(--tw-check); }
+.online-pill.is-error { border-color: rgba(251, 113, 133, 0.38); }
+.online-pill.is-error i { background: var(--tw-warn); }
+.online-pill.is-error b { color: var(--tw-warn); }
+.online-body { margin-top: 1.5rem; padding-top: 1.75rem; border-top: 1px solid var(--tw-line-soft); }
+.online-body > .notice { margin-bottom: 1.25rem; }
+
+/* One panel per source; a coloured edge says how it went (always with a word beside it). */
+.online-src { margin: 0 0 1.25rem; padding: 1.35rem 1.6rem; border: 1px solid var(--tw-line-soft); border-left: 3px solid var(--tw-ink-4); border-radius: var(--tw-radius-control); background: rgba(3, 3, 8, 0.3); }
+.online-src.is-match { border-left-color: var(--tw-ok); }
+.online-src.is-weak { border-left-color: var(--tw-check); }
+.online-src.is-error { border-left-color: var(--tw-warn); }
+.src-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1.5rem; }
+.src-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.85rem; min-width: 0; }
+.src-name strong { color: var(--tw-ink); font-size: 1.02rem; }
+.src-name small { color: var(--tw-ink-3); font-size: 0.8rem; }
+.src-score { display: flex; align-items: center; gap: 0.7rem; }
+.src-score .status { margin: 0; }
+.src-score b { font-size: 0.88rem; font-variant-numeric: tabular-nums; color: var(--tw-ink-1); min-width: 2.4rem; text-align: right; }
+.src-meter { display: block; width: 5rem; height: 5px; border-radius: 999px; background: var(--tw-space-4); overflow: hidden; }
+.src-meter i { display: block; height: 100%; border-radius: inherit; background: var(--tw-ink-4); }
+.is-match .src-meter i { background: var(--tw-ok); }
+.is-weak .src-meter i { background: var(--tw-check); }
+.src-msg { margin: 0.9rem 0 0; font-size: 0.88rem; line-height: 1.55; color: var(--tw-ink-2); }
+.src-best { display: flex; align-items: flex-start; gap: 1.35rem; margin-top: 1.25rem; }
+.src-best .online-cover { width: 80px; height: 80px; border-radius: var(--tw-radius-small); }
+.src-main { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.src-track { color: var(--tw-ink); font-size: 1.05rem; }
+.src-why { color: var(--tw-ink-2); font-size: 0.84rem; line-height: 1.55; }
+/* The values, each beside the file's: ✓ same, new (fills an empty field), yours: … (differs) */
+.src-values { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr)); gap: 1.1rem 2rem; margin: 1.1rem 0 0.4rem; }
+.src-values div { min-width: 0; }
+.src-values dt { margin: 0 0 0.3rem; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tw-ink-3); }
+.src-values dd { margin: 0; font-size: 0.92rem; line-height: 1.45; color: var(--tw-ink-1); }
+.src-values .mark, .legend { font-size: 0.75rem; font-weight: 600; }
+.src-values .is-same .mark, .legend.is-same { color: var(--tw-ink-3); }
+.src-values .is-new dd { color: var(--tw-ink); }
+.src-values .is-new .mark, .legend.is-new { color: var(--tw-ok); }
+.src-values .is-differs dd { color: var(--tw-ink); }
+.src-values .is-differs .mark, .legend.is-differs { color: var(--tw-check); font-weight: 500; }
+.src-values .is-differs .mark { display: block; margin-top: 0.15rem; }
+.src-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; margin-top: 1.1rem; font-size: 0.86rem; }
+.src-actions form { margin: 0; }
+.src-actions button { width: auto; }
+.src-more { margin: 1.25rem 0 0; padding-top: 1rem; border-top: 1px solid var(--tw-line-soft); }
+.online-src:not(.is-match) .src-more { margin-top: 1rem; padding-top: 0; border-top: 0; }
+.src-more > summary { font-size: 0.85rem; color: var(--tw-indigo-300); }
+.src-more .online-candidate { gap: 1.1rem; padding: 1rem 0; border-top-color: var(--tw-line-soft); }
+.src-more .online-candidate:first-of-type { margin-top: 0.75rem; }
+.src-more .online-candidate:last-child { padding-bottom: 0.25rem; }
+.src-more .online-text { gap: 0.25rem; line-height: 1.5; }
+.src-more .online-cover { width: 52px; height: 52px; }
+.online-body > .fine { margin-top: 1.75rem; line-height: 1.7; }
+@media (max-width: 600px) {
+  .online-action { right: 1rem; }
+  .online-action-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .online-action button { padding: 0.45rem; }
+  .online-bar { --online-room: 2.75rem; }
+  .online-pills { gap: 0.5rem; }
+  .online-src { padding: 1.1rem 1.1rem; }
+  .src-best { gap: 1rem; }
+  .src-best .online-cover { width: 60px; height: 60px; }
+  .src-values { gap: 1rem 1.25rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .online-chevron { transition: none; } }
 
 /* All tag fields */
 .raw-table { font-size: 0.84rem; }
