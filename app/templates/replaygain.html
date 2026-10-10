@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "macros.html" import nav_icon %}
+{% block title %}ReplayGain · Tagwerk{% endblock %}
+{% block content %}
+<p><a href="/">← Home</a></p>
+<div class="page-head">
+  <div>
+    <h1>ReplayGain</h1>
+    <p class="muted page-sub">Tagwerk measures how loud each track really is (EBU R128) and checks its ReplayGain tags against it, so Navidrome plays every track at the same level ({{ reference | int }} LUFS, ReplayGain 2.0). The tags don't change the sound: CDJs and XDJs don't read them.</p>
+  </div>
+</div>
+
+<section class="kpis" aria-label="ReplayGain in numbers">
+  <article class="kpi"><span class="kpi-value">{{ found.measured | number }}</span><span class="kpi-label">of {{ found.tracks | plural('track') }} measured</span></article>
+  <article class="kpi"><span class="kpi-value">{{ found.count("ok") | number }}</span><span class="kpi-label">Match the audio</span></article>
+  <article class="kpi"><span class="kpi-value">{{ to_fix | length | number }}</span><span class="kpi-label">To fix</span></article>
+  {% set spread = found.spread %}
+  {% if spread %}<article class="kpi" title="The loudest and quietest tenth of your tracks lie outside this range"><span class="kpi-value">{{ "%.1f" % spread[1] }}</span><span class="kpi-label">LUFS typical · 80 % between {{ "%.1f" % spread[0] }} and {{ "%.1f" % spread[2] }}</span></article>{% endif %}
+</section>
+
+{% include "partials/analysis_status.html" %}
+{% if found.unmeasured and not job.running %}
+<form method="post" action="/replaygain/measure" class="notice">
+  {{ found.unmeasured | length | plural('track') }} not measured yet (about 2 seconds each, in the background, several at once).
+  <button type="submit" class="small">Measure {{ found.unmeasured | length | plural('track') }}</button>
+</form>
+{% endif %}
+{% if found.failed %}<p class="muted"><small>⚠️ {{ found.failed | plural('track') }} couldn't be measured (unreadable or silent).</small></p>{% endif %}
+
+{% if found.measured %}
+<p class="replaygain-counts" aria-label="ReplayGain compared with the audio">
+  {% for key, label in statuses.items() %}{% if found.count(key) %}
+  <span class="status{% if key in ('old', 'differs') %} status-warn{% endif %}">{{ label }}: {{ found.count(key) | number }}</span>
+  {% endif %}{% endfor %}
+</p>
+{% endif %}
+
+{% if to_fix %}
+<script>
+  function tickAllGains(on) {
+    document.querySelectorAll("input[name=track]").forEach((b) => (b.checked = on));
+  }
+</script>
+<form method="post" action="/replaygain/fix" data-confirm="Create pending changes with the measured gain and peak? Nothing is written until you apply them on the Changes page." data-confirm-ok="Create pending changes">
+<p>{{ to_fix | length | plural('track') }} to fix. Tagwerk writes the measured track gain and peak; album values stay as they are.</p>
+<p class="tick-tools"><button type="button" class="outline secondary small" onclick="tickAllGains(true)">Tick all</button> <button type="button" class="outline secondary small" onclick="tickAllGains(false)">Untick all</button></p>
+<article>
+  <div class="table-scroll">
+  <table class="diff replaygain">
+    <thead><tr><th class="check-col"></th><th scope="col">Track</th><th scope="col">Why</th><th scope="col" class="num">Loudness</th><th scope="col">Track gain</th></tr></thead>
+    <tbody>
+      {% for c in to_fix[:shown] %}{% set t = c.track %}
+      <tr>
+        <td class="check-col"><input type="checkbox" name="track" value="{{ t.id }}" checked aria-label="Fix {{ t.title or t.path }}"></td>
+        <th scope="row"><a href="/tracks/{{ t.id }}">{{ t.artist or "(no artist)" }} – {{ t.title or t.path.rsplit("/", 1)[-1] }}</a><br><small class="muted">{{ t.format | upper }}{% if t.bpm %} · {{ "%g" % t.bpm }} BPM{% endif %}{% if t.genre %} · {{ t.genre }}{% endif %}</small></th>
+        <td><span class="status{% if c.status in ('old', 'differs') %} status-warn{% endif %}">{{ c.label }}</span></td>
+        <td class="num">{{ "%.1f" % c.lufs }} LUFS</td>
+        <td>{% if c.status == "no_peak" %}<ins>peak {{ "%.3f" % (c.peak | float) }}</ins>{% else %}{% if t.replaygain_track_gain is not none %}<del>{{ "%.2f" % t.replaygain_track_gain }} dB</del> → {% endif %}<ins>{{ c.gain }}</ins>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if to_fix | length > shown %}<p class="muted"><small>The first {{ shown }} are shown; the button for all includes the others.</small></p>{% endif %}
+</article>
+<p class="button-row">
+  <button type="submit">Create pending changes for the ticked tracks</button>
+  {% if to_fix | length > 1 %}<button type="submit" name="all" value="true" class="outline">For all {{ to_fix | length | plural('track') }}</button>{% endif %}
+</p>
+<small class="muted">Final tracks are skipped (their tags are locked). Opus files get the gain only (they have no peak field). Undo works as for every change.</small>
+</form>
+{% elif found.measured %}
+<article class="empty-state">
+  <p class="empty-note">{{ nav_icon("check") }} <strong>Every measured track's ReplayGain matches its audio.</strong></p>
+</article>
+{% endif %}
+
+<details class="glass panel">
+  <summary>How Tagwerk checks ReplayGain</summary>
+  <ul>
+    <li><strong>Measured:</strong> the integrated loudness of the whole track (EBU R128, like rsgain and foobar2000) and its true peak, with ffmpeg. Writing tags doesn't change the sound, so a track is measured once.</li>
+    <li><strong>The gain it should have:</strong> {{ reference | int }} LUFS minus its loudness. A track at −7 LUFS gets −11.00 dB.</li>
+    <li><strong>Matches</strong> when the tag is within half a dB: meters differ by a tenth or two, and nobody hears half a dB.</li>
+    <li><strong>Old ReplayGain 1 value:</strong> about 4 dB higher than measured. Older taggers used a louder reference (89 dB), so these tracks play louder than the rest.</li>
+    <li><strong>Album gain</strong> isn't changed: for DJ tracks, set Navidrome's ReplayGain mode to <em>track</em>.</li>
+  </ul>
+</details>
+{% endblock %}

@@ -287,6 +287,22 @@ class LibraryAnalysis(_Analysis, table=True):
     decided_notes: str = "[]"  # JSON: why, in plain language
 
 
+class LibraryLoudness(SQLModel, table=True):
+    """The measured loudness of a library track (app/loudness.py, ADR 0029).
+
+    Kept like the BPM/key analysis: redone when the method improves (``version``) or the
+    file's length changes, not when tags are written.
+    """
+
+    track_id: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+    lufs: float | None = None  # integrated loudness (EBU R128)
+    peak: float | None = None  # true peak, linear (1.0 = full scale)
+    error: str | None = None  # the file couldn't be measured
+    version: int = 0  # app.loudness.LOUDNESS_VERSION that produced this result
+    duration: float | None = None  # the track's length when it was measured
+    measured_at: datetime | None = None
+
+
 class DuplicateTrack(SQLModel, table=True):
     """A library track that is in the library more than once (app/duplicates.py, ADR 0022).
 

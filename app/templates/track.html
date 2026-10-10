@@ -136,6 +136,7 @@
       {{ row("Format", t.format | upper, "/tracks?format=" ~ t.format) }}
       {{ row("Length", t.duration | mmss) }}
       {{ row("Bitrate", ((t.bitrate / 1000) | round | int ~ " kbps") if t.bitrate else "") }}
+      {% if loud %}<tr><th scope="row">Loudness</th><td>{{ "%.1f" % loud.lufs }} LUFS <small class="muted">· ReplayGain {{ loud.gain }}</small>{% if loud.status != "ok" %} <a class="status{% if loud.status in ('old', 'differs') %} status-warn{% endif %}" href="/replaygain">{{ loud.label }} →</a>{% endif %}</td></tr>{% endif %}
       {{ row("Sample rate", ("%.1f kHz" % (t.sample_rate / 1000)) if t.sample_rate else "") }}
       {{ row("Bit depth", (t.bits_per_sample ~ " bit") if t.bits_per_sample else "") }}
       {{ row("Channels", t.channels) }}

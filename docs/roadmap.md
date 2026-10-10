@@ -70,7 +70,8 @@ Noted by the owner (2026-10-08); not yet placed before or after 1.0.
   albums; ffmpeg is already in the image), offer the results as pending changes like BPM and
   key, and make the ReplayGain fields editable in all 7 formats, including Opus's own
   `R128_TRACK_GAIN` and exact undo. Navidrome uses these tags to even out playback volume.
-  *Part 1 done: all four fields are read and editable in every format ([ADR 0028](decisions/0028-replaygain.md)); measuring from the audio is next.*
+  *Done: all four fields are read and editable in every format ([ADR 0028](decisions/0028-replaygain.md)); loudness is measured and the tags checked and fixed on the ReplayGain page ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)).*
+- **Even loudness on the decks: change the sound itself**. CDJs and XDJs don't read ReplayGain. Apply the measured gain to the audio of lossless files (AIFF, WAV, FLAC: exact, no timing shift, so rekordbox cues stay right), keeping originals and undo like Convert. Lossy files would need re-encoding (quality loss, possible timing shift) and stay out. A separate release, decided by the owner (2026-10-09).
 - **Advanced tags on the edit page**
   ([issue #40](https://github.com/dooziedan/tagwerk/issues/40)). A switch on a track's edit page that shows every tag field
   in the file (the raw fields the track page lists, with what each one feeds) and lets the owner

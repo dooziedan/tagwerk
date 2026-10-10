@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **ReplayGain checked against the audio**: a new **ReplayGain** page (linked from "Worth a look" on Home) measures how loud every track really is (EBU R128, with ffmpeg, about 2 seconds per track in the background) and compares it with the track's ReplayGain tag. It lists the tracks to fix: no ReplayGain, a gain that doesn't match the audio, an **old ReplayGain 1 value** (older taggers used a reference about 4 dB louder, so those tracks play louder than the rest), or a missing peak. Tick them and Tagwerk creates pending changes with the measured track gain and peak (ReplayGain 2.0, -18 LUFS), so Navidrome plays every track at the same level. Nothing is written until you apply; final tracks are skipped, and undo works as usual.
+- **Loudness on the track page**: the measured loudness (LUFS) and the ReplayGain it should have, with a note when the tag doesn't match. The page also shows how loud your library typically is.
+- **Analysing a library track also measures its loudness** (track page, ticked tracks, or all tracks of the list). Tracks whose BPM and key were analysed before only get the quick loudness pass.
+
 ## [0.18.0] - 2026-10-09
 
 ### Added

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlmodel import select
 
-from app import duplicates, ids, preferences
+from app import duplicates, ids, loudness, preferences
 from app.config import SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep
@@ -107,6 +107,7 @@ def track_page(request: Request, track_id: int, session: SessionDep):
             ).all(),
             **final_context(session, track),
             "dup_group": duplicates.group_of(session, track.id),
+            "loud": loudness.track_check(session, track),  # measured loudness vs ReplayGain
             **online_context(session, track),
             **audio_context(session, track),
             "wrong_ids": ids.wrong_ids(track) if track.mbid_invalid else [],
