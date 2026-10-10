@@ -4,8 +4,10 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from starlette.requests import ClientDisconnect
 
 from app import __version__
 from app.config import get_settings
@@ -62,6 +64,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Tagwerk", version=__version__, lifespan=lifespan)
+
+
+@app.exception_handler(ClientDisconnect)
+async def client_gone(request: Request, exc: ClientDisconnect) -> Response:
+    """The browser went away while sending a form (e.g. a button clicked twice: it drops the
+    first request and sends the second). Nothing was done, and nobody waits for an answer, so
+    this is no error: no traceback in the log."""
+    return Response(status_code=400)
+
+
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(system.router)
 app.include_router(home.router)

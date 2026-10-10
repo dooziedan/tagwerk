@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 
 from alembic.autogenerate import compare_metadata
@@ -5,6 +6,7 @@ from alembic.migration import MigrationContext
 from sqlmodel import SQLModel
 
 from app.jobs import scan_job
+from app.main import app
 
 
 def test_health(client):
@@ -151,3 +153,24 @@ def test_the_unraid_template_has_every_setting():
             assert "/" + name.removesuffix("_dir") in targets, name
         else:
             assert name.upper() in targets, name
+
+
+def test_browser_gone_while_sending_a_form_is_no_error(client):
+    """A double click: the browser drops the first request while its form is being read."""
+    sent = []
+
+    async def receive():
+        return {"type": "http.disconnect"}  # gone before the form arrived
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/tracks/lookup",
+        "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
+        "query_string": b"",
+    }
+    asyncio.run(app(scope, receive, send))  # no exception
+    assert sent[0]["status"] == 400
