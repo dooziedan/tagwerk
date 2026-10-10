@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 - **A new "Online sources" card** on the track page and the inbox review page (it was "Found online"). It is folded by default, so the page stays calm: the closed card shows one pill per source with its best match (green: found, orange: no good match, red: couldn't ask). Click it to open; it remembers whether you left it open. Inside, every source has its own panel, with plenty of space around it, a coloured edge, its score and a few words on what it is good for (AcoustID recognises the sound itself, Discogs knows labels and catalog numbers, …). The best match comes first with its values side by side, each marked **✓** (same as your tags), **new** (fills an empty field) or **yours: …** (your file says something else), so you see what **Use these values** would change before you press it. Weaker results are folded away below. **Look up again** stays in the top corner, also when the card is closed.
 - **On the inbox review page** the card always starts closed and shows an orange **Check 2 matches** tag while sources found the track, so you don't forget to look before importing. The tag goes away when you open the card.
+## [0.18.3] - 2026-10-10
+
+### Changed
+- **Discogs IDs in MusicBrainz fields are fixed on import.** Some taggers write Discogs numbers into the MusicBrainz ID fields. Until now Tagwerk only fixed them in the library (**Fix IDs**), so every import brought them in again. Now the import does the same fix: real MusicBrainz IDs stay, Discogs numbers and links move to **Discogs release ID** / **Discogs artist ID**, anything else is removed. The inbox review page lists each value and what happens to it. Undoing the import puts the old values back.
+
+### Fixed
+- **Discogs IDs like `33199809-10`** (release 33199809, track 10), as some taggers write the MusicBrainz track ID, were treated as unknown and would have been removed. They are now recognised: the release number moves to **Discogs release ID**, on import and with **Fix IDs**.
+- **The ID panel on the track page was cut off** at the bottom (the **ⓘ** button): with many IDs, the artist rows were hidden behind the header's edge. It now shows in full, on a solid background, and fits on a phone screen.
 
 ## [0.18.2] - 2026-10-10
 

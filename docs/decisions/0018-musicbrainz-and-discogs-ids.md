@@ -14,5 +14,5 @@ Some taggers write Discogs numbers (or links) into the MusicBrainz ID fields. Si
 - The track page shows each wrong value and what will happen to it, instead of only a warning inside the info pop-up.
 
 ## Consequences
-- Inbox tracks are not fixed on import; they are flagged after import like any library track.
+- Inbox tracks are not fixed on import; they are flagged after import like any library track. (Changed in [ADR 0030](0030-ids-fixed-on-import.md): they are fixed on import.)
 - Correct MusicBrainz IDs are not looked up here; that could come from the online lookup later.
