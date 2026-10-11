@@ -26,7 +26,9 @@ from app import (
     identify,
     loudness,
     navidrome,
+    notifications,
     preferences,
+    reminders,
     trash,
 )
 from app.changes import WriteProgress, apply_pending, undo_changeset
@@ -36,8 +38,9 @@ from app.duplicates import LibraryIndex
 from app.images import ImageStore
 from app.importer import import_tracks, ready_for_auto_import
 from app.inbox import scan_inbox
-from app.models import InboxTrack, LibraryLoudness, Track
-from app.scanner import ScanProgress, scan_library
+from app.library import TrackFilter
+from app.models import ChangeEntry, InboxTrack, LibraryLoudness, PendingChange, Track
+from app.scanner import EmptyLibraryError, ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
 
@@ -104,13 +107,61 @@ class ScanJob(Job):
         progress = ScanProgress()
 
         def work() -> None:
-            if not settings.music_dir.is_dir():
-                raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
             engine = get_engine(settings.database_url)
-            scan_library(engine, settings.music_dir, progress)
+            try:
+                if not settings.music_dir.is_dir():
+                    raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
+                scan_library(engine, settings.music_dir, progress)
+            except (FileNotFoundError, EmptyLibraryError) as exc:
+                notifications.problem(
+                    "scan",
+                    "scan-skipped",
+                    "Scan skipped: the music folder looks empty",
+                    f"{exc} Tagwerk tells you once more when a scan works again.",
+                    "Scan",
+                    "/",
+                    engine,
+                )
+                raise
+            notifications.solved(
+                "scan",
+                "scan-skipped",
+                "Scans work again",
+                "The music folder has its files again; the scan went through.",
+                "Scan",
+                "/",
+                engine,
+            )
+            report_unreadable(engine)
             after_library_change(engine, settings)
 
         return self._start(work, progress)
+
+
+def report_unreadable(engine) -> bool:
+    """After a scan: library files that couldn't be read, once each (they are tried again on
+    every scan, but only new ones are reported). Returns True if a notification was written."""
+    with Session(engine) as session:
+        broken = sorted(session.exec(select(Track.path).where(Track.error.is_not(None))))
+    told = set(notifications.recall("scan:unreadable", [], engine))
+    new = [path for path in broken if path not in told]
+    written = False
+    if new:
+        listed = "\n".join(f"• {path}" for path in new[:10])
+        if len(new) > 10:
+            listed += f"\n… and {len(new) - 10:,} more"
+        written = notifications.notify(
+            "scan",
+            "problem",
+            f"Scan: {notifications.many(len(new), 'file')} couldn't be read",
+            f"{listed}\nThey may be damaged or still being copied. Tagwerk tries them again on "
+            "every scan.",
+            "Scan",
+            TrackFilter(flag="unreadable").url(),
+            engine,
+        )
+    notifications.remember("scan:unreadable", broken, engine)  # fixed ones drop out
+    return written
 
 
 class InboxJob(Job):
@@ -157,7 +208,36 @@ class InboxJob(Job):
         after_library_change(engine, settings)
         self.auto_import = progress
         log.info("Imported %d complete inbox tracks automatically", progress.written)
+        report_auto_import(engine, progress)
         navidrome.rescan_after_write(settings, progress.written)
+
+
+def report_auto_import(engine, progress: WriteProgress) -> bool:
+    """Automatic mode: one notification for the tracks imported on their own."""
+    if not progress.written:
+        return False
+    with Session(engine) as session:
+        imported = select(ChangeEntry.path).where(
+            ChangeEntry.changeset_id == progress.changeset_id, ChangeEntry.error.is_(None)
+        )
+        paths = list(session.exec(imported))
+    names = "\n".join(f"• {path.rsplit('/', 1)[-1]}" for path in paths[:10])
+    if len(paths) > 10:
+        names += f"\n… and {len(paths) - 10:,} more"
+    if progress.failed:
+        names += f"\n{notifications.many(progress.failed, 'track')} couldn't be imported; "
+        names += "they stay in the inbox."
+    history = f"/changes/history/{progress.changeset_id}" if progress.changeset_id else "/changes"
+    return notifications.notify(
+        "auto_import",
+        "done",
+        f"Inbox: {notifications.many(progress.written, 'track')} imported automatically",
+        "Complete inbox tracks went into the library on their own (automatic mode):\n"
+        f"{names}\nThe History can undo it.",
+        "Inbox check",
+        history,
+        engine,
+    )
 
 
 class WriteJob(Job):
@@ -250,12 +330,18 @@ class WriteJob(Job):
         return self._start(work, progress)
 
 
+# A run that went through at least this many library tracks is a long job: when it is done, the
+# owner can be told (Settings → Notifications → Long jobs finished, ADR 0035).
+LONG_JOB = 10
+
+
 @dataclass
 class IdentifyProgress:
     total: int = 0
     processed: int = 0
     current: str = ""
     library: int = 0  # library tracks done in this run ("Look up online")
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class IdentifyJob:
@@ -308,7 +394,7 @@ class IdentifyJob:
                 self._current = None
                 if not self._queue:
                     self.progress.current = ""
-                    return
+                    break
                 (library, track_id), force = self._queue.popitem()
                 self._current = (library, track_id)
                 self.progress.total = self.progress.processed + 1 + len(self._queue)
@@ -324,6 +410,7 @@ class IdentifyJob:
             except Exception:
                 log.exception("Online lookup failed for track %s", track_id)
             self.progress.processed += 1
+        report_lookups(engine, self.progress)
 
     def queued(self, track_id: int, library: bool = False) -> bool:
         """True while this track waits for (or is in) a lookup."""
@@ -342,6 +429,9 @@ class AnalysisProgress:
     current: str = ""
     failed: int = 0  # files that couldn't be analysed (error stored with the result)
     skipped: int = 0  # already analysed, file unchanged ("Analyse all" doesn't redo them)
+    library: int = 0  # library tracks analysed in this run (the owner asked for them)
+    loudness: int = 0  # of these, only the loudness measured (the ReplayGain page)
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     finished_at: datetime | None = None
 
 
@@ -461,8 +551,13 @@ class AnalysisJob:
                 self.progress.processed += 1
                 self.progress.failed += failed
                 self.progress.skipped += skipped
-                if not self._queue and not self._current:
+                self.progress.library += library and not skipped
+                self.progress.loudness += library and only_loudness and not skipped
+                finished = not self._queue and not self._current
+                if finished:
                     self.progress.finished_at = datetime.now(UTC)
+            if finished:
+                report_analysis(engine, self.progress)
 
     def queued(self, track_id: int, library: bool = False) -> bool:
         """True while this track waits for (or is in) an analysis."""
@@ -482,6 +577,67 @@ class AnalysisJob:
             thread.join(timeout)
 
 
+def report_analysis(engine, progress: AnalysisProgress) -> bool:
+    """A long audio analysis the owner started is done: one notification (if switched on)."""
+    n = progress.library
+    if n < LONG_JOB:
+        return False
+    tracks = notifications.many(n, "track")
+    if progress.loudness == n:  # the ReplayGain page measures only the loudness
+        summary, details, url = (
+            f"Loudness measured for {tracks}",
+            f"{tracks} measured.",
+            "/replaygain",
+        )
+    else:
+        summary, url = f"BPM and key analysed for {tracks}", "/changes"
+        details = f"{tracks} analysed. " + _waiting(
+            _staged_since(engine, "audio", progress.started_at)
+        )
+    if progress.failed:
+        details += f" {notifications.many(progress.failed, 'file')} couldn't be analysed."
+    return notifications.notify(
+        "long_jobs", "done", summary, details, "Audio analysis", url, engine
+    )
+
+
+def report_lookups(engine, progress: IdentifyProgress) -> bool:
+    """Online lookups the owner started for many library tracks are done: one notification."""
+    n = progress.library
+    if n < LONG_JOB:
+        return False
+    found = _staged_since(engine, "online", progress.started_at)
+    return notifications.notify(
+        "long_jobs",
+        "done",
+        f"Looked up {n:,} tracks online",
+        f"{n:,} tracks looked up online. {_waiting(found)}",
+        "Online lookup",
+        "/changes",
+        engine,
+    )
+
+
+def _waiting(found: int) -> str:
+    """How many sure values a long job staged, in words."""
+    if not found:
+        return "No new values to review."
+    return (
+        f"{notifications.many(found, 'sure value')} {'waits' if found == 1 else 'wait'} in Changes."
+    )
+
+
+def _staged_since(engine, source: str, since: datetime) -> int:
+    """Pending changes from one source (e.g. "audio") saved since a job run started."""
+    with Session(engine) as session:
+        query = select(PendingChange).where(PendingChange.source == source)
+        return sum(1 for c in session.exec(query) if _utc(c.created_at) >= since)
+
+
+def _utc(when: datetime) -> datetime:
+    return when if when.tzinfo else when.replace(tzinfo=UTC)  # SQLite gives naive UTC
+
+
 def image_store(settings: Settings) -> ImageStore:
     """Uploaded covers and the covers saved for undo."""
     return ImageStore(settings.config_dir / "images")
@@ -495,7 +651,8 @@ analysis_job = AnalysisJob()
 
 
 def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.Thread:
-    """Check the inbox every few minutes in the background (new files, automatic imports).
+    """Check the inbox every few minutes in the background (new files, automatic imports), and
+    run the regular checks that write notifications (app/reminders.py).
 
     Skipped while another job runs; the next round tries again.
     """
@@ -503,6 +660,7 @@ def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.T
     def loop() -> None:
         while True:
             time.sleep(every)
+            reminders.run(settings)  # inbox trash, tracks needing help (app/reminders.py)
             try:
                 if settings.import_dir.is_dir():
                     inbox_job.start(settings)

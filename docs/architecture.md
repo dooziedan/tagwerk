@@ -77,7 +77,8 @@ Files are never modified directly from a form or a lookup:
 | `app/analysis.py` | Runs the analysis per track in a low-priority process (as many at once as the container has CPU cores and memory for), stores results (`inboxanalysis`, `libraryanalysis`), combines them with genre, filename and online BPMs, stages sure values | 0.9 |
 | `app/loudness.py`, `app/routes/replaygain.py` | Loudness from the audio (ffmpeg EBU R128, in the analysis job, kept in `libraryloudness`) and the ReplayGain page: tags checked against it, fixes staged as pending changes ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)) | 0.19 |
 | `app/ids.py` | MusicBrainz ID fields holding other values: what's wrong, and the fix (Discogs numbers to their own fields), also on import ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md), [0030](decisions/0030-ids-fixed-on-import.md)); each ID's page at MusicBrainz or Discogs | 0.9 |
-| `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap. After each, `after_library_change` reworks BPM/key decisions and duplicates | 0.2 |
+| `app/notifications.py`, `app/reminders.py`, `app/routes/notifications.py`, `app/static/bell.js` | Notifications: `notify()` (never raises; checks the owner's switch per topic), problems reported once while they last; the regular checks (inbox trash 3 days before removal, inbox tracks needing help); the bell's menu and card, the page and `/api/notifications` ([ADR 0035](decisions/0035-notifications.md)) | 0.21 |
+| `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap. After each, `after_library_change` reworks BPM/key decisions and duplicates. Scans, automatic imports and long runs of the analysis and lookups report through notifications | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |
 
@@ -85,7 +86,7 @@ Files are never modified directly from a form or a lookup:
 
 - One process: `uvicorn` serving FastAPI. No external services.
 - Database: SQLite at `/config/tagwerk.db` in WAL mode, so pages can read during a scan.
-- Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `rawtag` (every tag field of every file, as stored), `pendingchange`, `changeset`/`changeentry` (applied changes with undo snapshots) and `appsetting` for preferences.
+- Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `rawtag` (every tag field of every file, as stored), `pendingchange`, `changeset`/`changeentry` (applied changes with undo snapshots), `appsetting` for preferences and `notification`/`notificationstate` (what Tagwerk did while the owner was away, and what its checks remember).
 - `track.scan_version` records which tag-reader version read a row. Raising `SCAN_VERSION` in `app/scanner.py` makes the next scan re-read older rows once.
 - Everything needed at runtime ships in the Docker image. Only `/config` and `/music` come from the host.
 - Persistent state lives only in `/config`. The container can be deleted and recreated at any time.

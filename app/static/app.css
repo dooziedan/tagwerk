@@ -913,6 +913,8 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .task-list .grow { flex: 1; min-width: 0; }
 .task-list .grow a { color: var(--tw-ink); font-weight: 600; text-decoration: none; }
 .task-list .grow a:hover { color: var(--tw-indigo-200); text-decoration: underline; }
+.task-list .grow .link-button { width: auto; margin: 0; color: var(--tw-ink); font-weight: 600; text-decoration: none; text-align: left; box-shadow: none; }
+.task-list .grow .link-button:hover { color: var(--tw-indigo-200); text-decoration: underline; }
 .task-list .grow small { display: block; color: var(--tw-ink-2); font-size: 0.8rem; margin-top: 0.1rem; }
 .task-list .go { color: var(--tw-ink-3); flex: none; }
 .empty-note { display: flex; align-items: center; gap: 0.6rem; color: var(--tw-ink-2); font-size: 0.92rem; margin: 0; }
@@ -1508,3 +1510,135 @@ article table thead th, table.kv thead th { background: none; }
 .diff.replaygain th[scope="row"] { width: 45%; font-weight: 400; }
 .diff.replaygain td.num, .diff.replaygain td:last-child { white-space: nowrap; }
 .replaygain-counts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+
+/* --- Notifications (ADR 0035): the bell, its menu and card, the page ------------------------ */
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; }
+.bell-button {
+  position: relative; display: inline-flex; align-items: center; gap: 0.35rem; width: auto; margin: 0; padding: 0.4rem 0.55rem;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; box-shadow: none; color: var(--tw-ink-soft);
+  transition: background var(--tw-fast), color var(--tw-fast);
+}
+.bell-button:hover, .bell-button:focus-visible { background: rgba(129, 140, 248, 0.08); color: var(--tw-ink); border-color: transparent; }
+.bell-button[aria-expanded="true"] { background: rgba(129, 140, 248, 0.14); color: var(--tw-ink); }
+.bell-button svg { flex: none; }
+.bell-count:empty { display: none; }
+/* Side menu: the number sits on the bell's corner, so logo and bell fit side by side (next to
+   each other they are wider than the side menu, which would cut the number off). */
+.side .bell-button { padding: 0.45rem; }
+.side .bell-count { position: absolute; top: -0.3rem; right: -0.3rem; }
+.side .bell-count .count-badge { min-width: 1.2rem; height: 1.2rem; padding: 0 0.3rem; font-size: 0.68rem; }
+
+/* The menu: a panel of its own (fixed, so the side menu's scrolling never cuts it off). Solid,
+   not glass: it lies over text, and the summaries must read cleanly. */
+.bell-panel {
+  position: fixed; z-index: 40; display: flex; flex-direction: column; width: 22rem; max-width: calc(100vw - 1.5rem);
+  max-height: calc(100vh - 2rem); border: 1px solid var(--tw-line); border-radius: 16px;
+  background: var(--tw-space-1); box-shadow: var(--tw-glass-edge), 0 0 36px rgba(0, 0, 0, 0.5);
+}
+.bell-panel[hidden] { display: none; }
+.bell-panel:focus { outline: none; }
+.bell-list { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow-y: auto; }
+.bell-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; padding: 0.85rem 1rem 0.65rem; border-bottom: 1px solid var(--tw-line-soft); }
+.bell-head strong { color: var(--tw-ink); font-size: 0.95rem; }
+.bell-head small { color: var(--tw-ink-2); }
+.bell-items { list-style: none; margin: 0; padding: 0.5rem 0.75rem; }  /* room for the rows' glow */
+.bell-items li { list-style: none; margin: 0; }
+.bell-item {
+  display: flex; align-items: flex-start; gap: 0.7rem; width: 100%; margin: 0; padding: 0.6rem 0.6rem; border: 0; border-radius: 10px;
+  background: transparent; box-shadow: none; color: var(--tw-ink-1); text-align: left; font-size: 0.9rem; font-weight: 400;
+}
+/* Hover, and the row whose card is open: a gold glow all around (not dropped below like the
+   buttons' glow), tight, with a thin gold edge. */
+.bell-item:hover, .bell-item:focus-visible, .bell-item[aria-current] {
+  background: rgba(129, 140, 248, 0.08); color: var(--tw-ink);
+  box-shadow: inset 0 0 0 1px var(--tw-gold-line), 0 0 12px rgba(245, 197, 66, 0.28);
+}
+.bell-item[aria-current] { background: rgba(129, 140, 248, 0.14); }
+.bell-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+.bell-summary { color: var(--tw-ink); font-weight: 550; line-height: 1.35; }
+.bell-text small { color: var(--tw-ink-2); font-size: 0.78rem; }
+.bell-more { align-self: center; color: var(--tw-ink-3); }
+.bell-empty { display: flex; align-items: center; gap: 0.55rem; margin: 0; padding: 1.1rem 1rem; color: var(--tw-ink-2); font-size: 0.9rem; }
+.bell-empty svg { color: var(--tw-ok); }
+.bell-all { display: block; padding: 0.7rem 1rem; border-top: 1px solid var(--tw-line-soft); text-align: center; font-weight: 600; font-size: 0.9rem; text-decoration: none; }
+.bell-all:hover { background: rgba(129, 140, 248, 0.08); text-decoration: none; }
+
+/* A kind's icon: needs you gold, problem warning, done calm indigo (always beside words). */
+.kind-ic { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2rem; height: 2rem; border-radius: 9px; border: 1px solid var(--tw-line-soft); background: rgba(129, 140, 248, 0.1); color: var(--tw-indigo-300); }
+.kind-ic.kind-needs_you { background: var(--tw-gold-soft); color: var(--tw-gold); border-color: var(--tw-gold-line); }
+.kind-ic.kind-problem { background: var(--tw-warn-soft); color: var(--tw-warn); border-color: rgba(251, 113, 133, 0.3); }
+.note-kind { font-weight: 600; color: var(--tw-indigo-300); }
+.note-kind.kind-needs_you { color: var(--tw-gold); }
+.note-kind.kind-problem { color: var(--tw-warn); }
+
+/* The card: one notification's details, hovering beside the menu on wide screens. */
+.bell-card:empty { display: none; }
+.bell-card {
+  position: absolute; top: 0; left: calc(100% + 12px); width: 24rem; max-width: calc(100vw - 100% - 3rem);
+  border: 1px solid var(--tw-line); border-radius: 16px; background: var(--tw-space-1); box-shadow: var(--tw-glass-edge), 0 0 36px rgba(0, 0, 0, 0.5);
+}
+/* The card itself never scrolls, so nothing cuts off the buttons' glow; a very long message
+   scrolls on its own. */
+.note-card { padding: 0.75rem 1.1rem 1.1rem; }
+.note-card .note-message { max-height: 40vh; overflow-y: auto; }
+.note-card:focus { outline: none; }
+.note-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
+.bell-back, .bell-x { width: auto; margin: 0; border: 0; background: transparent; box-shadow: none; color: var(--tw-ink-2); font-size: 0.88rem; }
+/* ← Back: a pill; ×: a circle with the cross drawn in its middle. */
+.bell-back { display: none; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem 0.3rem 0.6rem; border-radius: 999px; }
+.bell-x { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; margin-left: auto; border-radius: 50%; }
+/* Hovered: a soft gold glow, centred on the button. */
+.bell-back:hover, .bell-x:hover, .bell-back:focus-visible, .bell-x:focus-visible {
+  color: var(--tw-ink); background: rgba(129, 140, 248, 0.1); box-shadow: 0 0 22px rgba(245, 197, 66, 0.4);
+}
+.note-title { margin: 0 0 0.45rem; font-size: 1.02rem; font-weight: 650; color: var(--tw-ink); line-height: 1.35; }
+.note-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.4rem; margin: 0 0 0.6rem; font-size: 0.82rem; color: var(--tw-ink-2); }
+.note-meta time { flex-basis: 100%; color: var(--tw-ink-3); }
+.note-meta .kind-ic { width: 1.5rem; height: 1.5rem; border-radius: 7px; }
+.note-meta .kind-ic svg { width: 14px; height: 14px; }
+.note-message { margin: 0 0 0.9rem; white-space: pre-line; font-size: 0.9rem; line-height: 1.5; overflow-wrap: anywhere; }
+.note-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.note-actions form { margin: 0; }
+.note-actions button, .note-actions [role="button"] { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 0.3rem; }
+.note-actions button svg { width: 15px; height: 15px; }
+
+/* Phones and narrow windows: below the top bar; the details replace the list (← Back). */
+@media (max-width: 1099px) {
+  .bell-panel { right: 0.75rem; left: auto; width: 24rem; max-height: calc(100vh - 6rem); }
+  .bell-card { position: static; width: auto; max-width: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .bell-panel.with-card .bell-list { display: none; }
+  .bell-back { display: inline-flex; }
+  .bell-x { display: none; }
+  .topbar .bell-button { padding: 0.4rem 0.6rem; font-size: 0.88rem; }
+}
+/* Below 430 px only the logo shows, so the bell fits beside Inbox, Changes and the menu. */
+@media (max-width: 429px) { .topbar .brand-word { display: none; } }
+@media (max-width: 389px) {
+  .topbar nav { gap: 0.1rem; }
+  .topbar a.nav, .topbar .bell-button { padding-left: 0.45rem; padding-right: 0.45rem; }
+}
+
+/* The page: New grouped by day, the History below; entries open in place. */
+.note-list { list-style: none; margin: 0; padding: 0; }
+.note-list > li { list-style: none; margin: 0; }
+.note-day { padding: 0.9rem 0 0.25rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tw-ink-3); }
+.note-day:first-child { padding-top: 0; }
+.note-entry { margin: 0; border-bottom: 1px solid var(--tw-line-soft); }
+.note-list > li:last-child .note-entry { border-bottom: 0; }
+.note-entry > summary { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.65rem 0; font-size: 0.92rem; list-style: none; }
+.note-entry > summary::-webkit-details-marker { display: none; }
+.note-entry > summary::after { align-self: center; flex: none; }
+.note-body { padding: 0 0 0.9rem 2.7rem; }
+#new .card-head form, #history .card-head form { margin: 0; }
+#new .card-head button, #history .card-head button { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 0.3rem; }
+#new .card-head button svg { width: 15px; height: 15px; }
+@media (max-width: 576px) { .note-body { padding-left: 0; } }
+
+/* Settings → Notifications: one switch per topic, the words on the left. */
+.setting.setting-switch { grid-template-columns: minmax(0, 1fr) auto; align-items: center; width: auto; margin: 0; cursor: pointer; }
+.setting-switch input[role="switch"] { margin: 0; }
+
+@media (forced-colors: active) {
+  .bell-panel, .bell-card { background: Canvas; border: 1px solid CanvasText; }
+  .bell-item[aria-current] { outline: 2px solid Highlight; }
+}

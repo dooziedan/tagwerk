@@ -122,10 +122,13 @@
     <article>
       <header><strong>Waiting for you</strong></header>
       {% set busy = analysis_job.running or identify_job.running or write_job.running %}
-      {% if not (inbox and inbox.total) and not pending and not folders and not busy %}
+      {% set needs_you = unread_notifications("needs_you") %}
+      {% if not (inbox and inbox.total) and not pending and not folders and not busy and not needs_you %}
       <p class="empty-note">{{ nav_icon("check") }} Nothing waiting.</p>
       {% endif %}
       <ul class="task-list">
+        {# Unread "needs you" notifications: the line opens the bell's menu (app/static/bell.js). #}
+        {% if needs_you %}<li><span class="ic gold">{{ nav_icon("bell") }}</span><span class="grow"><button type="button" class="link-button plain" data-open-bell>{{ needs_you | plural('notification') }} {{ "needs" if needs_you == 1 else "need" }} you</button><small>Tagwerk found something while you were away</small></span><span class="count-badge">{{ needs_you }}</span></li>{% endif %}
         {% if inbox and inbox.total %}
         <li><span class="ic gold">{{ nav_icon("inbox") }}</span><span class="grow"><a href="/inbox">{{ inbox.total | plural('track') }} in the inbox</a>{% if inbox.ready or inbox.help %}<small>
           {% if inbox.ready %}<a href="/inbox?show=ready" class="ok-link">{{ inbox.ready | number }} ready to import</a>{% endif %}{% if inbox.ready and inbox.help %} · {% endif %}

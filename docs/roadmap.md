@@ -72,14 +72,16 @@ In this order:
 Noted by the owner; not yet placed before or after 1.0. Order decided so far (2026-10-11):
 **Notifications first**, then the AcoustID plan gets more work. The rest isn't ordered yet.
 
-- **Notifications**
-  ([issue #61](https://github.com/dooziedan/tagwerk/issues/61)). A place for what Tagwerk did
-  while the owner was away: a bell with the unread count (side menu next to the logo; top bar
-  on phones), a menu with short summaries and a card with the details, and a full page with
-  New and History. A notification is only read when the owner ticks it; nothing disappears
-  by itself, History is emptied only with *Clear history*. The owner chooses in Settings what
-  is reported; by default only what needs the owner or could lose data, e.g. inbox-trash files
-  3 days **before** they are removed for good.
+- **Notifications** ✅ (unreleased)
+  ([issue #61](https://github.com/dooziedan/tagwerk/issues/61),
+  [ADR 0035](decisions/0035-notifications.md)). A place for what Tagwerk did while the owner
+  was away: a bell with the unread count (side menu next to the logo; top bar on phones), a
+  menu with short summaries and a card with the details, and a full page with New and History.
+  A notification is only read when the owner ticks it; nothing disappears by itself, History is
+  emptied only with *Clear history*. The owner chooses in Settings what is reported; by default
+  only what needs the owner or could lose data, e.g. inbox-trash files 3 days **before** they
+  are removed for good. Later: the release watch and AcoustID report here too, and
+  notifications can go to the phone (ntfy, Gotify, Unraid), switchable per topic.
 - **Share fingerprints with AcoustID** (no issue yet; the plan needs more work). Give back to
   AcoustID, which Tagwerk's lookups use. Decided so far: only **final** tracks with a valid
   MusicBrainz recording ID, shared by hand, one track at a time, from the track page; never

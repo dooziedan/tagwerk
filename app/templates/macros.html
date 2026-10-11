@@ -72,12 +72,32 @@
 {%- elif name == "spark" %}<path d="M12 3.5 13.8 10.2 20.5 12 13.8 13.8 12 20.5 10.2 13.8 3.5 12 10.2 10.2z" fill="currentColor" stroke="none"/>
 {%- elif name == "chevron" %}<path d="m9 6 6 6-6 6"/>
 {%- elif name == "check" %}<path d="m5 12.5 4.5 4.5L19 7.5"/>
+{%- elif name == "close" %}<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>
 {%- elif name == "arrow" %}<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>
 {%- elif name == "eye" %}<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>
 {%- elif name == "globe" %}<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.4 3.5 5.2 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.2-3.5-8.5s1.1-6.1 3.5-8.5z"/>
 {%- elif name == "link" %}<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/>
+{%- elif name == "bell" %}<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 2H5z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>
+{%- elif name == "flag" %}<path d="M5.5 20.5V4.5"/><path d="M5.5 5h11l-2.5 4 2.5 4h-11"/>
 {%- elif name == "copies" %}<rect x="8" y="8" width="11.5" height="11.5" rx="2"/><path d="M15.5 8V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2"/>
 {%- endif %}</svg>
+{%- endmacro %}
+
+{# A notification's kind as an icon: needs you (gold flag), problem (warning), done (calm tick).
+   Always next to words (the summary, or the kind's name), never colour alone. #}
+{% macro kind_icon(kind) -%}
+<span class="kind-ic kind-{{ kind }}">{{ nav_icon({"needs_you": "flag", "problem": "alert"}.get(kind, "check")) }}</span>
+{%- endmacro %}
+
+{# The bell with the number of unread notifications (desktop: beside the logo; phone: in the top
+   bar). It opens the notification menu (#bell-panel in base.html). #}
+{% macro bell(where, count) -%}
+<button type="button" class="bell-button plain" data-bell aria-controls="bell-panel" aria-expanded="false" title="Notifications">{{ nav_icon("bell") }}<span class="visually-hidden">Notifications</span>{{ bell_count(where, count) }}</button>
+{%- endmacro %}
+
+{# The bell's number; swapped in again when it changes (oob: as an htmx out-of-band swap). #}
+{% macro bell_count(where, count, oob=false) -%}
+<span class="bell-count" id="bell-count-{{ where }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if count %}<span class="count-badge">{{ count }}<span class="visually-hidden"> new</span></span>{% endif %}</span>
 {%- endmacro %}
 
 {# A notification that slides in at the top (inside a .toasts stack). "ok" fades out after a few

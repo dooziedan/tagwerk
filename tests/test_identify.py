@@ -164,6 +164,24 @@ def test_errors_are_kept_and_other_sources_still_answer(web, monkeypatch, engine
     assert results["itunes"].best is not None
 
 
+def test_a_refused_key_becomes_one_notification(web, monkeypatch, engine, settings, track):
+    """A 401/403 (KeyRefused) is reported once while it lasts (app/notifications.py)."""
+    from app import notifications
+    from app.sources.base import KeyRefused
+    from app.sources.discogs import Discogs
+
+    def refused(self, query):
+        raise KeyRefused("Discogs refused the request: check DISCOGS_TOKEN")
+
+    monkeypatch.setattr(identify, "_failures", {})
+    monkeypatch.setattr(Discogs, "lookup", refused)
+    identify.lookup(engine, settings, track)
+    identify.lookup(engine, settings, track, force=True)
+    with Session(engine) as session:
+        summaries = [n.summary for n in notifications.unread(session)]
+    assert summaries == ["Discogs refused Tagwerk's key"]  # the others answered: nothing
+
+
 def test_switched_off_sources_are_not_asked(web, engine, settings, track):
     with Session(engine) as session:
         prefs = preferences.load(session)

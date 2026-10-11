@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 from app.db import SessionDep
 from app.keys import NOTATIONS
 from app.models import AppSetting
+from app.notifications import TOPICS
 
 # The night-sky look (ADR 0021): full effects, or lighter ones for weak devices.
 EFFECTS = {
@@ -77,6 +78,12 @@ class Preferences:
     rename_on_final: bool = False
     filename_pattern: str = "{artist} - {title}"
 
+    # Settings → Notifications: which topics may write notifications (app/notifications.py).
+    # A topic missing here (e.g. added by a newer version) gets its default.
+    notifications: dict[str, bool] = field(
+        default_factory=lambda: {name: topic.on for name, topic in TOPICS.items()}
+    )
+
 
 def load(session: Session) -> Preferences:
     stored = {row.key: json.loads(row.value) for row in session.exec(select(AppSetting))}
@@ -117,6 +124,8 @@ def _validated(prefs: Preferences) -> Preferences:
         setattr(prefs, text, str(getattr(prefs, text) or ""))
     prefs.folder_pattern = prefs.folder_pattern.strip() or default.folder_pattern
     prefs.filename_pattern = prefs.filename_pattern.strip() or default.filename_pattern
+    chosen = prefs.notifications if isinstance(prefs.notifications, dict) else {}
+    prefs.notifications = {name: bool(chosen.get(name, topic.on)) for name, topic in TOPICS.items()}
     return prefs
 
 

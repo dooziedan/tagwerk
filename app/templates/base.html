@@ -1,5 +1,5 @@
 <!doctype html>
-{% from "macros.html" import icon, nav_icon, brand_mark, toast %}
+{% from "macros.html" import icon, nav_icon, brand_mark, toast, bell %}
 {% set ui = prefs or none %}
 {# One dark look (ADR 0021). data-effects="light" turns off blur, drift and glows. #}
 <html lang="en" data-theme="dark" data-motion="calm" data-effects="{{ ui.effects if ui else 'full' }}">
@@ -34,10 +34,14 @@
     {% macro here(prefix) %}{% if path == prefix or (prefix != "/" and path.startswith(prefix ~ "/")) %} aria-current="page"{% endif %}{% endmacro %}
     {% set inbox_n = inbox_count() %}
     {% set pending_n = pending_count() %}
+    {% set unread_n = unread_notifications() %}
     {% macro nav(href, label, ic, count=0, unit="waiting") %}<a class="nav" href="{{ href }}"{{ here(href) }}>{{ nav_icon(ic) }}<span>{{ label }}</span>{% if count %}<span class="count-badge" aria-label="{{ count }} {{ unit }}">{{ count }}</span>{% endif %}</a>{% endmacro %}
     {# Wide screens: the sidebar shows every page, grouped. #}
     <aside class="side" aria-label="Main menu">
-      <a href="/" class="brand" aria-label="Tagwerk, home">{{ brand_mark(34, "side") }}<span class="brand-word">Tagwerk</span></a>
+      <div class="side-top">
+        <a href="/" class="brand" aria-label="Tagwerk, home">{{ brand_mark(34, "side") }}<span class="brand-word">Tagwerk</span></a>
+        {{ bell("side", unread_n) }}
+      </div>
       <nav class="side-group" aria-label="Library">
         <span class="eyebrow">Library</span>
         {{ nav("/", "Home", "home") }}{{ nav("/stats", "Statistics", "stats") }}{{ nav("/tracks", "Tracks", "tracks") }}
@@ -62,6 +66,14 @@
         <span>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a></span>
       </div>
     </aside>
+    {# The notification menu, opened by either bell (app/static/bell.js): beside the side menu on
+       wide screens, below the top bar on narrow ones. The card holds one notification's details. #}
+    <div id="bell-panel" class="bell-panel" role="dialog" aria-label="Notifications" tabindex="-1" hidden>
+      <div id="bell-list" class="bell-list"></div>
+      <div id="bell-card" class="bell-card"></div>
+    </div>
+    {# The bell's number keeps up while a page stays open (a quiet check every minute). #}
+    <div hidden hx-get="/partials/notifications/count" hx-trigger="every 60s" hx-swap="none"></div>
     <div class="main-col">
     {# Narrow windows and phones: a floating glass bar with Inbox, Changes and a menu. #}
     <header class="topbar">
@@ -69,6 +81,7 @@
       <nav aria-label="Main menu">
         <a class="nav" href="/inbox"{{ here("/inbox") }} aria-label="Inbox">{{ nav_icon("inbox") }}{% if inbox_n %}<span class="count-badge">{{ inbox_n }}</span>{% endif %}</a>
         <a class="nav" href="/changes"{{ here("/changes") }} aria-label="Changes">{{ nav_icon("changes") }}{% if pending_n %}<span class="count-badge">{{ pending_n }}</span>{% endif %}</a>
+        {{ bell("top", unread_n) }}
         <details class="dropdown top-menu">
           <summary class="menu-button" aria-label="Menu">{{ nav_icon("menu") }}</summary>
           <ul dir="rtl">
@@ -132,11 +145,19 @@
   </dialog>
   <script>
     // Show <time data-local> timestamps (stored in UTC) in the browser's local time
-    // (data-date-only: without the time).
+    // (data-date-only: without the time; data-medium: without seconds; data-short: only the
+    // time today, only the day before).
     function localTimes(root) {
       root.querySelectorAll("time[data-local]").forEach((el) => {
         const date = new Date(el.getAttribute("datetime"));
-        if (!isNaN(date)) {
+        if (isNaN(date)) return;
+        if ("medium" in el.dataset) {  // without seconds: "Oct 11, 2026, 2:45 PM"
+          el.textContent = date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+        } else if ("short" in el.dataset) {  // today: the time; otherwise the day (notifications)
+          el.textContent = date.toDateString() === new Date().toDateString()
+            ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+            : date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+        } else {
           el.textContent = "dateOnly" in el.dataset ? date.toLocaleDateString() : date.toLocaleString();
         }
       });
@@ -211,6 +232,7 @@
     });
   </script>
   <script src="{{ url_for('static', path='player.js') }}?v={{ static_version('player.js') }}" defer></script>
+  <script src="{{ url_for('static', path='bell.js') }}?v={{ static_version('bell.js') }}" defer></script>
   <script src="{{ url_for('static', path='sky.js') }}?v={{ static_version('sky.js') }}" defer></script>
 </body>
 </html>

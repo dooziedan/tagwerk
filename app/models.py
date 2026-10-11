@@ -325,3 +325,29 @@ class NotDuplicate(SQLModel, table=True):
     track_a: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
     track_b: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Notification(SQLModel, table=True):
+    """Something Tagwerk did or found while the owner was away (app/notifications.py, ADR 0035).
+
+    Unread ones (``read_at`` empty) are "New"; read ones are the History. Nothing is removed on
+    its own: only the owner's "Clear history" deletes read ones.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    topic: str  # the Settings switch it belongs to (a key of app.notifications.TOPICS)
+    kind: str  # needs_you, problem or done
+    source: str  # what wrote it, e.g. "Inbox trash"
+    summary: str  # one short line (the menu)
+    message: str = ""  # the details, plain text; may have several lines
+    url: str | None = None  # where the owner can act on it
+    read_at: datetime | None = Field(default=None, index=True)  # when ✓ Read was pressed
+
+
+class NotificationState(SQLModel, table=True):
+    """What the notification checks remember between runs (app/notifications.py): which lasting
+    problems were reported, the last inbox count, which inbox-trash files were announced."""
+
+    key: str = Field(primary_key=True)
+    value: str  # JSON

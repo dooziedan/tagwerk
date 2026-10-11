@@ -53,3 +53,4 @@ What gets easier, what gets harder.
 | [0032](0032-ids-from-the-online-lookup.md) | MusicBrainz and Discogs IDs from the online lookup: only sure ones, only for empty fields | Accepted |
 | [0033](0033-discogs-track-ids.md) | Discogs track IDs (`33199809-3`): their own field, kept by Fix IDs, found in the release's tracklist | Accepted |
 | [0034](0034-longer-versions.md) | Longer versions: Beatport, Discogs tracklists, and recognising club mixes | Accepted |
+| [0035](0035-notifications.md) | Notifications: what Tagwerk did while you were away; few, chosen by the owner, read and cleared only by the owner | Accepted |

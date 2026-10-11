@@ -58,6 +58,15 @@ def test_settings_api(client):
         "online_sources": ["acoustid", "musicbrainz", "discogs", "beatport", "deezer", "itunes"],
         "rename_on_final": False,
         "filename_pattern": "{artist} - {title}",
+        "notifications": {  # only what needs you or could lose data (ADR 0035)
+            "inbox_trash": True,
+            "inbox_help": True,
+            "scan": True,
+            "navidrome": True,
+            "online": True,
+            "auto_import": False,
+            "long_jobs": False,
+        },
     }
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}

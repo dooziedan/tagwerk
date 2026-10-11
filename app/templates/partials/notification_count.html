@@ -1,0 +1,5 @@
+{# The bell's number in the side menu and the top bar, swapped in place (out of band). #}
+{% from "macros.html" import bell_count %}
+{% set n = unread_notifications() %}
+{{ bell_count("side", n, oob=true) }}
+{{ bell_count("top", n, oob=true) }}
