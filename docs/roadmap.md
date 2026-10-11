@@ -8,14 +8,15 @@ deliberately leaves alone is listed under [Not in scope](#not-in-scope).
 
 **1.0 means:** Tagwerk can be trusted with the real master library, and it is a joy to look at.
 
-## Where we are (v0.20)
+## Where we are (v0.21)
 Everything on the original plan is built: scanning and statistics, editing with review and undo,
 the import inbox with automatic mode, online identification, BPM and key from the audio, final
 tracks, converting to AIFF, the play bar, the night-sky look, duplicates in the library (with
 the copy to keep and a trash) and the README. Since 0.15: made for DJs (no more Collector
 mode), merging genre spellings, mix names with capitals, ReplayGain read, edited and checked
 against the audio, Discogs IDs fixed on import, a Tools section in the menu, release notes
-on GitHub, IDs from the online lookup and club versions checked against Beatport and Discogs.
+on GitHub, IDs from the online lookup, club versions checked against Beatport and Discogs, and
+notifications for what Tagwerk did while the owner was away.
 What's left before 1.0: the owner's run on the real library and an onboarding tour.
 
 ## Road to 1.0
@@ -72,7 +73,7 @@ In this order:
 Noted by the owner; not yet placed before or after 1.0. Order decided so far (2026-10-11):
 **Notifications first**, then the AcoustID plan gets more work. The rest isn't ordered yet.
 
-- **Notifications** ✅ (unreleased)
+- **Notifications** ✅ v0.21
   ([issue #61](https://github.com/dooziedan/tagwerk/issues/61),
   [ADR 0035](decisions/0035-notifications.md)). A place for what Tagwerk did while the owner
   was away: a bell with the unread count (side menu next to the logo; top bar on phones), a
@@ -152,6 +153,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.18 | ReplayGain: all four values read and editable in every format (Opus its own way); Discogs IDs in MusicBrainz fields fixed on import; the "MusicBrainz IDs" setting removed. | [0028](decisions/0028-replaygain.md), [0030](decisions/0030-ids-fixed-on-import.md) |
 | 0.19 | ReplayGain checked against the audio (loudness), Changes and History on phones, the Online sources card, release notes on GitHub, a Tools section in the menu, the play bar's title opens the track; 0.19.3: store genres matched against the genre map; 0.19.4: MusicBrainz and Discogs IDs from the online lookup. | [0029](decisions/0029-loudness-and-replaygain-check.md), [0031](decisions/0031-store-genres-matched.md), [0032](decisions/0032-ids-from-the-online-lookup.md) |
 | 0.20 | Longer versions: Beatport as a source, each Discogs version with its own length, club mixes recognised and checked; Beatport's key as a hint for the audio; Discogs track IDs in their own field. | [0033](decisions/0033-discogs-track-ids.md), [0034](decisions/0034-longer-versions.md) |
+| 0.21 | Notifications: a bell with what Tagwerk did while you were away, chosen in Settings → Notifications. | [0035](decisions/0035-notifications.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.
