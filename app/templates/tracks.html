@@ -3,11 +3,13 @@
 {% block title %}Tracks · Tagwerk{% endblock %}
 {% block content %}
 <script>
-  // Enable "Edit selected" only when something is ticked, and show how many.
+  // Enable "Edit selected" only when something is ticked, and show how many. The box in the
+  // header is ticked when every track on the page is (e.g. after a Shift-click range).
   function updateSelection() {
     const n = document.querySelectorAll("input[name=ids]:checked").length;
     const button = document.getElementById("edit-selected");
     if (!button) return;
+    document.getElementById("select-page").checked = n === document.querySelectorAll("input[name=ids]").length;
     button.disabled = n === 0;
     button.textContent = n ? `Edit ${n} selected` : "Edit selected";
     document.getElementById("convert-selected").disabled = n === 0;
@@ -103,7 +105,7 @@
 <table class="striped track-table">
   <thead>
     <tr>
-      <th scope="col" class="check-col"><input type="checkbox" aria-label="Select all on this page" onclick="document.querySelectorAll('input[name=ids]').forEach(b => b.checked = this.checked); updateSelection()"></th>
+      <th scope="col" class="check-col"><input type="checkbox" id="select-page" aria-label="Select all on this page" onclick="document.querySelectorAll('input[name=ids]').forEach(b => b.checked = this.checked); updateSelection()"></th>
       <th scope="col">Title / Artist</th>
       
       <th scope="col" class="num">BPM</th><th scope="col">Key</th><th scope="col">Genre</th><th scope="col">Label</th>
@@ -112,7 +114,8 @@
       <th scope="col" class="num">Length</th>
     </tr>
   </thead>
-  <tbody>
+  {# data-range-select: Shift-click ticks every track between two clicks (app/static/select.js). #}
+  <tbody data-range-select>
     {% for t in result.tracks %}
     <tr>
       <td class="check-col"><input type="checkbox" name="ids" value="{{ t.id }}" form="selection" aria-label="Select {{ t.title or 'track' }}" onchange="updateSelection()"></td>

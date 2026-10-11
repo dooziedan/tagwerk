@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Tick many tracks at once on the Tracks page**: tick one track, hold **Shift** and click another, and every track in between is ticked too. A Shift-click that unticks a track unticks the ones in between, so you can trim a selection the same way. The box in the header shows when every track on the page is ticked.
+
 ## [0.22.0] - 2026-10-11
 
 ### Added

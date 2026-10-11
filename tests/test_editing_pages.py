@@ -103,7 +103,11 @@ def test_api_flow(client, music_dir):
 
 def test_track_list_has_selection_and_track_page_has_edit(client):
     ids = scanned(client)
-    assert 'name="ids"' in client.get("/tracks").text
+    page = client.get("/tracks").text
+    assert 'name="ids"' in page
+    # Shift-click ticks a range: the list opts in, and the page loads the script that does it.
+    assert "<tbody data-range-select>" in page
+    assert "/static/select.js" in page
     assert "Edit tags" in client.get(f"/tracks/{ids[f'{ALBUM}/tagged.mp3']}").text
 
 
