@@ -87,6 +87,11 @@ class SourceError(Exception):
     """A source couldn't be asked (network, key, rate limit); the message says why."""
 
 
+class KeyRefused(SourceError):
+    """The source refused Tagwerk's key or token (HTTP 401/403): it won't answer until the
+    owner fixes it, so this is reported at once (app/identify.py, notifications)."""
+
+
 class Source:
     """One online source. Subclasses set ``name``/``label``/``gap`` and implement lookup()."""
 
@@ -137,7 +142,7 @@ class Source:
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403):
                 check = f": check {self.needs}" if self.needs else ""
-                raise SourceError(f"{self.label} refused the request{check}") from None
+                raise KeyRefused(f"{self.label} refused the request{check}") from None
             if exc.code in (429, 503):
                 raise SourceError(f"{self.label} is busy (rate limit); tried again later") from None
             raise SourceError(f"{self.label} answered with error {exc.code}") from None

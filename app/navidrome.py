@@ -21,6 +21,7 @@ import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from app import notifications
 from app.config import Settings
 
 log = logging.getLogger(__name__)
@@ -80,6 +81,24 @@ def rescan_after_write(settings: Settings, files_changed: int) -> None:
     if files_changed and configured(settings):
         result = start_scan(settings)
         log.info("Navidrome rescan: %s", result.message)
+        _report(result, "The rescan after Tagwerk changed files")
+
+
+def _report(result: Result, what: str) -> None:
+    """Notifications (ADR 0035): Navidrome failing Tagwerk's own requests is reported once, and
+    once more when it works again. The Settings buttons don't report: the owner sees them."""
+    if result.ok:
+        notifications.solved(
+            "navidrome", "navidrome", "Navidrome answers again", f"{what} worked.",
+            "Navidrome", "/settings#navidrome",
+        )  # fmt: skip
+    else:
+        notifications.problem(
+            "navidrome", "navidrome", "Navidrome didn't answer",
+            f"{what} failed: {result.message} Tagwerk tells you once more when Navidrome answers "
+            "again.",
+            "Navidrome", "/settings#navidrome",
+        )  # fmt: skip
 
 
 # How long renaming waits for Navidrome to finish a scan, and how often it asks.
@@ -110,14 +129,18 @@ def scanned_since(settings: Settings, changed_at: float, sleep=time.sleep) -> Re
         return Result(True, "Navidrome isn't set up.")
     started = False
     waited = 0.0
+    what = "Checking whether Navidrome scanned a track before renaming it"
     while True:
         result, scanning, last_scan = scan_status(settings)
+        if not result.ok or not waited:  # it answered: once is enough to know
+            _report(result, what)
         if not result.ok:
             return Result(False, f"Can't check Navidrome's scan: {result.message}")
         if not scanning and last_scan and last_scan.timestamp() >= changed_at:
             return Result(True, "Navidrome has the current file.")
         if not scanning and not started:
             result = start_scan(settings)
+            _report(result, what)
             if not result.ok:
                 return result
             started = True

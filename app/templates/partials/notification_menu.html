@@ -1,0 +1,22 @@
+{# The bell's menu: short summaries of the unread notifications, newest first. Opening it, or a
+   summary, marks nothing as read (ADR 0035). #}
+{% from "macros.html" import kind_icon, nav_icon %}
+<div class="bell-head">
+  <strong>Notifications</strong>
+  {% if items %}<small>{{ items | length }} new</small>{% endif %}
+</div>
+{% if items %}
+<ul class="bell-items">
+  {% for n in items %}
+  <li><button type="button" class="bell-item plain" data-bell-item hx-get="/partials/notifications/{{ n.id }}" hx-target="#bell-card" hx-swap="innerHTML">
+    {{ kind_icon(n.kind) }}
+    <span class="bell-text"><span class="bell-summary">{{ n.summary }}</span><small>{{ n.source }} · <time data-local data-short datetime="{{ n.created_at | isoutc }}">{{ n.created_at | isoutc }}</time></small></span>
+    <span class="bell-more">{{ nav_icon("chevron") }}</span>
+  </button></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="bell-empty">{{ nav_icon("check") }} Nothing new</p>
+{% endif %}
+<a class="bell-all" href="/notifications">All</a>
+{% include "partials/notification_count.html" %}

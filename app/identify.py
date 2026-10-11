@@ -36,7 +36,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from app import changes, genres, preferences, writer
+from app import changes, genres, notifications, preferences, writer
 from app.config import Settings
 from app.duplicates import main_artist, normalized
 from app.images import MAX_SIZE, ImageError, ImageStore, image_info
@@ -51,7 +51,15 @@ from app.models import (
 )
 from app.proposals import Proposal, propose
 from app.sources.acoustid import AcoustID
-from app.sources.base import TIMEOUT, USER_AGENT, Candidate, Query, Source, SourceError
+from app.sources.base import (
+    TIMEOUT,
+    USER_AGENT,
+    Candidate,
+    KeyRefused,
+    Query,
+    Source,
+    SourceError,
+)
 from app.sources.beatport import Beatport
 from app.sources.deezer import Deezer
 from app.sources.discogs import Discogs
@@ -137,14 +145,16 @@ def lookup(
             row = _row(session, table, track.id, source.name)
             if not force and row and _fresh(row, query):
                 continue
+            refused = False
             try:
                 found = source.lookup(query)
                 error = None
             except SourceError as exc:
-                found, error = [], str(exc)
+                found, error, refused = [], str(exc), isinstance(exc, KeyRefused)
             except Exception as exc:  # a source's odd answer must not stop the others
                 log.warning("%s lookup failed for %s: %s", source.label, track.path, exc)
                 found, error = [], f"{source.label}: unexpected answer"
+            _report(engine, source, error, refused)
             for candidate in found:
                 candidate.score = score(candidate, query)
             found.sort(key=lambda c: c.score, reverse=True)
@@ -165,6 +175,36 @@ def lookup(
         if library:
             stage_sure(session, track)
         return asked
+
+
+# A source that stops working is reported once (notifications, ADR 0035): a refused key at
+# once, other errors after this many failed lookups in a row; and once when it answers again.
+FAILING_AFTER = 5
+_failures: dict[str, int] = {}  # source name -> failed lookups in a row
+
+
+def _report(engine: Engine, source: Source, error: str | None, refused: bool) -> None:
+    key = f"online:{source.name}"
+    if error is None:
+        _failures.pop(source.name, None)
+        notifications.solved(
+            "online", key, f"{source.label} answers again",
+            f"Lookups with {source.label} work again.", "Online lookup", "/settings#online", engine,
+        )  # fmt: skip
+        return
+    _failures[source.name] = _failures.get(source.name, 0) + 1
+    if refused:
+        summary = f"{source.label} refused Tagwerk's key"
+    elif _failures[source.name] >= FAILING_AFTER:
+        summary = f"{source.label} keeps failing"
+    else:
+        return
+    notifications.problem(
+        "online", key, summary,
+        f"{error}. Lookups go on with the other sources. Tagwerk tells you once more when "
+        f"{source.label} answers again.",
+        "Online lookup", "/settings#online", engine,
+    )  # fmt: skip
 
 
 def stage_sure(session: Session, track: Track) -> int:

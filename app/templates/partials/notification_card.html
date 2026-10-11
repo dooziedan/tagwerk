@@ -1,0 +1,16 @@
+{# The card: a notification's details beside the menu (wide windows) or in its place (phones,
+   with ← Back). ✓ Read is the only thing here that marks it as read. #}
+{% from "macros.html" import nav_icon %}
+<div class="note-card" tabindex="-1">
+  <div class="note-card-top">
+    <button type="button" class="bell-back plain" data-bell-back>{{ nav_icon("arrow") }} Back</button>
+    <button type="button" class="bell-x plain" data-bell-back aria-label="Close the details">{{ nav_icon("close") }}</button>
+  </div>
+  <h3 class="note-title">{{ n.summary }}</h3>
+  {% include "partials/notification_detail.html" %}
+  <div class="note-actions">
+    {% if n.url %}<a href="{{ n.url }}" role="button" class="outline secondary small">{{ notification_link(n.url) }}</a>{% endif %}
+    {% if not n.read_at %}<button type="button" class="small" hx-post="/partials/notifications/{{ n.id }}/read" hx-target="#bell-list" hx-swap="innerHTML">{{ nav_icon("check") }} Read</button>
+    {% else %}<small class="muted">Read <time data-local datetime="{{ n.read_at | isoutc }}">{{ n.read_at | isoutc }}</time></small>{% endif %}
+  </div>
+</div>

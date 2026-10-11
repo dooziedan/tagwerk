@@ -60,6 +60,7 @@ def main(base: str, out: Path) -> int:
         "setup": "/setup",
         "final": "/final",
         "duplicates": "/duplicates",
+        "notifications": "/notifications",
     }
     if track:
         pages["track"] = f"/tracks/{track}"
@@ -98,6 +99,8 @@ def main(base: str, out: Path) -> int:
                                 full_page=device == "desktop",
                             )
                             count += 1
+                        shot = out / f"{{}}-{style}-{scheme}-{device}-{engine}.png"
+                        count += bell(page, base, shot)
                         context.close()
                 browser.close()
                 print(f"{style:5} {engine:9} done", flush=True)
@@ -106,6 +109,21 @@ def main(base: str, out: Path) -> int:
     for error in errors:
         print("ERROR", error)
     return 1 if errors else 0
+
+
+def bell(page, base: str, path: str) -> int:
+    """The bell's menu open, and a notification's card (ADR 0035). Returns how many shots."""
+    page.goto(base + "/", wait_until="networkidle")
+    page.locator("[data-bell]:visible").first.click()
+    page.wait_for_selector("#bell-list .bell-head")
+    page.screenshot(path=str(path).format("bell-menu"))
+    item = page.locator("[data-bell-item]").first
+    if not item.count():
+        return 1
+    item.click()
+    page.wait_for_selector("#bell-card .note-card")
+    page.screenshot(path=str(path).format("bell-card"))
+    return 2
 
 
 if __name__ == "__main__":

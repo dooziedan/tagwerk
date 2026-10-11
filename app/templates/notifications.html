@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "macros.html" import kind_icon, nav_icon %}
+{% block title %}Notifications · Tagwerk{% endblock %}
+
+{# One entry: the summary; opened, the details, the link and (if unread) ✓ Read. Opening an
+   entry marks nothing as read. #}
+{% macro entry(n) %}
+<details class="note-entry" id="n{{ n.id }}">
+  <summary>{{ kind_icon(n.kind) }}<span class="bell-text"><span class="bell-summary">{{ n.summary }}</span><small>{{ n.source }} · <time data-local data-short datetime="{{ n.created_at | isoutc }}">{{ n.created_at | isoutc }}</time></small></span></summary>
+  <div class="note-body">
+    {% include "partials/notification_detail.html" %}
+    <div class="note-actions">
+      {% if n.url %}<a href="{{ n.url }}" role="button" class="outline secondary small">{{ notification_link(n.url) }}</a>{% endif %}
+      {% if not n.read_at %}<form method="post" action="/notifications/{{ n.id }}/read"><button class="small">{{ nav_icon("check") }} Read</button></form>
+      {% else %}<small class="muted">Read <time data-local datetime="{{ n.read_at | isoutc }}">{{ n.read_at | isoutc }}</time></small>{% endif %}
+    </div>
+  </div>
+</details>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1>Notifications</h1><p class="muted page-sub">What Tagwerk did and found while you were away. You choose what it reports in <a href="/settings#notifications">Settings → Notifications</a>.</p></div>
+</div>
+
+<article id="new">
+  <header class="card-head">
+    <span><strong>New</strong> <small>{{ new | length }}</small></span>
+    {% if new %}<form method="post" action="/notifications/read-all" class="head-action"><button class="outline secondary small">{{ nav_icon("check") }} Mark all as read</button></form>{% endif %}
+  </header>
+  {% if new %}
+  {# Grouped by day in the browser's time zone (Today, Yesterday, 12 Oct): see the script below. #}
+  <ol class="note-list" data-days>
+    {% for n in new %}<li data-at="{{ n.created_at | isoutc }}">{{ entry(n) }}</li>{% endfor %}
+  </ol>
+  {% else %}
+  <p class="empty-note">{{ nav_icon("check") }} Nothing new.</p>
+  {% endif %}
+</article>
+
+<article id="history">
+  <header class="card-head">
+    <span><strong>History</strong> <small>{{ history | length }} read</small></span>
+    {% if history %}<form method="post" action="/notifications/clear-history" class="head-action" data-confirm="Remove the {{ history | length | plural('read notification') }} for good? New ones stay." data-confirm-ok="Clear history"><button class="outline secondary small">Clear history</button></form>{% endif %}
+  </header>
+  {% if history %}
+  <ol class="note-list">
+    {% for n in history %}<li>{{ entry(n) }}</li>{% endfor %}
+  </ol>
+  {% else %}
+  <p class="muted">Read notifications stay here until you clear the history.</p>
+  {% endif %}
+</article>
+
+<script>
+  (function () {
+    // Day headings for New, by the browser's own date: Today, Yesterday, 12 Oct.
+    const list = document.querySelector(".note-list[data-days]");
+    if (!list) return;
+    const day = (d, back = 0) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - back).getTime();
+    const today = day(new Date()), yesterday = day(new Date(), 1);
+    let last = null;
+    list.querySelectorAll("li[data-at]").forEach((li) => {
+      const at = new Date(li.dataset.at);
+      if (isNaN(at)) return;
+      const d = day(at);
+      if (d === last) return;
+      last = d;
+      const head = document.createElement("li");
+      head.className = "note-day";
+      head.textContent = d === today ? "Today" : d === yesterday ? "Yesterday"
+        : at.toLocaleDateString(undefined, { day: "numeric", month: "short", year: at.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+      li.before(head);
+    });
+  })();
+</script>
+{% endblock %}

@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from app import __version__, writer
 from app.charts import camelot_colour, key_wheel
 from app.keys import NOTATIONS, display, to_camelot
+from app.notifications import KINDS
 from app.percent import percent, shown
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -113,6 +114,39 @@ def inbox_count() -> int:
         return 0
 
 
+def unread_notifications(kind: str | None = None) -> int:
+    """Unread notifications (all, or one kind), for the bell's number."""
+    try:
+        from sqlmodel import Session
+
+        from app.config import get_settings
+        from app.db import get_engine
+        from app.notifications import unread_count
+
+        with Session(get_engine(get_settings().database_url)) as session:
+            return unread_count(session, kind)
+    except Exception:  # e.g. database not ready: no number rather than a broken page
+        return 0
+
+
+# Where a notification's link leads, in words (the first matching start of the address).
+_PLACES = [
+    ("/inbox#trash", "Open the inbox trash"),
+    ("/inbox?show=help", "Show these tracks"),
+    ("/inbox", "Open the inbox"),
+    ("/changes/history", "Open the History"),
+    ("/changes", "Review the changes"),
+    ("/settings", "Open Settings"),
+    ("/scan", "Open the scan"),
+    ("/tracks", "Show the tracks"),
+]
+
+
+def notification_link(url: str | None) -> str:
+    """The button text for a notification's link: "Open the inbox trash"."""
+    return next((text for start, text in _PLACES if (url or "").startswith(start)), "Open")
+
+
 @cache
 def static_version(name: str) -> str:
     """A short fingerprint of a file in app/static, added to its URL (``app.css?v=…``).
@@ -158,6 +192,9 @@ templates.env.globals.update(
     recent=recent,
     pending_count=pending_count,
     inbox_count=inbox_count,
+    unread_notifications=unread_notifications,
+    notification_link=notification_link,
+    notification_kinds=KINDS,
     version=__version__,
     key_notations=NOTATIONS,
     key_wheel=key_wheel,
