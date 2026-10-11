@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Notifications: what Tagwerk did while you were away.** A bell with the number of unread notifications sits next to the logo in the side menu (on phones: in the top bar, between Changes and the menu). It opens a short list of what happened; a click shows the details with a link to where you can act, and **✓ Read** moves it to the History. Nothing is marked as read or removed by itself: **Mark all as read** and **Clear history** are on the notifications page (**All** at the bottom of the bell's menu). Home's "Waiting for you" shows a line when something needs you.
+  - You choose what is reported in **Settings → Notifications**. Switched on from the start, only what needs you or could lose data: files in the **inbox trash** 3 days before they are removed for good (with a link to restore them), **more inbox tracks needing your help**, a **scan skipped** because the music folder looked empty or **files that couldn't be read**, **Navidrome not answering**, and an **online source rejecting its key** or failing again and again.
+  - Switched off until you want them: **tracks imported automatically** (with a link to the History) and **long jobs finished** (audio analysis or online lookups you started for many tracks).
+  - Kept short: one notification per job, never one per track; a problem that lasts is reported once, and once more when it is fine again.
+- On phones narrower than 430 px the top bar shows the logo without the word "Tagwerk", so the bell fits.
+
 ## [0.20.0] - 2026-10-11
 
 ### Added

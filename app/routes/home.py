@@ -22,14 +22,9 @@ router = APIRouter()
 
 def _inbox(session) -> dict:
     """How many inbox tracks are ready to import and how many need the owner's help."""
-    from app.routes.inbox import VIEWS, _rows  # routes.inbox imports a lot; only needed here
+    from app.routes.inbox import counts  # routes.inbox imports a lot; only needed here
 
-    rows = _rows(session)
-    return {
-        "total": len(rows),
-        "ready": sum(1 for r in rows if VIEWS["ready"][1](r)),
-        "help": sum(1 for r in rows if VIEWS["help"][1](r)),
-    }
+    return counts(session)
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)

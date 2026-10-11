@@ -29,7 +29,7 @@
   </form>
 </div>
 
-{% set saved_text = {"display": "Display saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "final": "Final tracks saved.", "online": "Online lookups saved."} %}
+{% set saved_text = {"display": "Display saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved."} %}
 {% if saved in saved_text %}<div class="toasts">{% call toast() %}✅ {{ saved_text[saved] }}{% endcall %}</div>{% endif %}
 
 <div class="settings-layout">
@@ -40,6 +40,7 @@
     <a href="#genres">{{ nav_icon("fields") }}<span>Genre map<small>{{ genre_rules | plural('rule') }} · {{ "your own" if genre_map_custom else "built-in" }}</small></span></a>
     <a href="#final">{{ nav_icon("final") }}<span>Final tracks<small>{{ "renamed on marking" if prefs.rename_on_final else "names stay" }}</small></span></a>
     <a href="#online">{{ nav_icon("globe") }}<span>Online lookups<small>{{ online | selectattr("on") | list | length }} of {{ online | length }} sources on</small></span></a>
+    <a href="#notifications">{{ nav_icon("bell") }}<span>Notifications<small>{{ prefs.notifications.values() | select | list | length }} of {{ topics | length }} on</small></span></a>
     <a href="#navidrome">{{ nav_icon("link") }}<span>Navidrome<small>{% if not navidrome.configured %}not set up{% elif navidrome.last and not navidrome.last.ok %}last try failed{% else %}connected{% endif %}</small></span></a>
   </nav>
 
@@ -115,6 +116,19 @@
           {% endfor %}
         </div>
         <div class="section-foot"><button type="submit">Save online lookups</button></div>
+      </form>
+    </section>
+
+    <section id="notifications" class="settings-section">
+      {{ section_head("notifications", "bell", "Notifications", "What Tagwerk tells you about work done while you were away (the bell). Switched off, a topic writes nothing at all.") }}
+      <form method="post" action="/settings/notifications">
+        {% for name, topic in topics.items() %}
+        <label class="setting setting-switch">
+          <span class="setting-text"><strong>{{ topic.label }}</strong><small class="muted">{{ topic.about }}</small></span>
+          <span class="setting-control"><input type="checkbox" role="switch" name="topics" value="{{ name }}"{% if prefs.notifications[name] %} checked{% endif %}></span>
+        </label>
+        {% endfor %}
+        <div class="section-foot"><button type="submit">Save notifications</button></div>
       </form>
     </section>
 

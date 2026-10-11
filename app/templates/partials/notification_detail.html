@@ -1,0 +1,5 @@
+{# One notification's details (the card beside the menu, and an opened entry on the page). #}
+{% from "macros.html" import kind_icon %}
+<p class="note-meta">{{ kind_icon(n.kind) }}<span class="note-kind kind-{{ n.kind }}">{{ notification_kinds[n.kind] }}</span>
+  <span>· {{ n.source }}</span><time data-local data-medium datetime="{{ n.created_at | isoutc }}">{{ n.created_at | isoutc }}</time></p>
+{% if n.message %}<p class="note-message">{{ n.message }}</p>{% endif %}

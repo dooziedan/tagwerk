@@ -141,6 +141,17 @@ VIEWS = {
 }
 
 
+def counts(session) -> dict:
+    """How many inbox tracks there are, how many are ready to import and how many need the
+    owner's help (Home, and the regular inbox check in app/reminders.py)."""
+    rows = _rows(session)
+    return {
+        "total": len(rows),
+        "ready": sum(1 for r in rows if VIEWS["ready"][1](r)),
+        "help": sum(1 for r in rows if VIEWS["help"][1](r)),
+    }
+
+
 def _view(show) -> str:
     return show if show in VIEWS else "all"
 

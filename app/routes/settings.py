@@ -1,8 +1,8 @@
 """The Settings page and the preferences API.
 
 Sections: Display (key notation, effects, MusicBrainz), Import, Genre map, Final tracks,
-Online lookups, Navidrome. Each section is its own form; after saving, the page comes back with
-``?saved=<section>`` and scrolls to it.
+Online lookups, Notifications, Navidrome. Each section is its own form; after saving, the page
+comes back with ``?saved=<section>`` and scrolls to it.
 """
 
 from dataclasses import fields, replace
@@ -11,7 +11,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app import identify, navidrome, preferences
+from app import identify, navidrome, notifications, preferences
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
@@ -79,6 +79,7 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
                 }
                 for cls in identify.SOURCES
             ],
+            "topics": notifications.TOPICS,
             "navidrome": {
                 "configured": navidrome.configured(settings),
                 "url": settings.navidrome_url,
@@ -131,6 +132,15 @@ async def save_online(request: Request, session: SessionDep):
     chosen = [str(n) for n in form.getlist("online_sources") if n in names]
     preferences.save(session, replace(preferences.load(session), online_sources=chosen))
     return RedirectResponse("/settings?saved=online", status_code=303)
+
+
+@router.post("/settings/notifications", include_in_schema=False)
+async def save_notifications(request: Request, session: SessionDep):
+    """Which topics may write notifications: a switched-off topic writes nothing."""
+    form = await read_form(request)
+    chosen = {name: name in form.getlist("topics") for name in notifications.TOPICS}
+    preferences.save(session, replace(preferences.load(session), notifications=chosen))
+    return RedirectResponse("/settings?saved=notifications", status_code=303)
 
 
 @router.post("/settings/setup-again", include_in_schema=False)

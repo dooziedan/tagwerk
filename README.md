@@ -49,9 +49,12 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Automatic mode** (optional): complete tracks Tagwerk is sure about are imported without asking.
 - **Navidrome rescan** after every change, so new tags and tracks show up there right away (optional).
 
+**While you were away**
+- **Notifications:** a bell with what Tagwerk did and found while you weren't looking: inbox-trash files 3 days before they are removed for good, inbox tracks needing your help, a skipped scan, Navidrome or an online source not answering, and (if you like) automatic imports and long jobs finished. You choose what is reported; nothing is marked as read or removed unless you say so.
+
 **Look:** the night sky: a dark, space-inspired design with glass panels and slowly drifting stars, plus a Lighter effects switch for weak devices.
 
-Next (see the [roadmap](docs/roadmap.md)): checks on a real library and an onboarding tour before 1.0; notifications for what Tagwerk did while you were away.
+Next (see the [roadmap](docs/roadmap.md)): checks on a real library and an onboarding tour before 1.0.
 
 ## Install on Unraid
 

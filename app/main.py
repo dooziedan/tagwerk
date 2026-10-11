@@ -26,6 +26,7 @@ from app.routes import (
     library,
     lookup,
     mix_names,
+    notifications,
     player,
     replaygain,
     scan,
@@ -90,6 +91,7 @@ app.include_router(inbox.router)
 app.include_router(changes.router)
 app.include_router(final.router)
 app.include_router(duplicates.router)
+app.include_router(notifications.router)
 app.include_router(convert.router)
 app.include_router(lookup.router)
 app.include_router(ids.router)
