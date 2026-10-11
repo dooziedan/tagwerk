@@ -278,6 +278,40 @@ def test_sure_values_for_empty_fields_become_pending_changes(engine, settings, m
     assert pending(engine, "tagged.flac") == {}
 
 
+def test_a_pending_genre_settles_half_or_double_time(engine, settings, monkeypatch):
+    # A new track: the audio hears 87 or 174, and a lookup proposes "Drum & Bass" while the
+    # genre tag is still empty. The pending genre decides, like a tag would: 174.
+    from app import changes
+
+    library_with(engine, settings, monkeypatch, bpm=87.0, bpm_sure=True, bpm_alternatives=[174.0])
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("untagged.mp3"))).one()
+        # An earlier decision without a genre staged 87 (sure from the audio alone).
+        assert pending(engine, "untagged.mp3")["bpm"] == "87"
+        changes.stage(session, [track.id], {"genre": "Drum & Bass"}, "online")
+        analysis.stage_sure(session, track)
+    assert pending(engine, "untagged.mp3")["bpm"] == "174"
+
+    # The owner's own BPM edit is never replaced.
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("untagged.mp3"))).one()
+        changes.stage(session, [track.id], {"bpm": "87"}, "you")
+        analysis.stage_sure(session, track)
+    assert pending(engine, "untagged.mp3")["bpm"] == "87"
+
+
+def test_an_audio_bpm_that_isnt_sure_any_more_is_dropped(engine, settings, monkeypatch):
+    # 87 was sure from the audio alone; a pending "House" genre fits neither 87 nor 174.
+    from app import changes
+
+    library_with(engine, settings, monkeypatch, bpm=87.0, bpm_sure=True, bpm_alternatives=[174.0])
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("untagged.mp3"))).one()
+        changes.stage(session, [track.id], {"genre": "House"}, "online")
+        analysis.stage_sure(session, track)
+    assert "bpm" not in pending(engine, "untagged.mp3")
+
+
 def test_tags_that_differ_from_the_audio_are_flagged(client, engine, settings, monkeypatch):
     from app.library import TrackFilter, find_tracks
 

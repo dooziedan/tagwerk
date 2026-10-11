@@ -431,21 +431,32 @@ def refresh_all(engine: Engine) -> None:
 
 def stage_sure(session: Session, track: Track) -> int:
     """Sure BPM and key for empty fields become pending changes (not over the owner's own
-    pending edits; final tracks are skipped by changes.stage). Returns how many."""
+    pending edits; final tracks are skipped by changes.stage). Returns how many.
+
+    The BPM is decided with the genre the track will have: a pending genre (e.g. "Drum &
+    Bass" found online for a new track) settles 87 or 174 like a genre tag does. An earlier
+    BPM from the audio is replaced when the decision changed, and dropped when it isn't sure
+    any more."""
     from app import changes
 
-    found = refresh(session, track)
-    session.commit()
-    if found is None:
+    if refresh(session, track) is None:
         return 0
-    pending = {
-        c.field
+    session.commit()
+    staged = {
+        c.field: c
         for c in session.exec(select(PendingChange).where(PendingChange.track_id == track.id))
     }
+    genre = staged["genre"].new_value if "genre" in staged else track.genre
+    found = decide_for(session, track, library=True, genre=genre)
     values = {}
-    if found.bpm_sure and found.bpm and not track.bpm and "bpm" not in pending:
-        values["bpm"] = f"{found.bpm:g}"
-    if found.key_sure and found.key and not track.key and "key" not in pending:
+    bpm_change = staged.get("bpm")
+    if not track.bpm and (bpm_change is None or bpm_change.source == "audio"):
+        if found.bpm_sure and found.bpm:
+            values["bpm"] = f"{found.bpm:g}"
+        elif bpm_change:
+            session.delete(bpm_change)
+            session.commit()
+    if found.key_sure and found.key and not track.key and "key" not in staged:
         values["key"] = display(found.key, "musical")
     return changes.stage(session, [track.id], values, "audio")[0] if values else 0
 
