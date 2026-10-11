@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 # Where a featured artist starts: "A feat. B", "A ft. B", "A; B". Not "&": "Above & Beyond".
 _MORE_ARTISTS = re.compile(r"\s+(?:feat\.?|ft\.?|featuring)\s+|\s*;\s*", re.I)
 _FEATURING = re.compile(r"\s*[(\[](?:feat\.?|ft\.?|featuring)\s[^)\]]*[)\]]", re.I)
+_BRACKETS = re.compile(r"\s*[(\[][^)\]]*[)\]]")
 
 USER_AGENT = f"Tagwerk/{__version__} ( https://github.com/dooziedan/tagwerk )"
 TIMEOUT = 15  # seconds
@@ -53,6 +54,12 @@ class Query:
     def search_title(self) -> str:
         """The title without featured artists: "Rio (feat. Digital Farm Animals)" -> "Rio"."""
         return _FEATURING.sub("", self.title or "").strip()
+
+    @property
+    def base_title(self) -> str:
+        """The title without any brackets: "Big Up (Original)" -> "Big Up". Every version of
+        a track starts with it."""
+        return _BRACKETS.sub("", self.title or "").strip()
 
 
 @dataclass
@@ -105,6 +112,17 @@ class Source:
 
     def get_json(self, url: str, params: dict | None = None, headers: dict | None = None) -> dict:
         """GET a JSON document, waiting first if this source was asked too recently."""
+        body = self._get(url, params, {"Accept": "application/json", **(headers or {})})
+        try:
+            return json.loads(body)
+        except ValueError:
+            raise SourceError(f"{self.label} sent something that isn't JSON") from None
+
+    def get_text(self, url: str, params: dict | None = None) -> str:
+        """GET a web page (for a source without an API), with the same waiting as get_json."""
+        return self._get(url, params, {"Accept": "text/html"}).decode("utf-8", errors="replace")
+
+    def _get(self, url: str, params: dict | None, headers: dict) -> bytes:
         if params:
             url = f"{url}?{urllib.parse.urlencode(params)}"
         with Source._lock:
@@ -112,22 +130,19 @@ class Source:
             if wait > 0:
                 time.sleep(wait)
             Source._last[self.name] = time.monotonic()
-        request = urllib.request.Request(
-            url, headers={"User-Agent": USER_AGENT, "Accept": "application/json", **(headers or {})}
-        )
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **headers})
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-                return json.load(response)
+                return response.read()
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403):
-                raise SourceError(f"{self.label} refused the request: check {self.needs}") from None
+                check = f": check {self.needs}" if self.needs else ""
+                raise SourceError(f"{self.label} refused the request{check}") from None
             if exc.code in (429, 503):
                 raise SourceError(f"{self.label} is busy (rate limit); tried again later") from None
             raise SourceError(f"{self.label} answered with error {exc.code}") from None
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise SourceError(f"Can't reach {self.label} ({getattr(exc, 'reason', exc)})") from None
-        except ValueError:
-            raise SourceError(f"{self.label} sent something that isn't JSON") from None
 
 
 def year_or_date(text: str | None) -> str | None:

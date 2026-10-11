@@ -24,8 +24,8 @@ def answer(name: str) -> dict:
 
 @pytest.fixture
 def web(monkeypatch):
-    """The sources get saved answers (real ones from MusicBrainz, iTunes, Deezer; the AcoustID
-    and Discogs ones are made up in their real format)."""
+    """The sources get saved answers (real ones from MusicBrainz, iTunes, Deezer, Beatport; the
+    AcoustID and Discogs ones are made up in their real format)."""
     asked = []
 
     def get_json(self, url, params=None, headers=None):
@@ -50,7 +50,14 @@ def web(monkeypatch):
             return answer("acoustid_lookup.json")
         raise SourceError(f"unexpected {url}")
 
+    def get_text(self, url, params=None):
+        asked.append(url)
+        if "beatport.com" in url:
+            return (ONLINE / "beatport_search.html").read_text()
+        raise SourceError(f"unexpected {url}")
+
     monkeypatch.setattr(Source, "get_json", get_json)
+    monkeypatch.setattr(Source, "get_text", get_text)
     monkeypatch.setattr(acoustid, "fingerprint_of", lambda q: (248, "AQAAfingerprint"))
     monkeypatch.setattr(acoustid.shutil, "which", lambda name: "/usr/bin/fpcalc")
     return asked
@@ -120,7 +127,7 @@ def test_scoring_prefers_the_same_version():
 
 def test_lookup_suggests_what_sources_agree_on(web, engine, settings, track):
     asked = identify.lookup(engine, settings, track)
-    assert asked == 5
+    assert asked == 6
     found = fields(engine, track)
     assert found["date"].value == "2018-07-13" and found["date"].suggestion.sure
     assert "agree" in found["date"].suggestion.reason
@@ -182,10 +189,13 @@ def test_review_page_shows_results_and_takes_them_over(web, client, engine, sett
     assert "Online sources" in page and "Use these values" in page and "Open at iTunes" in page
     # Folded with a reminder; it doesn't remember being opened on another page.
     assert "online-remind" in page and "Check " in page and " data-remember>" not in page
-    client.post(f"/inbox/{track}/online", data={"source": "discogs", "n": "0"})
+    # Discogs' label is suggested (its 4:08 version matches as well as Deezer's); Deezer's
+    # differs, so taking over Deezer's values makes it the owner's.
+    client.post(f"/inbox/{track}/online", data={"source": "deezer", "n": "0"})
     with Session(engine) as session:
         values = {f.field: f for f in review(session, session.get(InboxTrack, track), FIELDS)}
-    assert values["label"].value == "Catch & Release" and values["label"].origin == "you"
+    label = values["label"]
+    assert label.value == "Fisher - Follow the FISH, LLC" and label.origin == "you"
     with Session(engine) as session:
         assert session.exec(select(OnlineLookup)).all()  # results stay for later
 

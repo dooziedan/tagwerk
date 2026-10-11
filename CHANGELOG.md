@@ -11,6 +11,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - The **online lookup** finds the track in the Discogs release's tracklist (same title, and the same length when Discogs knows it) and suggests its track ID together with a sure Discogs release.
   - Tagwerk reads every file once more on the next scan, to pick up Discogs track IDs that are already there.
   - Tracks fixed with an earlier version lost the position in their files: undo that **Fix IDs** on the History page and run it again, or look the track up online.
+- **Beatport as an online source**: the DJ store sells the club versions that streaming stores often don't have, each with its own length, mix name, BPM, key, genre and label. Tagwerk reads Beatport's public search page (Beatport has no API for individuals), one request per lookup, no account needed. New installs have it switched on; on an existing install, switch it on in **Settings → Online lookups**.
+- **Longer versions are recognised**: when your file is longer than the only version some sources have, the Online sources card says so and names the sources that list your file's length. For example, Billy Kenny's "Take Me To Church" (5:26): "MusicBrainz, Deezer and iTunes only have a 4:09 version. Discogs and Beatport list this 5:26 version (Original Mix)." Values such as label and genre then come from the matching version.
+- **Beatport's key helps the audio analysis**: when Beatport's key matches what the audio hears, the key is sure; when it doesn't, the track page says so.
+
+### Changed
+- **Discogs knows each version**: Tagwerk now reads the tracklist of the best Discogs releases, so a release with an Original Mix (4:08) and an Extended Mix (6:41) gives two results with their own lengths, and the right one is picked. Discogs' numbers after artist names ("Fisher (16)") are dropped.
+- **"Original Mix" counts as the plain title**: "Big Up (Original)" and "Big Up" are the same title when results are compared.
+- **The audio decides the BPM**: for a library track whose audio was analysed, online lookups no longer stage a BPM on their own. Two stores agreeing on 87 doesn't make a drum & bass track 87 BPM; their values still help the analysis choose.
 
 ## [0.19.4] - 2026-10-11
 

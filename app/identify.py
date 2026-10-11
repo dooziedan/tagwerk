@@ -12,6 +12,9 @@
 4. **IDs** (ADR 0032): MusicBrainz and Discogs IDs follow stricter rules, because a wrong ID is
    worse than none (Navidrome and Picard trust it). Only sure IDs are suggested, only for empty
    ID fields: see id_suggestions().
+5. **Versions** (ADR 0034): when the file is longer than the only version some sources have
+   (stores often sell the 4:09 radio edit of a 5:26 club mix), longer_version() says so, and
+   which sources list this length (Beatport, Discogs tracklists).
 
 Inbox tracks get suggestions on their review page. **Library tracks** ("Look up online") get
 the same lookups; their sure values become pending changes (stage_sure), so they go through the
@@ -22,6 +25,7 @@ Network only, no files are written here: identification doesn't hold the library
 
 import json
 import logging
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -39,6 +43,7 @@ from app.images import MAX_SIZE, ImageError, ImageStore, image_info
 from app.models import (
     InboxTrack,
     InboxValue,
+    LibraryAnalysis,
     LibraryLookup,
     OnlineLookup,
     PendingChange,
@@ -47,6 +52,7 @@ from app.models import (
 from app.proposals import Proposal, propose
 from app.sources.acoustid import AcoustID
 from app.sources.base import TIMEOUT, USER_AGENT, Candidate, Query, Source, SourceError
+from app.sources.beatport import Beatport
 from app.sources.deezer import Deezer
 from app.sources.discogs import Discogs
 from app.sources.itunes import ITunes
@@ -55,7 +61,7 @@ from app.tags import MBID_FIELDS, MBID_RE
 
 log = logging.getLogger(__name__)
 
-SOURCES: list[type[Source]] = [AcoustID, MusicBrainz, Discogs, Deezer, ITunes]
+SOURCES: list[type[Source]] = [AcoustID, MusicBrainz, Discogs, Beatport, Deezer, ITunes]
 LABELS = {s.name: s.label for s in SOURCES}
 MATCH = 0.75  # candidates scoring at least this are used for suggestions
 SURE_FINGERPRINT = 0.9  # AcoustID audio match that counts as sure on its own
@@ -172,6 +178,10 @@ def stage_sure(session: Session, track: Track) -> int:
     values = {
         p.field: p.value for p in suggestions(session, track, taken=pending, library=True) if p.sure
     }
+    if session.get(LibraryAnalysis, track.id):
+        # The audio decides the BPM, with online values as hints (analysis.stage_sure): two
+        # stores agreeing on 87 doesn't make a drum & bass track 87 BPM.
+        values.pop("bpm", None)
     current = {name: writer.current_value(track, name) for name in writer.IDS}
     # The album, label and catalog number the track will have: its tag, else a pending change
     # (the owner's, or a sure value from an earlier lookup), else a sure value found now.
@@ -236,13 +246,15 @@ def _look_up_ids(
 
 def _discogs_track(tracks: list[tuple[str, str, float | None]], query: Query) -> str | None:
     """The track's position on a Discogs release ("3", "A1"): the only track with its title
-    (another version's title only when the length agrees, within 3 s)."""
+    (another version's title only when the length agrees, within 3 s). Without a length the
+    title must be exactly the same: here "(Original Mix)" isn't the plain title (ADR 0033)."""
     found = []
     for position, title, seconds in tracks:
         match = _title_match(query.title, title)
+        exact = normalized(query.title or "") == normalized(title)
         known = bool(seconds and query.duration)
         same_length = known and abs(seconds - query.duration) <= 3
-        if (same_length and match >= 0.8) or (not known and match == 1.0):
+        if (same_length and match >= 0.8) or (not known and exact):
             found.append(position)
     return found[0] if len(found) == 1 and found[0] else None
 
@@ -314,10 +326,14 @@ def score(candidate: Candidate, query: Query) -> float:
     return round(names * _length_match(query.duration, candidate.duration), 3)
 
 
+# Stores call the plain version "Original Mix": "Big Up (Original)" is the same as "Big Up".
+_ORIGINAL = re.compile(r"\s*[(\[]original(?: mix)?[)\]]\s*$", re.I)
+
+
 def _title_match(wanted: str | None, found: str | None) -> float:
     if not wanted or not found:
         return 0.0
-    a, b = normalized(wanted), normalized(found)
+    a, b = normalized(_ORIGINAL.sub("", wanted)), normalized(_ORIGINAL.sub("", found))
     if a == b:
         return 1.0
     if _base(a) == _base(b):  # "Losing It" vs "Losing It (Extended Mix)": maybe another version
@@ -404,6 +420,7 @@ class Found:
     about: str = ""  # what the source is good for (Source.about)
     fields: list[list["Compared"]] = field(default_factory=list)  # per candidate, see review()
     ids: list[dict[str, str]] = field(default_factory=list)  # per candidate: candidate_ids()
+    asked: Query | None = None  # what the source was asked (artist, title, length)
 
     @property
     def best(self) -> Candidate | None:
@@ -432,7 +449,15 @@ def results(session: Session, track_id: int, library: bool = False) -> list[Foun
                 if candidate.values.get("genre"):
                     candidate.values["genre"] = genre_map.match(candidate.values["genre"])
             found.append(
-                Found(cls.name, cls.label, candidates, row.error, row.looked_up_at, cls.about)
+                Found(
+                    cls.name,
+                    cls.label,
+                    candidates,
+                    row.error,
+                    row.looked_up_at,
+                    cls.about,
+                    asked=asked,
+                )
             )
     return found
 
@@ -445,6 +470,7 @@ SHOWN = {
     "catalognumber": "Catalog no.",
     "genre": "Genre",
     "bpm": "BPM",
+    "key": "Key",
 }
 
 
@@ -719,3 +745,77 @@ def _same(name: str, value: str) -> str:
     if name == "date":
         return value[:4]
     return normalized(value)
+
+
+# --- Versions -------------------------------------------------------------------------------
+
+LONGER = 10  # seconds: a version this much shorter is another edit (as in _length_match)
+_MIX = re.compile(r"[(\[]([^()\[\]]+)[)\]]\s*$")  # "Take Me to Church (Original Mix)"
+
+
+@dataclass
+class LongerVersion:
+    """The file is longer than the only version some sources have: streaming stores often
+    sell the 4:09 radio edit of a 5:26 club mix. ``confirmed`` names the sources that list a
+    version of this length (DJ stores, Discogs tracklists)."""
+
+    length: float  # the file's, seconds
+    shorter: list[str]  # sources with only shorter versions (labels)
+    shorter_length: float  # the longest of those versions
+    confirmed: list[str] = field(default_factory=list)  # sources listing this length
+    mix: str = ""  # the confirming version's mix name ("Original Mix"), if it has one
+
+    @property
+    def text(self) -> str:
+        has = "has" if len(self.shorter) == 1 else "have"
+        text = f"{_and(self.shorter)} only {has} a {_mmss(self.shorter_length)} version. "
+        if not self.confirmed:
+            return text + (
+                f"This file is {_mmss(self.length)}: maybe an extended or club mix. "
+                "No source lists this length yet."
+            )
+        lists = "lists" if len(self.confirmed) == 1 else "list"
+        mix = f" ({self.mix})" if self.mix else ""
+        return text + f"{_and(self.confirmed)} {lists} this {_mmss(self.length)} version{mix}."
+
+
+def longer_version(found: list[Found]) -> LongerVersion | None:
+    """Is the file a longer version than some sources know? Only versions of the same track
+    count (same title apart from the version words, same artist), not other remixes."""
+    result: LongerVersion | None = None
+    confirming: list[tuple[str, Candidate]] = []
+    for f in found:
+        asked = f.asked
+        if f.error or not asked or not asked.duration:
+            continue
+        versions = [c for c in f.candidates if c.duration and _same_track(c, asked)]
+        same = [c for c in versions if abs(c.duration - asked.duration) <= 3]
+        if same:
+            confirming.append((f.label, same[0]))
+            continue
+        # Only shorter versions: a source that also has a longer one doesn't count (the file
+        # may be an edit between the two).
+        if versions and all(asked.duration - c.duration > LONGER for c in versions):
+            result = result or LongerVersion(asked.duration, [], 0.0)
+            result.shorter.append(f.label)
+            result.shorter_length = max([result.shorter_length] + [c.duration for c in versions])
+    if result:
+        result.confirmed = [label for label, _ in confirming]
+        mixes = [m.group(1) for _, c in confirming if (m := _MIX.search(c.values["title"]))]
+        mixes = [m for m in mixes if not m.lower().startswith(("feat", "ft.", "with "))]
+        result.mix = mixes[0] if mixes else ""
+    return result
+
+
+def _same_track(candidate: Candidate, asked: Query) -> bool:
+    title = candidate.values.get("title")
+    return (
+        bool(title and asked.title)
+        and _base(normalized(title)) == _base(normalized(asked.title))
+        and _artist_match(asked.artist, candidate.values.get("artist")) >= 0.9
+    )
+
+
+def _and(names: list[str]) -> str:
+    """["Deezer", "iTunes", "MusicBrainz"] -> "Deezer, iTunes and MusicBrainz"."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"

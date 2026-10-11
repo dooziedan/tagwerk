@@ -80,7 +80,7 @@ def drum_and_bass(web, monkeypatch):  # noqa: F811
             for result in data["results"]:
                 result["primaryGenreName"] = "Jungle/Drum'n'bass"
         if "discogs.com" in url:
-            for result in data["results"]:
+            for result in data.get("results", []):  # not the release's tracklist
                 result["style"] = ["Drum n Bass"]
         return data
 

@@ -1,0 +1,30 @@
+{
+ "id": 19222936,
+ "title": "Take Me To Church",
+ "artists_sort": "Billy Kenny",
+ "year": 2019,
+ "released": "2019-11-01",
+ "labels": [
+  {
+   "name": "REALM Records (5)",
+   "catno": "RLM021",
+   "entity_type": "1",
+   "entity_type_name": "Label",
+   "id": 1342547,
+   "resource_url": "https://api.discogs.com/labels/1342547",
+   "thumbnail_url": "https://i.discogs.com/6I3xrDY1se-3dEhZP12pnIEELvAlAbYIMIVgfEa3kJU/rs:fit/g:sm/q:90/h:500/w:500/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9MLTEzNDI1/NDctMTU4MTkzMzc5/Mi01NDU0LmpwZWc.jpeg"
+  }
+ ],
+ "styles": [
+  "Tech House"
+ ],
+ "tracklist": [
+  {
+   "position": "1",
+   "type_": "track",
+   "title": "Take Me To Church",
+   "duration": "5:26"
+  }
+ ],
+ "uri": "https://www.discogs.com/release/19222936-Billy-Kenny-Take-Me-To-Church"
+}

@@ -1,0 +1,79 @@
+{
+ "created": "2026-10-11T13:43:07.533Z",
+ "count": 1,
+ "offset": 0,
+ "recordings": [
+  {
+   "id": "430a4cad-a348-4e58-8031-a8e593b2543b",
+   "score": 100,
+   "artist-credit-id": "01d8da99-329b-3932-ade6-262ee552d0e1",
+   "title": "Take Me to Church",
+   "length": 249000,
+   "video": null,
+   "artist-credit": [
+    {
+     "name": "Billy Kenny",
+     "artist": {
+      "id": "246bc606-f484-4517-a58a-f4113e0c6c99",
+      "name": "Billy Kenny",
+      "sort-name": "Kenny, Billy",
+      "disambiguation": "British Producer"
+     }
+    }
+   ],
+   "first-release-date": "2019-11-01",
+   "releases": [
+    {
+     "id": "5e784cb0-cf4e-4625-a68a-9cc2f40b230b",
+     "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+     "count": 1,
+     "title": "Take Me to Church",
+     "status": "Official",
+     "release-group": {
+      "id": "757fdd79-ced9-4c0a-b075-206d32a77073",
+      "type-id": "d6038452-8ee0-3f68-affc-2de9a1ede0b9",
+      "primary-type-id": "d6038452-8ee0-3f68-affc-2de9a1ede0b9",
+      "title": "Take Me to Church",
+      "primary-type": "Single"
+     },
+     "date": "2019-11-01",
+     "country": "XW",
+     "release-events": [
+      {
+       "date": "2019-11-01",
+       "area": {
+        "id": "525d4e18-3d00-31b9-a58b-a146a916de8f",
+        "name": "[Worldwide]",
+        "sort-name": "[Worldwide]",
+        "iso-3166-1-codes": [
+         "XW"
+        ]
+       }
+      }
+     ],
+     "track-count": 1,
+     "media": [
+      {
+       "id": "805f8acb-4eb3-4c32-8f8a-b5f50e33ede9",
+       "position": 1,
+       "format": "Digital Media",
+       "track": [
+        {
+         "id": "eaa8eecd-a35f-4a85-a373-2583cbae0537",
+         "number": "1",
+         "title": "Take Me to Church",
+         "length": 249000
+        }
+       ],
+       "track-count": 1,
+       "track-offset": 0
+      }
+     ]
+    }
+   ],
+   "isrcs": [
+    "FR96X1945030"
+   ]
+  }
+ ]
+}

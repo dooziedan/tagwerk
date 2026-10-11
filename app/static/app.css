@@ -1052,6 +1052,7 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .online-pill.is-error b { color: var(--tw-warn); }
 .online-body { margin-top: 1.5rem; padding-top: 1.75rem; border-top: 1px solid var(--tw-line-soft); }
 .online-body > .notice { margin-bottom: 1.25rem; }
+.online-version span { flex: 1 1 16rem; min-width: 0; }
 
 /* One panel per source; a coloured edge says how it went (always with a word beside it). */
 .online-src { margin: 0 0 1.25rem; padding: 1.35rem 1.6rem; border: 1px solid var(--tw-line-soft); border-left: 3px solid var(--tw-ink-4); border-radius: var(--tw-radius-control); background: rgba(3, 3, 8, 0.3); }

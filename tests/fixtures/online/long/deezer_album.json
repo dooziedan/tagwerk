@@ -1,0 +1,102 @@
+{
+ "id": 321938847,
+ "title": "Take Me to Church",
+ "upc": "3616401129201",
+ "link": "https://www.deezer.com/album/321938847",
+ "share": "https://www.deezer.com/album/321938847?utm_source=deezer&utm_content=album-321938847&utm_term=0_1791726181&utm_medium=web",
+ "cover": "https://api.deezer.com/album/321938847/image",
+ "cover_small": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/56x56-000000-80-0-0.jpg",
+ "cover_medium": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/250x250-000000-80-0-0.jpg",
+ "cover_big": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/500x500-000000-80-0-0.jpg",
+ "cover_xl": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/1000x1000-000000-80-0-0.jpg",
+ "md5_image": "eca7f973a0811fe5e226da343f95372b",
+ "genre_id": 113,
+ "genres": {
+  "data": [
+   {
+    "id": 113,
+    "name": "Dance",
+    "picture": "https://api.deezer.com/genre/113/image",
+    "type": "genre"
+   }
+  ]
+ },
+ "label": "Realm Records",
+ "nb_tracks": 1,
+ "duration": 249,
+ "fans": 21,
+ "release_date": "2019-11-01",
+ "record_type": "single",
+ "available": true,
+ "tracklist": "https://api.deezer.com/album/321938847/tracks",
+ "explicit_lyrics": false,
+ "explicit_content_lyrics": 6,
+ "explicit_content_cover": 2,
+ "contributors": [
+  {
+   "id": 4325863,
+   "name": "Billy Kenny",
+   "link": "https://www.deezer.com/artist/4325863",
+   "share": "https://www.deezer.com/artist/4325863?utm_source=deezer&utm_content=artist-4325863&utm_term=0_1791726181&utm_medium=web",
+   "picture": "https://api.deezer.com/artist/4325863/image",
+   "picture_small": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/56x56-000000-80-0-0.jpg",
+   "picture_medium": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/250x250-000000-80-0-0.jpg",
+   "picture_big": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/500x500-000000-80-0-0.jpg",
+   "picture_xl": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/1000x1000-000000-80-0-0.jpg",
+   "radio": true,
+   "tracklist": "https://api.deezer.com/artist/4325863/top?limit=50",
+   "type": "artist",
+   "role": "Main"
+  }
+ ],
+ "artist": {
+  "id": 4325863,
+  "name": "Billy Kenny",
+  "picture": "https://api.deezer.com/artist/4325863/image",
+  "picture_small": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/56x56-000000-80-0-0.jpg",
+  "picture_medium": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/250x250-000000-80-0-0.jpg",
+  "picture_big": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/500x500-000000-80-0-0.jpg",
+  "picture_xl": "https://cdn-images.dzcdn.net/images/artist/eca7f973a0811fe5e226da343f95372b/1000x1000-000000-80-0-0.jpg",
+  "tracklist": "https://api.deezer.com/artist/4325863/top?limit=50",
+  "type": "artist"
+ },
+ "type": "album",
+ "tracks": {
+  "data": [
+   {
+    "id": 1766367067,
+    "readable": true,
+    "title": "Take Me to Church",
+    "title_short": "Take Me to Church",
+    "title_version": "",
+    "link": "https://www.deezer.com/track/1766367067",
+    "duration": 249,
+    "rank": 218323,
+    "explicit_lyrics": false,
+    "explicit_content_lyrics": 6,
+    "explicit_content_cover": 2,
+    "preview": "https://cdnt-preview.dzcdn.net/api/1/1/8/5/0/0/8502aad5f44a7b1667b5de10c95fcebd.mp3?hdnea=exp=1791727081~acl=/api/1/1/8/5/0/0/8502aad5f44a7b1667b5de10c95fcebd.mp3*~data=user_id=0,application_id=42~hmac=6bdfb172f4f3089554b14803e42ec5a4752a63e45ca22618948ac6d5a092f644",
+    "md5_image": "eca7f973a0811fe5e226da343f95372b",
+    "artist": {
+     "id": 4325863,
+     "name": "Billy Kenny",
+     "tracklist": "https://api.deezer.com/artist/4325863/top?limit=50",
+     "type": "artist"
+    },
+    "album": {
+     "id": 321938847,
+     "title": "Take Me to Church",
+     "cover": "https://api.deezer.com/album/321938847/image",
+     "cover_small": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/56x56-000000-80-0-0.jpg",
+     "cover_medium": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/250x250-000000-80-0-0.jpg",
+     "cover_big": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/500x500-000000-80-0-0.jpg",
+     "cover_xl": "https://cdn-images.dzcdn.net/images/cover/eca7f973a0811fe5e226da343f95372b/1000x1000-000000-80-0-0.jpg",
+     "md5_image": "eca7f973a0811fe5e226da343f95372b",
+     "tracklist": "https://api.deezer.com/album/321938847/tracks",
+     "type": "album"
+    },
+    "type": "track"
+   }
+  ]
+ }
+}
