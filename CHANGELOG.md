@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- **New drum & bass tracks get 174 BPM, not 87.** When a new track was analysed and looked up online at the same time, the BPM was decided without the genre found online, because that genre was still only a pending change. Stores often list drum & bass at 87, so Changes could show "Drum & Bass" next to 87 BPM. The pending genre now counts like a genre tag, and a BPM Tagwerk proposed earlier from the audio is corrected (or dropped if it's no longer sure). BPMs you entered yourself are never replaced. Tracks that already show 87 get fixed the next time they're analysed or looked up again.
+
 ## [0.21.1] - 2026-10-11
 
 ### Added
