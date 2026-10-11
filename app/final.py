@@ -29,7 +29,7 @@ from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, Track
 log = logging.getLogger(__name__)
 
 # What a track needs before it can be marked as final: set-ready (title, artist, genre, BPM,
-# key, cover), the same rule as the track list and Statistics use.
+# key, cover; secret tracks need no cover), the same rule as the track list and Statistics use.
 COMPLETE = SET_READY
 _PENDING = exists().where(PendingChange.track_id == Track.id)
 # Complete, not final yet, and no unwritten edits: ready for the Final check page.

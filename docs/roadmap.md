@@ -83,18 +83,23 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   only what needs the owner or could lose data, e.g. inbox-trash files 3 days **before** they
   are removed for good. Later: the release watch and AcoustID report here too, and
   notifications can go to the phone (ntfy, Gotify, Unraid), switchable per topic.
+- **Secret tracks** ✅ (next release, [ADR 0036](decisions/0036-secret-tracks.md)). Edits
+  and bootlegs: never looked up online (online sources only find the original release) and
+  complete without a cover. Marked by the import folder's `Secret` folder, a switch on the track
+  and inbox pages, or ticked in the lists; kept in Tagwerk only, it moves with the track on
+  import.
 - **Share fingerprints with AcoustID** (no issue yet; the plan needs more work). Give back to
   AcoustID, which Tagwerk's lookups use. Decided so far: only **final** tracks with a valid
   MusicBrainz recording ID, shared by hand, one track at a time, from the track page; never
-  automatically and never unreleased tracks. Only the fingerprint, length, MusicBrainz ID,
+  automatically, never unreleased or secret tracks. Only the fingerprint, length, MusicBrainz ID,
   format and bitrate are sent, no text tags (AcoustID's data is public and a submission can't
   be taken back). Needs the owner's own AcoustID user key (`ACOUSTID_USER_KEY`).
 - **Release status and release watch** (no issue yet; needs Notifications and
   [issue #48](https://github.com/dooziedan/tagwerk/issues/48)). A track is **Released** or
-  **Unreleased** (promo, dubplate, forthcoming); a per-track **Don't check online** switch
-  covers bootlegs, private edits and promos under NDA. Tagwerk regularly looks up **library**
-  tracks: unreleased ones weekly, released ones still missing release info (MusicBrainz ID,
-  label, date) about once a month. A track counts as "out now" when two sources agree or
+  **Unreleased** (promo, dubplate, forthcoming); bootlegs, private edits and promos under NDA
+  are **secret** tracks and never checked online (built, see above). Tagwerk regularly looks
+  up **library** tracks: unreleased ones weekly, released ones still missing release info
+  (MusicBrainz ID, label, date) about once a month. A track counts as "out now" when two sources agree or
   AcoustID recognises the sound clearly; one source alone asks "Is this the release?". Found
   values go through review → apply as usual. Final tracks stay locked: Tagwerk only tells the
   owner, who removes the final mark, applies and marks the track final again. Unreleased tracks

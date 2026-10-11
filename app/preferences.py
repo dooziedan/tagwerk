@@ -37,6 +37,12 @@ AUTOMATIONS = {
     "auto": "Import complete tracks automatically",
 }
 
+# Messages that explain a feature until the owner presses "Don't show again" (macros.html →
+# hint). The key is what Preferences.hidden_hints stores.
+HINTS = {
+    "secret": "Secret tracks: the import folder's Secret folder for edits and bootlegs",
+}
+
 KeyNotation = Literal["camelot", "openkey", "musical"]
 Effects = Literal["full", "light"]
 
@@ -90,6 +96,9 @@ class Preferences:
         default_factory=lambda: {name: topic.on for name, topic in TOPICS.items()}
     )
 
+    # Messages the owner chose not to see again (keys of HINTS).
+    hidden_hints: list[str] = field(default_factory=list)
+
 
 def load(session: Session) -> Preferences:
     stored = {row.key: json.loads(row.value) for row in session.exec(select(AppSetting))}
@@ -134,6 +143,8 @@ def _validated(prefs: Preferences) -> Preferences:
     prefs.filename_pattern = prefs.filename_pattern.strip() or default.filename_pattern
     chosen = prefs.notifications if isinstance(prefs.notifications, dict) else {}
     prefs.notifications = {name: bool(chosen.get(name, topic.on)) for name, topic in TOPICS.items()}
+    hidden = prefs.hidden_hints if isinstance(prefs.hidden_hints, list) else []
+    prefs.hidden_hints = [key for key in HINTS if key in hidden]
     return prefs
 
 

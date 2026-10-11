@@ -36,7 +36,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from app import changes, genres, notifications, preferences, writer
+from app import changes, genres, notifications, preferences, secret, writer
 from app.config import Settings
 from app.duplicates import main_artist, normalized
 from app.images import MAX_SIZE, ImageError, ImageStore, image_info
@@ -126,11 +126,14 @@ def lookup(
 
     For a track without cover art, the best matching cover is downloaded once into ``images``
     (kept with the candidate), so the review page can show it as a suggestion.
+
+    Secret tracks (app/secret.py) are never looked up; a track marked secret while its
+    sources are asked keeps none of the answers.
     """
     table = _table(library)
     with Session(engine) as session:
         track = session.get(Track if library else InboxTrack, track_id)
-        if track is None or track.error:
+        if track is None or track.error or secret.is_secret(session, track_id, inbox=not library):
             return 0
         prefs = preferences.load(session)
         if library:
@@ -154,6 +157,8 @@ def lookup(
             except Exception as exc:  # a source's odd answer must not stop the others
                 log.warning("%s lookup failed for %s: %s", source.label, track.path, exc)
                 found, error = [], f"{source.label}: unexpected answer"
+            if secret.is_secret(session, track_id, inbox=not library):
+                return asked  # marked secret meanwhile: this answer isn't kept, nobody else asked
             _report(engine, source, error, refused)
             for candidate in found:
                 candidate.score = score(candidate, query)

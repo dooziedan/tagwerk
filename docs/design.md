@@ -22,6 +22,7 @@ a glass card over the brightest part of the nebula.
 | `--tw-ink` / `--pico-color` | `#f8fafc` / `#e6e9f4` | titles / running text | 16.4 / 15.0 |
 | `--tw-ink-2` | `#9aa6bf` | muted text | 7.0 |
 | `--tw-ok` · `--tw-check` · `--tw-warn` | `#6ee7b7` · `#fdba74` · `#fb7185` | sure · check this · problem (always with a word) | 11.2 · 10.2 · 6.4 |
+| `--tw-secret` | `#c084fc` | the **Secret** pill: edits and bootlegs, a kind of track, not a problem (always with the word) | 6.5 |
 
 Charts use **one hue per chart**, a deeper base fading into a light tip: tempo and growth indigo,
 missing tags rose, formats sky, genres gold, decades violet. Values are always printed. The heat

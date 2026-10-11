@@ -29,6 +29,7 @@ from app import (
     notifications,
     preferences,
     reminders,
+    secret,
     trash,
 )
 from app.changes import WriteProgress, apply_pending, undo_changeset
@@ -371,11 +372,16 @@ class IdentifyJob:
         library: bool = False,
     ) -> None:
         """Look up these tracks (default: every inbox track that needs it). ``library``: they
-        are library tracks; their sure values become pending changes."""
+        are library tracks; their sure values become pending changes. Secret tracks are left
+        out (app/secret.py)."""
         engine = get_engine(settings.database_url)
-        if track_ids is None:
-            with Session(engine) as session:
+        with Session(engine) as session:
+            if track_ids is None:
                 track_ids = list(session.exec(select(InboxTrack.id)))
+            hidden = secret.secret_ids(session, track_ids, inbox=not library)
+        track_ids = [i for i in track_ids if i not in hidden]
+        if not track_ids:
+            return
         with self._lock:
             for track_id in track_ids:
                 key = (library, track_id)

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button %}
+{% from "macros.html" import hint, play_button %}
 {% block title %}Tracks · Tagwerk{% endblock %}
 {% block content %}
 <script>
@@ -11,8 +11,10 @@
     button.disabled = n === 0;
     button.textContent = n ? `Edit ${n} selected` : "Edit selected";
     document.getElementById("convert-selected").disabled = n === 0;
-    document.getElementById("lookup-selected").disabled = n === 0;
+    const lookup = document.getElementById("lookup-selected");
+    if (lookup) lookup.disabled = n === 0;
     document.getElementById("analyse-selected").disabled = n === 0;
+    document.getElementById("secret-selected").disabled = n === 0;
   }
 </script>
 {% set n = prefs.key_notation %}
@@ -55,7 +57,11 @@
 
 {% if result.tracks %}
 {% set looking = request.query_params.get("looking") %}
-{% if looking %}<p class="notice" role="status">🔎 Looking up {{ looking | int | plural('track') }} online in the background (about 3 seconds per track). Values that two sources agree on become <a href="/changes">pending changes</a> for you to review; each track's page shows everything that was found.</p>{% endif %}
+{% set skipped = request.query_params.get("skipped_secret", "") %}
+{% if looking %}<p class="notice" role="status"><span>🔎 Looking up {{ looking | int | plural('track') }} online in the background (about 3 seconds per track). Values that two sources agree on become <a href="/changes">pending changes</a> for you to review; each track's page shows everything that was found.{% if skipped.isdigit() %} {{ skipped | int | plural('secret track') }} {{ "was" if skipped == "1" else "were" }} left out: secret tracks are never looked up.{% endif %}</span></p>{% endif %}
+{% if f.flag == "secret" %}
+{% call hint("secret", prefs.hidden_hints) %}🤫 <strong>Secret tracks</strong> are edits and bootlegs: Tagwerk never looks them up online (online sources would only find the original release), and they are set-ready and can be marked final without a cover. Nothing is written into the files for it. To remove the mark, tick tracks and press <strong>Not secret</strong>.{% endcall %}
+{% endif %}
 {% if f.flag == "invalid_mbid" %}
 <form method="post" action="/tracks/fix-ids?{{ f.params() | urlencode }}" class="notice">
   <input type="hidden" name="all" value="true">
@@ -69,16 +75,24 @@
   <button type="submit" form="selection" class="outline" id="edit-selected" disabled>Edit selected</button>
   <a href="/tracks/edit?{{ (f.params() | urlencode) ~ ('&' if f.params() else '') }}all=true" class="secondary">Edit all {{ result.total | plural('matching track') }}</a>
   <button type="submit" form="selection" formaction="/convert" class="outline secondary" id="convert-selected" disabled>Convert to AIFF…</button>
+  {% if f.flag != "secret" %}{# secret tracks are never looked up #}
   <button type="submit" form="selection" formaction="/tracks/lookup" formmethod="post" class="outline secondary" id="lookup-selected" disabled>Look up online</button>
   <form method="post" action="/tracks/lookup?{{ f.params() | urlencode }}" class="inline-form">
     <input type="hidden" name="all" value="true">
-    <button type="submit" class="secondary link-button" data-confirm="Look up all {{ result.total }} matching tracks online? Values two sources agree on become pending changes for you to review." data-confirm-ok="Look up">Look up all {{ result.total | plural('matching track') }}</button>
+    <button type="submit" class="secondary link-button" data-confirm="Look up all {{ result.total }} matching tracks online? Values two sources agree on become pending changes for you to review. Secret tracks are left out." data-confirm-ok="Look up">Look up all {{ result.total | plural('matching track') }}</button>
   </form>
+  {% endif %}
   <button type="submit" form="selection" formaction="/tracks/analyse" formmethod="post" class="outline secondary" id="analyse-selected" disabled>Analyse BPM &amp; key</button>
   <form method="post" action="/tracks/analyse?{{ f.params() | urlencode }}" class="inline-form">
     <input type="hidden" name="all" value="true">
     <button type="submit" class="secondary link-button" data-confirm="Measure BPM and key of all {{ result.total }} matching tracks from the audio? It takes 5-10 seconds per track in the background; tracks analysed before are skipped. Sure values for empty fields become pending changes for you to review." data-confirm-ok="Analyse">Analyse all {{ result.total | plural('matching track') }}</button>
   </form>
+  {% if f.flag == "secret" %}
+  <button type="submit" form="selection" formaction="/tracks/secret" formmethod="post" name="secret" value="0" class="outline secondary" id="secret-selected" disabled>Not secret</button>
+  {% else %}
+  <button type="submit" form="selection" formaction="/tracks/secret" formmethod="post" name="secret" value="1" class="outline secondary" id="secret-selected" disabled
+          data-confirm="Mark the ticked tracks as secret? Use it for edits and bootlegs: they are never looked up online and are complete without a cover. What online sources found for them is forgotten. Nothing is written into the files." data-confirm-ok="Mark as secret">Mark as secret</button>
+  {% endif %}
 </div>
 {% include "partials/analysis_status.html" %}
 {% endif %}
@@ -106,6 +120,7 @@
         {% if not t.error %}{{ play_button(t, "/tracks/" ~ t.id) }}{% endif %}
         <div>
         <a href="/tracks/{{ t.id }}">{{ t.title or t.path.rsplit("/", 1)[-1] }}</a>
+        {% if t.id in secret %} <span class="status status-secret" title="An edit or bootleg: never looked up online">Secret</span>{% endif %}
         {% if t.error %} <span title="{{ t.error }}">⚠️</span>{% endif %}
         <br><small class="muted">{{ t.artist or "Unknown artist" }}</small>
         </div>

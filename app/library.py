@@ -20,6 +20,7 @@ from app.models import (
     FinalTrack,
     LibraryAnalysis,
     RawTag,
+    SecretTrack,
     Track,
 )
 from app.tags import LOSSLESS_FORMATS
@@ -43,6 +44,11 @@ def is_missing(column) -> ColumnElement[bool]:
     return or_(column.is_(None), column == "")
 
 
+# Secret tracks (app/secret.py): unofficial edits and bootlegs. Never looked up online, and
+# complete without a cover: bootlegs rarely have official artwork.
+IS_SECRET = exists().where(SecretTrack.track_id == Track.id)
+_COVER_MISSING = and_(col(Track.has_cover).is_(False), not_(IS_SECRET))
+
 MISSING: dict[str, ColumnElement[bool]] = {
     "Title": is_missing(Track.title),
     "Artist": is_missing(Track.artist),
@@ -51,7 +57,7 @@ MISSING: dict[str, ColumnElement[bool]] = {
     "Track number": Track.tracknumber.is_(None),
     "Year": Track.year.is_(None),
     "Genre": is_missing(Track.genre),
-    "Cover art": col(Track.has_cover).is_(False),
+    "Cover art": _COVER_MISSING,  # secret tracks don't need one
     "Lyrics": and_(col(Track.has_lyrics).is_(False), col(Track.has_lrc).is_(False)),
     "ReplayGain": Track.replaygain_track_gain.is_(None),
     "BPM": Track.bpm.is_(None),
@@ -71,7 +77,8 @@ _BPM_FIELD = or_(
 
 # Final tracks (app/final.py): marked as done; "changed" when another program wrote to the file.
 IS_FINAL = exists().where(FinalTrack.track_id == Track.id)
-# Set-ready: everything a DJ needs is tagged. Also what the Final check asks for.
+# Set-ready: everything a DJ needs is tagged. Also what the Final check asks for. The cover
+# isn't needed for secret tracks.
 SET_READY = and_(
     _READABLE,
     not_(is_missing(Track.title)),
@@ -79,7 +86,7 @@ SET_READY = and_(
     not_(is_missing(Track.genre)),
     Track.bpm.is_not(None),
     Track.key_camelot.is_not(None),
-    col(Track.has_cover).is_(True),
+    not_(_COVER_MISSING),
 )
 CHANGED_OUTSIDE = exists().where(FinalTrack.track_id == Track.id, FinalTrack.mtime != Track.mtime)
 
@@ -181,6 +188,7 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     "set_ready": ("Set-ready (title, artist, genre, BPM, key, cover)", SET_READY),
     "not_set_ready": ("Not set-ready yet", and_(_READABLE, not_(SET_READY))),
     "final": ("Final", IS_FINAL),
+    "secret": ("Secret (edits and bootlegs, never looked up online)", IS_SECRET),
     "tagwerk_tags": ("Tags written by Tagwerk", by_tagwerk("edit", "import", tags_only=True)),
     "tagwerk_edited": (
         "Tags corrected in the library by Tagwerk",

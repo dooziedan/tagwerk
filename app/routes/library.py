@@ -19,6 +19,8 @@ from app.rawtags import SYSTEMS, used_as
 from app.routes.analysis import audio_context
 from app.routes.final import final_context
 from app.routes.lookup import online_context
+from app.routes.secret import secret_context
+from app.secret import is_secret, secret_ids
 from app.tags import FORMATS
 from app.templating import templates
 
@@ -32,19 +34,26 @@ def tracks_api(
 ) -> dict:
     """Tracks matching the filters, 50 per page."""
     result = find_tracks(session, f, sort, desc, page)
+    hidden = secret_ids(session, [t.id for t in result.tracks])
     return {
         "total": result.total,
         "page": result.page,
         "pages": result.pages,
-        "tracks": [t.model_dump() for t in result.tracks],
+        "tracks": [{**t.model_dump(), "secret": t.id in hidden} for t in result.tracks],
     }
 
 
 @router.get("/api/tracks/{track_id}", tags=["library"])
 def track_api(track_id: int, session: SessionDep) -> dict:
+    """One track with every raw tag field. ``secret``: an edit or bootleg the owner marked
+    (never looked up online, complete without a cover)."""
     track = _get_track(session, track_id)
     raw = session.exec(select(RawTag).where(RawTag.track_id == track_id)).all()
-    return {**track.model_dump(), "raw": [r.model_dump(exclude={"id", "track_id"}) for r in raw]}
+    return {
+        **track.model_dump(),
+        "secret": is_secret(session, track_id),
+        "raw": [r.model_dump(exclude={"id", "track_id"}) for r in raw],
+    }
 
 
 @router.get("/api/artists", tags=["library"])
@@ -82,6 +91,7 @@ def tracks_page(
             "formats": sorted(set(FORMATS.values())),
             "missing_options": list(MISSING),
             "flags": {k: label for k, (label, _) in FLAGS.items()},
+            "secret": secret_ids(session, [t.id for t in result.tracks]),
             "job": analysis_job,
         },
     )
@@ -109,6 +119,7 @@ def track_page(request: Request, track_id: int, session: SessionDep):
             "dup_group": duplicates.group_of(session, track.id),
             "loud": loudness.track_check(session, track),  # measured loudness vs ReplayGain
             **online_context(session, track),
+            **secret_context(session, track),
             **audio_context(session, track),
             "wrong_ids": ids.wrong_ids(track) if track.mbid_invalid else [],
             "job": write_job,

@@ -5,7 +5,17 @@
 
    Folded by default: the closed card still shows one pill per source. Open, every source gets
    its own panel: the best match first with its values beside the file's, then the rest. Each
-   panel folds on its own; it starts open when the source found the track or couldn't be asked. #}
+   panel folds on its own; it starts open when the source found the track or couldn't be asked.
+
+   A secret track (an edit or bootleg, app/secret.py) is never looked up: one line says so. #}
+{% if secret %}
+<article class="online-card" id="online">
+  <div class="online-bar">
+    <strong class="online-title">Online sources</strong>
+    <small class="online-headline">Not asked: the track is secret. Edits and bootlegs would only find the original release.</small>
+  </div>
+</article>
+{% else %}
 {% set matched = online | selectattr("best") | list %}
 {% macro use_form(f, n) %}
 <form method="post" action="{{ base }}/online" hx-disabled-elt="find button">{# no second click while it is sent #}
@@ -124,6 +134,7 @@
   </details>
   {% endif %}
 </article>
+{% endif %}
 <script>
   // The track page's card remembers whether it was left open or closed (this browser only). It
   // opens by itself while looking up, and stays open for the answers. The inbox's always starts

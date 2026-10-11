@@ -767,6 +767,7 @@ a.wheel-seg, a.wheel-seg:hover, a.wheel-seg text { text-decoration: none; }
 .status-warn, .status-dup { color: var(--tw-warn); border-color: rgba(251, 113, 133, 0.38); background: var(--tw-warn-soft); }
 .status-you { color: var(--tw-indigo-200); border-color: var(--tw-line-strong); background: rgba(129, 140, 248, 0.12); }
 .status-final { color: var(--tw-gold); border-color: var(--tw-gold-line); background: var(--tw-gold-soft); }
+.status-secret { color: var(--tw-secret); border-color: var(--tw-secret-line); background: var(--tw-secret-soft); }
 
 /* --- Buttons (Pico buttons, restyled) --------------------------------------------------------- */
 button, [role="button"], input[type="submit"] {
@@ -836,6 +837,11 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
 /* Pico keeps a busy line on one line; in a narrow card it has to wrap. */
 .notice [aria-busy="true"] { white-space: normal; }
 .notice .job-text { flex: 1 1 14rem; min-width: 0; }
+/* A message with "Don't show again" (macros.html → hint): the text takes the room, the button
+   sits at the end (below the text on phones). */
+.hint { margin-bottom: var(--pico-spacing); }
+.hint .hint-text { flex: 1 1 18rem; min-width: 0; }
+.hint form { flex: none; margin: 0; }
 /* Notifications ("Wrote 3 files", "Saved."): a stack at the top right (phones: across the top).
    They slide in; "ok" fades out after 6 s (paused while the pointer is on it), "warn" stays until
    closed. They belong to the page: a page change removes them. CSS only. */
@@ -996,6 +1002,12 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .track-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 1.1rem; }
 .track-actions > * { margin: 0; width: auto; }
 .track-actions .pending { font-size: 0.85rem; color: var(--tw-check); text-decoration: none; }
+/* The Secret switch (track page, inbox review page): an edit or bootleg, never looked up online. */
+.secret-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; margin: 0.9rem 0 0; }
+.secret-switch label { display: inline-flex; align-items: center; gap: 0.55rem; margin: 0; font-weight: 600; color: var(--tw-ink); cursor: pointer; }
+.secret-switch input[role="switch"] { margin: 0; }
+.secret-switch small { color: var(--tw-ink-2); }
+.track-title .status-secret, .inbox-title + .status-secret { margin-left: 0.4rem; vertical-align: 0.1em; }
 .info-dot { position: absolute; top: 1.2rem; right: 1.2rem; display: inline-flex; align-items: center; justify-content: center; width: 2.3rem; height: 2.3rem; border-radius: 50%; border: 1px solid var(--tw-line); color: var(--tw-ink-2); background: rgba(7, 7, 26, 0.5); }
 .deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 1.3rem; border-radius: 16px; overflow: hidden; border: 1px solid var(--tw-line);
   background: linear-gradient(180deg, rgba(7, 7, 26, 0.75), rgba(15, 15, 35, 0.55)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 0 40px rgba(67, 56, 202, 0.12); }

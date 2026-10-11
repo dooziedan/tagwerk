@@ -12,7 +12,7 @@ from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlmodel import select
 
-from app import changes, genres, identify, writer
+from app import changes, genres, identify, secret, writer
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
@@ -32,10 +32,12 @@ class LookupRequest(BaseModel):
 
 
 @router.post("/api/tracks/lookup", status_code=202, tags=["library"])
-def lookup_api(body: LookupRequest, settings: SettingsDep) -> dict:
-    """Look up library tracks online (background). Sure values become pending changes."""
-    identify_job.start(settings, body.track_ids, force=True, library=True)
-    return {"status": "running", "tracks": len(body.track_ids)}
+def lookup_api(body: LookupRequest, session: SessionDep, settings: SettingsDep) -> dict:
+    """Look up library tracks online (background). Sure values become pending changes.
+    Secret tracks are skipped."""
+    ids, skipped = _not_secret(session, body.track_ids)
+    identify_job.start(settings, ids, force=True, library=True)
+    return {"status": "running", "tracks": len(ids), "skipped_secret": skipped}
 
 
 @router.get("/api/tracks/{track_id}/online", tags=["library"])
@@ -57,19 +59,29 @@ async def lookup_many(request: Request, session: SessionDep, settings: SettingsD
         ids = list(session.exec(select(Track.id).where(*f.conditions(genres.active(session)))))
     else:
         ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    ids, skipped = _not_secret(session, ids)
     if ids:
         identify_job.start(settings, ids, force=True, library=True)
     back = back_url(request, form.get("back"), request.headers.get("referer"), fallback="/tracks")
     sep = "&" if "?" in back else "?"
-    return RedirectResponse(f"{back}{sep}looking={len(ids)}", status_code=303)
+    note = f"looking={len(ids)}" + (f"&skipped_secret={skipped}" if skipped else "")
+    return RedirectResponse(f"{back}{sep}{note}", status_code=303)
 
 
 @router.post("/tracks/{track_id}/lookup", include_in_schema=False)
 def lookup_one(track_id: int, session: SessionDep, settings: SettingsDep):
     if session.get(Track, track_id) is None:
         raise HTTPException(404)
+    if secret.is_secret(session, track_id):  # never looked up; its page says so
+        return RedirectResponse(f"/tracks/{track_id}", status_code=303)
     identify_job.start(settings, [track_id], force=True, library=True)
     return RedirectResponse(f"/tracks/{track_id}?looking=1#online", status_code=303)
+
+
+def _not_secret(session, track_ids: list[int]) -> tuple[list[int], int]:
+    """The tracks that may be looked up, and how many secret ones were left out."""
+    hidden = secret.secret_ids(session, track_ids)
+    return [i for i in track_ids if i not in hidden], len(hidden)
 
 
 @router.get("/tracks/{track_id}/lookup-status", include_in_schema=False)

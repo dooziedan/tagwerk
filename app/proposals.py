@@ -287,8 +287,9 @@ def propose(track, genres: GenreMap = DEFAULT) -> list[Proposal]:
     return sorted(found.values(), key=lambda p: order.index(p.field))
 
 
-def still_missing(track, proposals: list[Proposal]) -> list[str]:
-    """What the track lacks even after the proposals (shown as "still missing")."""
+def still_missing(track, proposals: list[Proposal], is_secret: bool = False) -> list[str]:
+    """What the track lacks even after the proposals (shown as "still missing"). A secret
+    track (an edit or bootleg, app/secret.py) doesn't need a cover."""
     if track.error:
         return ["Unreadable"]
     proposed = {p.field for p in proposals}
@@ -298,6 +299,6 @@ def still_missing(track, proposals: list[Proposal]) -> list[str]:
         "Genre": track.genre or "genre" in proposed,
         "BPM": track.bpm or "bpm" in proposed,
         "Key": track.key_camelot or "key" in proposed,
-        "Cover": track.has_cover,
+        "Cover": track.has_cover or is_secret,
     }
     return [name for name, ok in checks.items() if not ok]

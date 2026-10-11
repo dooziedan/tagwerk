@@ -15,6 +15,7 @@ from app.forms import read_form
 from app.jobs import busy, write_job
 from app.library import CHANGED_OUTSIDE, IS_FINAL, count
 from app.models import FinalTrack, Track
+from app.secret import is_secret
 from app.templating import templates
 
 router = APIRouter()
@@ -95,6 +96,7 @@ def final_page(
                 (writer.EDITABLE[f], writer.current_value(track, f) if track else None)
                 for f in CHECK_FIELDS
             ],
+            "secret": bool(track) and is_secret(session, track.id),  # no cover needed
             "ready": count(session, final.READY),
             "finals": count(session, IS_FINAL),
             "changed": count(session, CHANGED_OUTSIDE),

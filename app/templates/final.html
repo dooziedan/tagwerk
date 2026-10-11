@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import toast %}
+{% from "macros.html" import toast, track_cover %}
 {% block title %}Final check · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -7,7 +7,7 @@
   <h1>Final check</h1>
   <a href="/tracks?flag=final" class="secondary">{{ finals | plural('final track') }} →</a>
 </div>
-<p class="muted">Complete tracks (title, artist, genre, BPM, key and cover), one at a time. A final track is locked against edits until you remove the mark. The mark is kept in Tagwerk only: nothing is written into the file for it.</p>
+<p class="muted">Complete tracks (title, artist, genre, BPM, key and cover; secret tracks need no cover), one at a time. A final track is locked against edits until you remove the mark. The mark is kept in Tagwerk only: nothing is written into the file for it.</p>
 <p><strong>{{ ready | number }}</strong> to check · <a href="/tracks?flag=final">{{ finals | number }} final</a>{% if changed %} · <a href="/tracks?flag=final_changed" class="status status-warn">{{ changed | plural('final track') }} changed outside Tagwerk</a>{% endif %}</p>
 
 {% if error == "busy" %}<div class="toasts">{% call toast("warn") %}A scan or another write is running. Try again when it's finished.{% endcall %}</div>{% endif %}
@@ -18,14 +18,14 @@
 {% if not t %}
 <article class="empty-state">
   <p><strong>Nothing to check right now.</strong></p>
-  <p class="muted">Tracks show up here once they have title, artist, genre, BPM, key and cover art, and no unwritten changes. <a href="/tracks?missing=BPM">Tracks without BPM</a> · <a href="/tracks?missing=Cover+art">without cover</a></p>
+  <p class="muted">Tracks show up here once they have title, artist, genre, BPM, key and cover art (secret tracks need no cover), and no unwritten changes. <a href="/tracks?missing=BPM">Tracks without BPM</a> · <a href="/tracks?missing=Cover+art">without cover</a></p>
 </article>
 {% else %}
 <article class="final-card">
   <div class="track-head">
-    <img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">
+    {{ track_cover(t) }}
     <div>
-      <h2>{{ t.title }}</h2>
+      <h2>{{ t.title }}{% if secret %} <span class="status status-secret" title="An edit or bootleg: never looked up online, final without a cover">Secret</span>{% endif %}</h2>
       <p class="track-sub">{{ t.artist }}</p>
       <p class="muted"><small>{{ t.format | upper }}{% if t.bitrate %} · {{ (t.bitrate / 1000) | round | int }} kbps{% endif %}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <a href="/tracks/{{ t.id }}?{{ {'back': '/final?id=' ~ t.id} | urlencode }}">Track page</a></small></p>
     </div>

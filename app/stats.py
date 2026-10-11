@@ -85,7 +85,8 @@ class LibraryStats:
     lengths: list[Bar] = field(default_factory=list)
     labels: list[Bar] = field(default_factory=list)  # top labels
     top_artists: list[Bar] = field(default_factory=list)
-    set_ready: int = 0  # title, artist, genre, BPM, key and cover tagged
+    set_ready: int = 0  # title, artist, genre, BPM, key and cover tagged (no cover: secret)
+    secret: int = 0  # edits and bootlegs: never looked up online, no cover needed
     set_ready_genres: list[Bar] = field(default_factory=list)  # set-ready share per genre
     genre_spellings: int = 0  # genres written in several ways (the Genre spellings page)
     bpm: list[Bar] = field(default_factory=list)
@@ -135,6 +136,7 @@ def library_stats(session: Session, prefs: Preferences) -> LibraryStats:
     )
     stats.duplicates = _flag(session, "duplicate")
     stats.duplicate_groups = group_count(session)
+    stats.secret = _flag(session, "secret")
     stats.growth, stats.growth_years = _growth(session)
     stats.lengths = _lengths(session)
     stats.labels = _top(session, Track.label, "label")

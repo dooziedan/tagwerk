@@ -47,6 +47,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 **New music**
 - **Import inbox:** new music waits in its own folder. Tagwerk suggests tags from the filename, online sources and the audio, and tidies existing ones (spacing, "feat.", genre spelling, `(club remix)` → `(Club Remix)`). You check each track, then import: tags are written and the file moves into the library by genre, **with its filename unchanged**. Undo moves it back. Duplicates are marked; unwanted files go to a trash you can restore from.
 - **Automatic mode** (optional): complete tracks Tagwerk is sure about are imported without asking.
+- **Secret tracks** for your edits and bootlegs: put them into the import folder's `Secret` folder (or switch them to Secret on their page), and Tagwerk never looks them up online, where it would only find the original release. They're complete without a cover.
 - **Navidrome rescan** after every change, so new tags and tracks show up there right away (optional).
 
 **While you were away**
@@ -87,7 +88,7 @@ Next (see the [roadmap](docs/roadmap.md)): checks on a real library and an onboa
 1. **The setup wizard** asks how keys should be shown, where imported tracks go (genre folders by default, filenames never change) and how independently Tagwerk may import. Everything can be changed later in **Settings**.
 2. **Scan your library** on Home. Scanning only reads your files. Home then shows what needs you, and **Statistics** shows your library in numbers; every number opens its tracks.
 3. **Fix tags**: open a track and choose **Edit tags**, or tick tracks in the list and edit them together. Nothing is written yet: changes wait on the **Changes** page, shown as *old → new*. Tick what you want and **Apply**; **History** undoes any apply.
-4. **New music** goes into the import folder. The **Inbox** shows what Tagwerk found (from the filename, online sources and the audio); check a track, then **Import** it into the library.
+4. **New music** goes into the import folder; edits and bootlegs into its `Secret` folder, so they're never looked up online. The **Inbox** shows what Tagwerk found (from the filename, online sources and the audio); check a track, then **Import** it into the library.
 5. **Duplicates** lists tracks you have more than once. Keep the suggested copy, take over what the others have, then move the others to the trash (restorable until you empty it).
 6. **Final check**: mark finished tracks as final; they're locked against changes (and renamed, if you switch that on).
 

@@ -12,8 +12,8 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, func, select
 
-from app import analysis, genres, identify, writer
-from app.models import InboxTrack, InboxValue
+from app import analysis, genres, identify, secret, writer
+from app.models import InboxTrack, InboxValue, SecretInboxTrack
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
 from app.tags import FORMATS, read_file
@@ -22,7 +22,11 @@ log = logging.getLogger(__name__)
 
 
 def scan_inbox(engine: Engine, import_dir: Path, progress: ScanProgress) -> None:
-    """Read new and changed files in the inbox; forget files that are gone. Read-only."""
+    """Read new and changed files in the inbox; forget files that are gone. Read-only.
+
+    New files in the Secret folder are marked secret right away, before the online lookup
+    that follows every inbox check (app/secret.py).
+    """
     files, _ = find_files(import_dir)
     progress.total = len(files)
     with Session(engine) as session:
@@ -41,11 +45,14 @@ def scan_inbox(engine: Engine, import_dir: Path, progress: ScanProgress) -> None
             if row and row.mtime == stat.st_mtime and row.size == stat.st_size:
                 progress.unchanged += 1
             else:
-                _store(session, path, rel, stat, row)
+                stored = _store(session, path, rel, stat, row)
                 if row:
                     progress.updated += 1
                 else:
                     progress.added += 1
+                    if secret.in_secret_folder(rel):
+                        session.flush()  # gives the new row its id
+                        session.add(SecretInboxTrack(track_id=stored.id))
             progress.processed += 1
         for rel, row in known.items():
             if rel not in seen:
@@ -61,7 +68,16 @@ def scan_inbox(engine: Engine, import_dir: Path, progress: ScanProgress) -> None
     )
 
 
-def _store(session: Session, path: Path, rel: str, stat, row: InboxTrack | None) -> None:
+def add_file(session: Session, import_dir: Path, rel: str) -> InboxTrack:
+    """Read one file into the inbox list now, without waiting for the next inbox check."""
+    path = import_dir / rel
+    known = session.exec(select(InboxTrack).where(InboxTrack.path == rel)).first()
+    row = _store(session, path, rel, path.stat(), known)
+    session.flush()
+    return row
+
+
+def _store(session: Session, path: Path, rel: str, stat, row: InboxTrack | None) -> InboxTrack:
     try:
         info = read_file(path)
         values = {k: v for k, v in info.as_columns().items() if k in InboxTrack.model_fields}
@@ -77,10 +93,12 @@ def _store(session: Session, path: Path, rel: str, stat, row: InboxTrack | None)
         row.size, row.mtime = stat.st_size, stat.st_mtime
         row.scanned_at = datetime.now(UTC)
     session.add(row)
+    return row
 
 
-def missing(track: InboxTrack) -> list[str]:
-    """What a track still lacks before it is ready for the library (in display order)."""
+def missing(track: InboxTrack, is_secret: bool = False) -> list[str]:
+    """What a track still lacks before it is ready for the library (in display order). A
+    secret track doesn't need a cover."""
     if track.error:
         return ["Unreadable"]
     checks = {
@@ -89,7 +107,7 @@ def missing(track: InboxTrack) -> list[str]:
         "Genre": track.genre,
         "BPM": track.bpm,
         "Key": track.key_camelot,
-        "Cover": track.has_cover,
+        "Cover": track.has_cover or is_secret,
     }
     return [name for name, value in checks.items() if not value]
 

@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 
 from fastapi.templating import Jinja2Templates
 
-from app import __version__, writer
+from app import __version__, secret, writer
 from app.charts import camelot_colour, key_wheel
 from app.keys import NOTATIONS, display, to_camelot
 from app.notifications import KINDS
@@ -208,6 +208,7 @@ templates.env.globals.update(
     id_links=id_links,
     id_link_groups=id_link_groups,
     source_label=source_label,
+    secret_folder=secret.FOLDER,  # in the import folder: edits and bootlegs arrive as secret
 )
 templates.env.filters.update(
     # 3 | percent_of(1500) -> 1; 99.8 | whole_percent -> 99 (never 100 while one is missing)
