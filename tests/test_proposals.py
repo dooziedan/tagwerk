@@ -44,6 +44,23 @@ def test_genre_map():
     assert custom.tidy(["nu skool breaks"]) == ["Breaks", "Nu Skool Breaks"]
 
 
+@pytest.mark.parametrize(
+    ("found", "expected"),
+    [
+        ("Drum n Bass", "Drum & Bass"),  # Discogs' spelling
+        ("Liquid", "Drum & Bass; Liquid"),
+        ("Jungle/Drum'n'bass", "Drum & Bass"),  # iTunes: both parts are Drum & Bass
+        ("jungle / drum and bass", "Drum & Bass"),
+        ("UK Garage / Bassline", "UK Garage"),  # a whole name in the map wins
+        ("House/Techno", "House/Techno"),  # two main genres: can't tell which
+        ("Electronic/Drum & Bass", "Electronic/Drum & Bass"),  # "Electronic" isn't in the map
+        ("Dance", "Dance"),
+    ],
+)
+def test_genres_found_online_are_matched_against_the_map(found, expected):
+    assert DEFAULT.match(found) == expected
+
+
 def inbox(path, **tags) -> InboxTrack:
     return InboxTrack(path=path, format="mp3", size=1, mtime=0, **tags)
 

@@ -4,6 +4,7 @@ DJs file tracks by a main genre (the first value of the genre tag, which also pi
 and keep the subgenre after it: ``Drum & Bass; Liquid``. The map lets Tagwerk
 - unify spellings: ``DnB`` -> ``Drum & Bass``
 - add the main genre to a track tagged only with a subgenre: ``Liquid`` -> ``Drum & Bass; Liquid``
+- match store categories from online lookups: ``Jungle/Drum'n'bass`` -> ``Drum & Bass``
 
 The map is plain text, one rule per line; a genre may have several lines (editable in
 Settings later):
@@ -103,6 +104,33 @@ class GenreMap:
             if main:
                 tidy = [main] + [g for g in tidy if g != main]  # the main genre goes first
         return tidy
+
+    def main_genre(self, genre: str) -> str | None:
+        """The main genre the map files a genre under: "DnB", "Liquid" -> "Drum & Bass".
+        None when the map doesn't know the genre."""
+        name = self.canonical(genre)
+        if name.lower() in self.main:
+            return self.main[name.lower()]
+        known = {g.lower(): g for g in (*self.spelling.values(), *self.main.values())}
+        return known.get(name.lower())
+
+    def match(self, genre: str) -> str:
+        """A genre from an online source, ready for the tag: "DnB" -> "Drum & Bass",
+        "Liquid" -> "Drum & Bass; Liquid".
+
+        Stores send their own categories, sometimes several genres in one: iTunes'
+        "Jungle/Drum'n'bass". When the map doesn't know the whole name but knows every part,
+        and all parts belong to the same main genre, the match is that main genre
+        ("Drum & Bass"): the category means "one of these", not that the track is Jungle.
+        Anything else is tidied like any genre.
+        """
+        whole = genre.strip().lower()
+        parts = [part for part in genre.split("/") if part.strip()]
+        if len(parts) > 1 and whole not in self.spelling and whole not in self.main:
+            mains = {self.main_genre(part) for part in parts}
+            if len(mains) == 1 and None not in mains:
+                return mains.pop()
+        return "; ".join(self.tidy([genre]))
 
 
 DEFAULT = GenreMap.parse(DEFAULT_MAP)

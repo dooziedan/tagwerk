@@ -329,9 +329,15 @@ class Found:
 
 
 def results(session: Session, track_id: int, library: bool = False) -> list[Found]:
-    """What each source found for a track (in SOURCES order)."""
+    """What each source found for a track (in SOURCES order).
+
+    Genres come matched against the owner's genre map (iTunes' "Jungle/Drum'n'bass" ->
+    "Drum & Bass"), so the page, "Use these values" and pending changes all get the tidy
+    genre. The stored answer keeps the source's spelling: a changed map applies right away.
+    """
     table = _table(library)
     rows = {r.source: r for r in session.exec(select(table).where(table.track_id == track_id))}
+    genre_map = genres.active(session)
     found = []
     for cls in SOURCES:
         row = rows.get(cls.name)
@@ -341,6 +347,8 @@ def results(session: Session, track_id: int, library: bool = False) -> list[Foun
             asked = Query(artist, title, duration or None)
             for candidate in candidates:
                 candidate.why = explain(candidate, asked)
+                if candidate.values.get("genre"):
+                    candidate.values["genre"] = genre_map.match(candidate.values["genre"])
             found.append(
                 Found(cls.name, cls.label, candidates, row.error, row.looked_up_at, cls.about)
             )
@@ -460,7 +468,7 @@ def _value(name: str, value: str | None, genre_map) -> str | None:
     if not value:
         return None
     if name == "genre":
-        value = "; ".join(genre_map.tidy([value]))
+        value = genre_map.match(value)
     try:
         return writer.normalize(name, value)
     except ValueError:

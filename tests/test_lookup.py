@@ -3,9 +3,10 @@
 import pytest
 from sqlmodel import Session, select
 
-from app import identify
+from app import changes, identify
 from app.models import FinalTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
+from app.sources.base import Source
 from tests.test_identify import web  # noqa: F401  (saved answers instead of the internet)
 
 FIELDS_BEFORE = {"title": "Losing It", "artist": "Fisher", "duration": 248.0}
@@ -40,8 +41,6 @@ def test_sure_values_become_pending_changes(web, engine, settings, track):  # no
 
 
 def test_the_owners_pending_edits_are_kept(web, engine, settings, track):  # noqa: F811
-    from app import changes
-
     with Session(engine) as session:
         changes.stage(session, [track], {"album": "My Album"})
     identify.lookup(engine, settings, track, library=True)
@@ -67,6 +66,37 @@ def test_track_page_shows_results_and_stages_one(web, client, engine, settings, 
     client.post(f"/tracks/{track}/online", data={"source": "discogs", "n": "0"})
     staged = pending(engine, track)
     assert staged["catalognumber"] == "CATCH109" and staged["label"] == "Catch & Release"
+
+
+@pytest.fixture
+def drum_and_bass(web, monkeypatch):  # noqa: F811
+    """iTunes files the track under its store category "Jungle/Drum'n'bass", Discogs under
+    the style "Drum n Bass": two spellings of the genre map's "Drum & Bass"."""
+    saved = Source.get_json
+
+    def get_json(self, url, params=None, headers=None):
+        data = saved(self, url, params, headers)
+        if "itunes.apple.com" in url:
+            for result in data["results"]:
+                result["primaryGenreName"] = "Jungle/Drum'n'bass"
+        if "discogs.com" in url:
+            for result in data["results"]:
+                result["style"] = ["Drum n Bass"]
+        return data
+
+    monkeypatch.setattr(Source, "get_json", get_json)
+
+
+def test_genres_are_matched_against_the_genre_map(drum_and_bass, client, engine, settings, track):
+    identify.lookup(engine, settings, track, library=True)
+    assert pending(engine, track)["genre"] == "Drum & Bass"  # iTunes and Discogs agree
+    page = client.get(f"/tracks/{track}").text
+    assert "Jungle/Drum" not in page  # the card shows the matched genre too
+    with Session(engine) as session:  # without it, "Use these values" stages the matched genre
+        where = (PendingChange.track_id == track, PendingChange.field == "genre")
+        changes.discard(session, [session.exec(select(PendingChange).where(*where)).one().id])
+    client.post(f"/tracks/{track}/online", data={"source": "itunes", "n": "0"})
+    assert pending(engine, track)["genre"] == "Drum & Bass"
 
 
 def test_each_value_is_compared_with_the_file(web, engine, settings, track):  # noqa: F811
