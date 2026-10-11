@@ -24,9 +24,9 @@
         {{ row("Recording", t.mb_trackid) }}{{ row("Release", t.mb_albumid) }}
         {{ row("Artist", t.mb_artistid) }}{{ row("Album artist", t.mb_albumartistid) }}
       </table>
-      {% if t.discogs_releaseid or t.discogs_artistid %}
+      {% if t.discogs_releaseid or t.discogs_artistid or t.discogs_trackid %}
       <strong>Discogs IDs</strong>
-      <table class="kv">{{ row("Release", t.discogs_releaseid) }}{{ row("Artist", t.discogs_artistid) }}</table>
+      <table class="kv">{{ row("Release", t.discogs_releaseid) }}{{ row("Track", t.discogs_trackid) }}{{ row("Artist", t.discogs_artistid) }}</table>
       {% endif %}
     </div>
   </details>

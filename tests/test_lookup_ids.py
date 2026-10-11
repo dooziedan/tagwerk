@@ -102,7 +102,9 @@ def test_sources_hand_over_the_ids_they_get(web, settings):  # noqa: F811
     assert (heard.values["mb_trackid"], heard.values["mb_artistid"]) == (RECORDING, FISHER)
     discogs = Discogs(key)
     assert discogs.lookup(query)[0].values["discogs_releaseid"] == "12345"
-    assert discogs.release_artists("12345") == "4089851"
+    release = discogs.release("12345")
+    assert release.artist_ids == "4089851"
+    assert release.tracks == [("1", "Losing It", 248.0), ("2", "Losing It (Radio Edit)", 163.0)]
     assert MusicBrainz(key).discogs_release(RELEASE) == "12345"
 
 
@@ -127,8 +129,10 @@ def test_the_album_ids_come_with_the_tracks_own_release(answers, engine, setting
     identify.lookup(engine, settings, track, library=True)
     staged = ids_of(pending(engine, track))
     assert staged["mb_albumid"] == RELEASE and staged["mb_albumartistid"] == FISHER
-    # The MusicBrainz release links to Discogs release 12345: the Discogs IDs are sure too.
+    # The MusicBrainz release links to Discogs release 12345: the Discogs IDs are sure too,
+    # and the track is number 1 on it (the 4:08 one, not the radio edit).
     assert staged["discogs_releaseid"] == "12345" and staged["discogs_artistid"] == "4089851"
+    assert staged["discogs_trackid"] == "12345-1"
 
 
 def test_a_pending_album_counts_as_the_tracks_album(answers, engine, settings, track):
@@ -230,11 +234,12 @@ def test_a_failed_id_request_only_leaves_that_id_out(web, engine, settings, trac
     def busy(self, release_id):
         raise SourceError("Discogs is busy (rate limit); tried again later")
 
-    monkeypatch.setattr(Discogs, "release_artists", busy)
+    monkeypatch.setattr(Discogs, "release", busy)
     set_tags(engine, track, label="Catch & Release")
     identify.lookup(engine, settings, track, library=True)
     staged = pending(engine, track)
-    assert staged["discogs_releaseid"] == "12345" and "discogs_artistid" not in staged
+    assert staged["discogs_releaseid"] == "12345"
+    assert "discogs_artistid" not in staged and "discogs_trackid" not in staged
     assert staged["mb_trackid"] == RECORDING
 
 
@@ -330,3 +335,29 @@ def test_inbox_use_these_values_takes_the_ids(web, client, engine, settings, inb
     assert item.changes["discogs_releaseid"] == "12345"
     assert item.sources["discogs_releaseid"] == "you"  # the owner took this result over
     assert item.changes["discogs_artistid"] == "4089851"
+
+
+# --- Discogs track IDs (ADR 0033) -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("tracks", "duration", "expected"),
+    [
+        ([("1", "Losing It", 248.0), ("2", "Losing It (Radio Edit)", 163.0)], 248.0, "1"),
+        ([("A1", "Losing It (Original Mix)", 247.0)], 248.0, "A1"),  # another version, same length
+        ([("1", "Losing It (Original Mix)", None)], 248.0, None),  # no length: exact title only
+        ([("1", "Losing It", None)], 248.0, "1"),
+        ([("1", "Losing It", 401.0)], 248.0, None),  # a different edit
+        ([("1", "Losing It", 248.0), ("7", "Losing It", 249.0)], 248.0, None),  # which one?
+        ([("1", "Something Else", 248.0)], 248.0, None),
+    ],
+)  # fmt: skip
+def test_the_track_is_found_in_the_discogs_tracklist(tracks, duration, expected):
+    assert identify._discogs_track(tracks, Query("Fisher", "Losing It", duration)) == expected
+
+
+def test_discogs_track_id_comes_with_the_sure_release(web, engine, settings, track):  # noqa: F811
+    set_tags(engine, track, label="Catch & Release")
+    identify.lookup(engine, settings, track, library=True)
+    staged = pending(engine, track)
+    assert staged["discogs_releaseid"] == "12345" and staged["discogs_trackid"] == "12345-1"

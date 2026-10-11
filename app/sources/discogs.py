@@ -3,10 +3,21 @@ catalog numbers. Needs the owner's free personal token (DISCOGS_TOKEN); 60 reque
 
 The search finds *releases* that contain the track, so a candidate has the release's label,
 catalog number, year, styles and cover, but not the track's own title or length. Its Discogs
-release ID too; the artist ID needs the release itself (``release_artists``, one request).
+release ID too; the artist IDs and the tracklist need the release itself (``release``, one
+request): app/identify.py finds the track there for its Discogs track ID ("release-position").
 """
 
+from dataclasses import dataclass, field
+
 from app.sources.base import Candidate, Query, Source, year_or_date
+
+
+@dataclass
+class Release:
+    """What Discogs says about one release beyond the search answer."""
+
+    artist_ids: str | None = None  # "1; 2"
+    tracks: list[tuple[str, str, float | None]] = field(default_factory=list)  # position, title, s
 
 
 class Discogs(Source):
@@ -34,14 +45,19 @@ class Discogs(Source):
         )
         return [_candidate(r) for r in data.get("results", []) if r.get("title")]
 
-    def release_artists(self, release_id: str) -> str | None:
-        """The Discogs artist IDs of a release ("1; 2"), or None."""
+    def release(self, release_id: str) -> Release:
+        """A release's artist IDs and its tracks (headings and index entries left out)."""
         data = self.get_json(
             f"https://api.discogs.com/releases/{release_id}",
             headers={"Authorization": f"Discogs token={self.settings.discogs_token}"},
         )
         found = [str(a["id"]) for a in data.get("artists") or [] if a.get("id")]
-        return "; ".join(found) or None
+        tracks = [
+            (str(t.get("position") or "").strip(), t["title"], _seconds(t.get("duration")))
+            for t in data.get("tracklist") or []
+            if t.get("type_", "track") == "track" and t.get("title")
+        ]
+        return Release("; ".join(found) or None, tracks)
 
 
 def _candidate(result: dict) -> Candidate:
@@ -70,3 +86,17 @@ def _candidate(result: dict) -> Candidate:
         url=f"https://www.discogs.com{result['uri']}" if result.get("uri") else "",
         cover_url="" if cover.endswith("spacer.gif") else cover,
     )
+
+
+def _seconds(text: str | None) -> float | None:
+    """ "6:43" -> 403.0, "1:09:54" -> 4194.0; empty or odd -> None."""
+    try:
+        parts = [int(p) for p in (text or "").split(":")]
+    except ValueError:
+        return None
+    if not parts or len(parts) > 3:
+        return None
+    seconds = 0
+    for part in parts:
+        seconds = seconds * 60 + part
+    return float(seconds) or None

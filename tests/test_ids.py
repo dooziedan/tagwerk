@@ -22,6 +22,7 @@ CHANGES = {
     "mb_artistid": f"{OTHER}; {MBID}",
     "discogs_releaseid": "25124086",
     "discogs_artistid": "1; 2",
+    "discogs_trackid": "33199809-3",
 }
 
 
@@ -37,6 +38,7 @@ def test_id_fields_round_trip_and_undo_exactly(tmp_path, fmt):
     assert (info.mb_trackid, info.mb_albumid) == (MBID, None)
     assert info.mb_artistid == f"{OTHER}; {MBID}"
     assert (info.discogs_releaseid, info.discogs_artistid) == ("25124086", "1; 2")
+    assert info.discogs_trackid == "33199809-3"
     assert not info.mbid_invalid
     writer.undo(path, snapshot)
     assert raw(path) == before
@@ -49,6 +51,8 @@ def test_id_fields_round_trip_and_undo_exactly(tmp_path, fmt):
         ("mb_artistid", f"{OTHER};{MBID}; {OTHER}", f"{OTHER}; {MBID}"),
         ("discogs_releaseid", "25124086", "25124086"),
         ("discogs_artistid", "", None),
+        ("discogs_trackid", "33199809-3", "33199809-3"),
+        ("discogs_trackid", "4512-A1", "4512-A1"),  # a vinyl position stays as written
     ],
 )
 def test_normalize_ids(field, value, expected):
@@ -57,7 +61,13 @@ def test_normalize_ids(field, value, expected):
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("mb_albumid", "25124086"), ("mb_trackid", f"{MBID}; {OTHER}"), ("discogs_releaseid", "r12")],
+    [
+        ("mb_albumid", "25124086"),
+        ("mb_trackid", f"{MBID}; {OTHER}"),
+        ("discogs_releaseid", "r12"),
+        ("discogs_trackid", "33199809"),  # a release, not a track
+        ("discogs_trackid", "33199809-3; 33199809-4"),
+    ],
 )
 def test_normalize_rejects_wrong_ids(field, value):
     with pytest.raises(ValueError):
@@ -96,21 +106,48 @@ def test_discogs_numbers_move_to_their_own_fields():
     }
 
 
-def test_discogs_release_and_position_keeps_the_release_number():
-    # Seen in the owner's library: track 10 of Discogs release 33199809.
+def test_a_discogs_track_keeps_its_position():
+    # Seen in the owner's library: track 10 of Discogs release 33199809 (Deadmau5 – Raise
+    # Your Weapon, on "4x4=12").
     t = track(mb_trackid="33199809-10", mb_albumid="33199809", mb_artistid="5-2")
     wrong = ids.wrong_ids(t)
     assert [(w.field, w.moves_to, w.number) for w in wrong] == [
-        ("mb_trackid", "discogs_releaseid", "33199809"),
+        ("mb_trackid", "discogs_trackid", "33199809-10"),
         ("mb_albumid", "discogs_releaseid", "33199809"),
         ("mb_artistid", None, None),  # not a form Discogs uses for artists: removed
     ]
+    assert wrong[0].explanation == (
+        "Discogs track 10 of release 33199809: moves to Discogs track ID, "
+        "the release number to Discogs release ID"
+    )
     assert ids.fixes(t) == {
         "mb_trackid": None,
         "mb_albumid": None,
         "mb_artistid": None,
+        "discogs_trackid": "33199809-10",
         "discogs_releaseid": "33199809",
     }
+
+
+def test_a_discogs_track_alone_also_gives_the_release():
+    t = track(mb_trackid="33199809-3")
+    assert ids.fixes(t) == {
+        "mb_trackid": None,
+        "discogs_trackid": "33199809-3",
+        "discogs_releaseid": "33199809",
+    }
+
+
+def test_a_discogs_track_id_already_in_the_file_stays():
+    t = track(mb_trackid="33199809-3", discogs_trackid="33199809-4", discogs_releaseid="33199809")
+    assert ids.fixes(t) == {"mb_trackid": None}
+
+
+def test_a_discogs_track_links_to_its_release():
+    assert ids.links("discogs_trackid", "33199809-3") == [
+        ("33199809-3", "https://www.discogs.com/release/33199809")
+    ]
+    assert ids.links("discogs_trackid", "odd") == [("odd", None)]
 
 
 def test_other_values_are_removed_and_existing_discogs_ids_kept():
@@ -257,3 +294,47 @@ def test_discogs_fields_are_read_and_named(tmp_path):
 
     assert used_as("vorbis", "DISCOGS_RELEASE_ID") == "Discogs release ID"
     assert used_as("id3", "TXXX:DISCOGS_ARTIST_ID") == "Discogs artist ID"
+    assert used_as("vorbis", "DISCOGS_TRACK_ID") == "Discogs track ID"
+    assert used_as("id3", "TXXX:DISCOGS_TRACK_ID") == "Discogs track ID"
+
+
+def test_import_keeps_a_discogs_track_id(engine, settings, inbox_wrong):
+    from app.importer import import_tracks
+    from app.inbox import scan_inbox
+
+    path = settings.import_dir / "wrong.flac"
+    audio = FLAC(path)
+    audio["musicbrainz_trackid"] = "33199809-10"  # track 10 of release 33199809
+    audio.save()
+    scan_inbox(engine, settings.import_dir, ScanProgress())  # the inbox check sees the change
+    progress = WriteProgress(action="import")
+    import_tracks(engine, settings.import_dir, settings.music_dir, [inbox_wrong], progress)
+    assert progress.written == 1, progress.errors
+    with Session(engine) as session:
+        row = session.exec(select(Track).where(Track.path.endswith("wrong.flac"))).one()
+    assert row.discogs_trackid == "33199809-10" and not row.mb_trackid
+    tags = FLAC(settings.music_dir / row.path).tags
+    assert tags["discogs_track_id"] == ["33199809-10"]
+    assert tags["discogs_release_id"] == ["25124086", "33199809"]  # from the album, the track
+
+
+def test_library_rows_from_before_pick_up_discogs_track_ids(engine, settings):
+    """Library tracks scanned by an older version are read once more (SCAN_VERSION), so Discogs
+    track IDs other programs wrote show up without the owner doing anything."""
+    from app.scanner import SCAN_VERSION
+
+    path = settings.music_dir / "Unsorted" / "chords.flac"
+    shutil.copy(FIXTURES / "tagged.flac", path)
+    audio = FLAC(path)
+    audio["DISCOGS_TRACK_ID"] = "33199809-2"
+    audio.save()
+    scan_library(engine, settings.music_dir, ScanProgress())
+    with Session(engine) as session:
+        row = session.exec(select(Track).where(Track.path == "Unsorted/chords.flac")).one()
+        assert row.discogs_trackid == "33199809-2"
+        row.discogs_trackid, row.scan_version = None, SCAN_VERSION - 1  # as the old version left it
+        session.commit()
+    scan_library(engine, settings.music_dir, ScanProgress())
+    with Session(engine) as session:
+        row = session.exec(select(Track).where(Track.path == "Unsorted/chords.flac")).one()
+        assert row.discogs_trackid == "33199809-2" and row.scan_version == SCAN_VERSION

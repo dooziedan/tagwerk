@@ -33,7 +33,7 @@ from mutagen.mp4 import MP4Cover, MP4FreeForm, MP4Tags
 
 from app.images import ImageStore, image_info
 from app.keys import display, to_camelot
-from app.tags import MBID_RE, is_comment_frame
+from app.tags import DISCOGS_TRACK_RE, MBID_RE, is_comment_frame
 
 # Editable fields: name -> label. Order is the default form order.
 EDITABLE = {
@@ -59,6 +59,7 @@ IDS = {
     "mb_albumartistid": "MusicBrainz album artist ID",
     "discogs_releaseid": "Discogs release ID",
     "discogs_artistid": "Discogs artist ID",
+    "discogs_trackid": "Discogs track ID",  # release and position: 33199809-3
 }
 # ReplayGain (ADR 0028): gains in dB ("-6.20 dB"), peaks as linear amplitude ("0.988525",
 # 1.0 is full scale). Its own section on the edit page, not part of the inbox and import.
@@ -74,8 +75,9 @@ _PEAKS = {"replaygain_track_peak", "replaygain_album_peak"}
 # EBU R128 level of -23 LUFS instead of ReplayGain's -18 LUFS. It has no peak fields.
 _R128 = {"replaygain_track_gain": "R128_TRACK_GAIN", "replaygain_album_gain": "R128_ALBUM_GAIN"}
 R128_OFFSET = 5.0  # dB between the two reference levels
-# "A; B" is written as two values. The MusicBrainz track ID can only hold one (ID3 UFID).
-MULTI_VALUE = {"artist", "albumartist", "genre", *IDS} - {"mb_trackid"}
+# "A; B" is written as two values. The MusicBrainz track ID can only hold one (ID3 UFID), and
+# a track has one Discogs track ID.
+MULTI_VALUE = {"artist", "albumartist", "genre", *IDS} - {"mb_trackid", "discogs_trackid"}
 COVER = "cover"
 # Every field a change can have, with its label: the text fields, IDs and cover art.
 LABELS = {**EDITABLE, **REPLAYGAIN, **IDS, COVER: "Cover art"}
@@ -179,6 +181,10 @@ def _normalize_replaygain(field: str, value: str) -> str:
 
 
 def _normalize_ids(field: str, value: str) -> str:
+    if field == "discogs_trackid":  # one value, its position written as on Discogs ("A1")
+        if not DISCOGS_TRACK_RE.match(value):
+            raise ValueError("A Discogs track ID is the release and the position, e.g. 33199809-3")
+        return value
     parts = list(dict.fromkeys(p.strip().lower() for p in value.split(";") if p.strip()))
     if field.startswith("mb_"):
         if not all(MBID_RE.match(p) for p in parts):
@@ -339,6 +345,7 @@ _ID3_GROUPS: dict[str, Callable] = {
     "mb_albumartistid": _id3_txxx("musicbrainz album artist id"),
     "discogs_releaseid": _id3_txxx("discogs_release_id"),
     "discogs_artistid": _id3_txxx("discogs_artist_id"),
+    "discogs_trackid": _id3_txxx("discogs_track_id"),
     "replaygain_track_gain": _id3_txxx("replaygain_track_gain"),
     "replaygain_track_peak": _id3_txxx("replaygain_track_peak"),
     "replaygain_album_gain": _id3_txxx("replaygain_album_gain"),
@@ -353,6 +360,7 @@ _ID3_TXXX = {
     "mb_albumartistid": "MusicBrainz Album Artist Id",
     "discogs_releaseid": "DISCOGS_RELEASE_ID",
     "discogs_artistid": "DISCOGS_ARTIST_ID",
+    "discogs_trackid": "DISCOGS_TRACK_ID",
     "replaygain_track_gain": "REPLAYGAIN_TRACK_GAIN",
     "replaygain_track_peak": "REPLAYGAIN_TRACK_PEAK",
     "replaygain_album_gain": "REPLAYGAIN_ALBUM_GAIN",
@@ -498,6 +506,7 @@ _VORBIS_KEYS = {
     "mb_albumartistid": ["musicbrainz_albumartistid"],
     "discogs_releaseid": ["discogs_release_id"],
     "discogs_artistid": ["discogs_artist_id"],
+    "discogs_trackid": ["discogs_track_id"],
     "replaygain_track_gain": ["replaygain_track_gain"],
     "replaygain_track_peak": ["replaygain_track_peak"],
     "replaygain_album_gain": ["replaygain_album_gain"],
@@ -649,6 +658,7 @@ _MP4_KEYS = {
     "mb_albumartistid": [_FF + "MusicBrainz Album Artist Id"],
     "discogs_releaseid": [_FF + "DISCOGS_RELEASE_ID"],
     "discogs_artistid": [_FF + "DISCOGS_ARTIST_ID"],
+    "discogs_trackid": [_FF + "DISCOGS_TRACK_ID"],
     "replaygain_track_gain": [_FF + "replaygain_track_gain"],
     "replaygain_track_peak": [_FF + "replaygain_track_peak"],
     "replaygain_album_gain": [_FF + "replaygain_album_gain"],

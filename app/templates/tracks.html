@@ -60,7 +60,7 @@
 <form method="post" action="/tracks/fix-ids?{{ f.params() | urlencode }}" class="notice">
   <input type="hidden" name="all" value="true">
   <p>These tracks have something other than a MusicBrainz ID in a MusicBrainz field, often a Discogs number.
-  <strong>Fix IDs</strong> keeps real MusicBrainz IDs, moves Discogs numbers into their own fields (<code>DISCOGS_RELEASE_ID</code>, <code>DISCOGS_ARTIST_ID</code>) and removes anything else, as pending changes for you to review. Final tracks are skipped.</p>
+  <strong>Fix IDs</strong> keeps real MusicBrainz IDs, moves Discogs numbers into their own fields (<code>DISCOGS_RELEASE_ID</code>, <code>DISCOGS_TRACK_ID</code>, <code>DISCOGS_ARTIST_ID</code>) and removes anything else, as pending changes for you to review. Final tracks are skipped.</p>
   <button type="submit" class="outline" data-confirm="Fix the IDs of all {{ result.total }} matching tracks? This creates pending changes; nothing is written before you apply them." data-confirm-ok="Fix IDs">Fix IDs of {{ result.total | plural('track') }}</button>
 </form>
 {% endif %}
