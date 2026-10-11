@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- **The title in the play bar opens the track's page**: click it to get to the playing track (or its Inbox page) from anywhere.
+
 ## [0.19.1] - 2026-10-10
 
 ### Changed

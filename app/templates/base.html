@@ -101,7 +101,7 @@
   <div class="player-bar" id="player" hidden>
     <div class="player-inner">
       <button type="button" id="player-toggle" class="player-control playing" aria-label="Pause">{{ icon("play") }}{{ icon("pause") }}</button>
-      <span id="player-title" class="player-title"></span>
+      <a id="player-title" class="player-title" title="Open the track page"></a>
       <input type="range" id="player-seek" min="0" max="1000" step="1" value="0" aria-label="Position">
       <span id="player-time" class="player-time">0:00 / 0:00</span>
       {# Volume: the button mutes; hovering it (or focusing it) pops up the slider above. #}

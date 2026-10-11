@@ -39,7 +39,7 @@
 {# ▶ button for the play bar (app/static/player.js). base: "/tracks/1" or "/inbox/1". #}
 {% macro play_button(t, base, label="") -%}
 <button type="button" class="play-button outline secondary{% if label %} with-label{% endif %}" aria-pressed="false"
-        data-play="{{ base }}/audio" data-mp3="{{ base }}/audio.mp3"
+        data-play="{{ base }}/audio" data-page="{{ base }}" data-mp3="{{ base }}/audio.mp3"
         data-type="{{ {"mp3": "audio/mpeg", "flac": "audio/flac", "wav": "audio/wav", "aiff": "audio/aiff", "m4a": "audio/mp4", "ogg": "audio/ogg", "opus": "audio/ogg; codecs=opus"}.get(t.format, "") }}"
         data-title="{{ ((t.artist ~ " – ") if t.artist else "") ~ (t.title or t.path.rsplit("/", 1)[-1]) }}"
         data-duration="{{ t.duration or 0 }}"
