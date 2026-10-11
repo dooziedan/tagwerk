@@ -110,3 +110,9 @@
   {%- if label != "" %}<text x="{{ mid }}" y="{{ mid + 4.5 }}" text-anchor="middle" fill="#f8fafc" font-size="{{ 13 if size >= 60 else 11 }}" font-weight="700">{{ label if label else ((p | whole_percent) ~ "%") }}</text>{% endif %}
 </svg>
 {%- endmacro %}
+
+{# An ID field's value: each ID links to its page at MusicBrainz or Discogs, to check where it
+   points (app/ids.py). Values that aren't real IDs stay plain. #}
+{% macro id_value(field, value) -%}
+{%- for id, url in id_links(field, value) -%}{% if not loop.first %}; {% endif %}{% if url %}<a class="id-value" href="{{ url }}" target="_blank" rel="noopener noreferrer"><code>{{ id }}</code></a>{% else %}<code class="id-value">{{ id }}</code>{% endif %}{%- endfor -%}
+{%- endmacro %}

@@ -131,6 +131,20 @@ def source_label(source: str | None) -> str:
     return SOURCES.get(source, source) if source else ""
 
 
+def id_links(field: str, value: str | None) -> list[tuple[str, str | None]]:
+    """Each ID in an ID field's value with its MusicBrainz or Discogs page (app/ids.py)."""
+    from app.ids import links  # app.ids needs the database; import when used
+
+    return links(field, value)
+
+
+def id_link_groups(found: dict[str, str]) -> list:
+    """A result's IDs as links grouped by service (app/ids.py)."""
+    from app.ids import link_groups
+
+    return link_groups(found)
+
+
 def recent(when: datetime | None, seconds: float) -> bool:
     """True if ``when`` was less than ``seconds`` ago (e.g. "show the last result a while")."""
     if when is None:
@@ -153,6 +167,9 @@ templates.env.globals.update(
     page_url=page_url,
     static_version=static_version,
     field_label=writer.label,  # "Cover art", "Private data (TRAKTOR4)"
+    id_fields=list(writer.IDS),  # MusicBrainz and Discogs ID fields
+    id_links=id_links,
+    id_link_groups=id_link_groups,
     source_label=source_label,
 )
 templates.env.filters.update(

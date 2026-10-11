@@ -1,7 +1,7 @@
 {"status": "ok", "results": [
   {"id": "f0e1d2c3", "score": 0.96, "recordings": [
-    {"id": "aaaaaaaa-1111-4222-8333-444444444444", "title": "Losing It", "duration": 248,
-     "artists": [{"id": "x", "name": "FISHER"}],
+    {"id": "cfff863a-7165-4e46-b632-262f77881753", "title": "Losing It", "duration": 248,
+     "artists": [{"id": "886dc0c9-3351-4d2d-b762-060cf1e66929", "name": "FISHER"}],
      "releasegroups": [{"id": "rg", "title": "Losing It", "type": "Single"}]}
   ]}
 ]}

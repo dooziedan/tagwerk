@@ -97,9 +97,10 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   aren't counted as missing MusicBrainz IDs. (Supersedes the old idea "look up everything
   without IDs"; doing that by hand already works with the track list's filter and *Look up
   online*.)
-- **MusicBrainz and Discogs IDs from the online lookup**
-  ([issue #48](https://github.com/dooziedan/tagwerk/issues/48)). The lookup already gets the
-  IDs but drops them; sure IDs become pending changes, only for empty fields.
+- **MusicBrainz and Discogs IDs from the online lookup** ✅ v0.19.4
+  ([issue #48](https://github.com/dooziedan/tagwerk/issues/48),
+  [ADR 0032](decisions/0032-ids-from-the-online-lookup.md)): sure IDs become pending changes
+  (library) or are written on import (inbox), only for empty ID fields.
 - **Add to MusicBrainz**. For released tracks that aren't on MusicBrainz yet: a button that
   opens MusicBrainz's "Add release" form already filled with Tagwerk's values (artist, title,
   label, catalog number, date, length, Discogs link). The owner checks and submits it on
@@ -146,7 +147,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.16 | Made for DJs: Collector mode and its views removed; progress cards only on the page where the job started. | [0024](decisions/0024-made-for-djs.md) |
 | 0.17 | Merging genre spellings, mix names with capitals, trash decisions on the Duplicates page wait for Apply. | [0025](decisions/0025-genre-spellings.md), [0026](decisions/0026-mix-names.md), [0027](decisions/0027-queued-trash-decisions.md) |
 | 0.18 | ReplayGain: all four values read and editable in every format (Opus its own way); Discogs IDs in MusicBrainz fields fixed on import; the "MusicBrainz IDs" setting removed. | [0028](decisions/0028-replaygain.md), [0030](decisions/0030-ids-fixed-on-import.md) |
-| 0.19 | ReplayGain checked against the audio (loudness), Changes and History on phones, the Online sources card, release notes on GitHub, a Tools section in the menu, the play bar's title opens the track. | [0029](decisions/0029-loudness-and-replaygain-check.md) |
+| 0.19 | ReplayGain checked against the audio (loudness), Changes and History on phones, the Online sources card, release notes on GitHub, a Tools section in the menu, the play bar's title opens the track; 0.19.3: store genres matched against the genre map; 0.19.4: MusicBrainz and Discogs IDs from the online lookup. | [0029](decisions/0029-loudness-and-replaygain-check.md), [0031](decisions/0031-store-genres-matched.md), [0032](decisions/0032-ids-from-the-online-lookup.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.

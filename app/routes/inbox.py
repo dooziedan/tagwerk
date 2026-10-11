@@ -13,6 +13,7 @@ from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import LibraryIndex, Match
 from app.forms import read_form
+from app.ids import file_ids
 from app.images import ImageError
 from app.importer import plan
 from app.inbox import (
@@ -20,6 +21,7 @@ from app.inbox import (
     owner_values,
     reset_values,
     review,
+    save_ids,
     save_values,
     scan_inbox,
     set_cover,
@@ -302,6 +304,9 @@ async def inbox_use_online(
     errors = save_values(session, track, values)
     if errors:  # an odd value (e.g. a date format): take over the others
         save_values(session, track, {k: v for k, v in values.items() if k not in errors})
+    current = file_ids(settings.import_dir / track.path)
+    if current is not None:  # the IDs, for ID fields that are empty (ADR 0032)
+        save_ids(session, track, identify.ids_to_take(candidate, current))
     if candidate.cover_image or candidate.cover_url:
         try:
             image = candidate.cover_image or image_store(settings).put(

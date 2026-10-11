@@ -1,0 +1,33 @@
+{
+ "id": 12345,
+ "title": "Losing It",
+ "year": 2018,
+ "artists": [
+  {
+   "name": "Fisher (11)",
+   "anv": "",
+   "join": "",
+   "role": "",
+   "tracks": "",
+   "id": 4089851,
+   "resource_url": "https://api.discogs.com/artists/4089851"
+  }
+ ],
+ "labels": [
+  {
+   "name": "Catch & Release",
+   "catno": "CATCH109",
+   "id": 225482
+  }
+ ],
+ "formats": [
+  {
+   "name": "File",
+   "qty": "1",
+   "descriptions": [
+    "MP3",
+    "Single"
+   ]
+  }
+ ]
+}

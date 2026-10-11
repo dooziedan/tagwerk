@@ -17,7 +17,7 @@ from app.keys import to_camelot
 
 @dataclass
 class Proposal:
-    field: str  # a key of writer.EDITABLE
+    field: str  # a key of writer.EDITABLE, or an ID field (writer.IDS, app/identify.py)
     value: str  # in the form's format, e.g. "Am", "Drum & Bass; Liquid"
     current: str | None  # the value in the file now
     source: str  # "filename" or "clean-up"
@@ -26,7 +26,7 @@ class Proposal:
 
     @property
     def label(self) -> str:
-        return writer.EDITABLE[self.field]
+        return writer.label(self.field)
 
 
 @dataclass

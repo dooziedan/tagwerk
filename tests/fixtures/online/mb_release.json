@@ -1,0 +1,27 @@
+{
+ "id": "5b5e6d28-3e1f-4f0a-9a9b-0d1c2e3f4a5b",
+ "title": "Losing It",
+ "status": "Official",
+ "date": "2018-07-13",
+ "relations": [
+  {
+   "type": "purchase for download",
+   "target-type": "url",
+   "direction": "forward",
+   "url": {
+    "id": "0f6c7a1e-2b3d-4e5f-8a9b-1c2d3e4f5a6b",
+    "resource": "https://www.beatport.com/release/losing-it/2361234"
+   }
+  },
+  {
+   "type": "discogs",
+   "type-id": "4a78823c-1c53-4176-a5f3-58026c76f2bc",
+   "target-type": "url",
+   "direction": "forward",
+   "url": {
+    "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+    "resource": "https://www.discogs.com/release/12345-Fisher-Losing-It"
+   }
+  }
+ ]
+}

@@ -50,3 +50,4 @@ What gets easier, what gets harder.
 | [0029](0029-loudness-and-replaygain-check.md) | Loudness from the audio, and checking ReplayGain against it | Accepted |
 | [0030](0030-ids-fixed-on-import.md) | Wrong IDs in MusicBrainz fields fixed on import; Discogs `release-position` IDs | Accepted |
 | [0031](0031-store-genres-matched.md) | Store genres from online lookups matched against the genre map | Accepted |
+| [0032](0032-ids-from-the-online-lookup.md) | MusicBrainz and Discogs IDs from the online lookup: only sure ones, only for empty fields | Accepted |

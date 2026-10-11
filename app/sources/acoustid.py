@@ -3,6 +3,9 @@
 ``fpcalc`` (Chromaprint, in the Docker image) computes the fingerprint locally; AcoustID
 answers with matching MusicBrainz recordings and how alike the audio is. Needs the owner's
 free application key (ACOUSTID_KEY); three requests a second at most.
+
+Candidates carry the recording's and its artists' MusicBrainz IDs (``mb_trackid``,
+``mb_artistid``). AcoustID names release groups, not releases, so no album ID comes from here.
 """
 
 import json
@@ -58,7 +61,10 @@ def _candidate(recording: dict, score: float) -> Candidate:
     artist = "".join(
         a.get("name", "") + a.get("joinphrase", "") for a in recording.get("artists", [])
     )
-    values = {"title": recording["title"], "artist": artist.strip()}
+    values = {"title": recording["title"], "artist": artist.strip(), "mb_trackid": recording["id"]}
+    artist_ids = [a["id"] for a in recording.get("artists", []) if a.get("id")]
+    if artist_ids:
+        values["mb_artistid"] = "; ".join(artist_ids)
     groups = recording.get("releasegroups") or []
     album = next((g for g in groups if g.get("type") in ("Single", "EP")), None) or next(
         iter(groups), None

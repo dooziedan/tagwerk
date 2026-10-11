@@ -1031,7 +1031,7 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .online-fold > summary::-webkit-details-marker { display: none; }
 .online-fold > summary::after { display: none; }  /* Pico's chevron: ours sits on the left */
 .online-chevron { width: 0.55rem; height: 0.55rem; margin: 0 0.2rem 0 0.1rem; flex: none; border-right: 2px solid var(--tw-indigo-300); border-bottom: 2px solid var(--tw-indigo-300); transform: rotate(-45deg); transition: transform 160ms ease; }
-.online-fold[open] .online-chevron { transform: rotate(45deg); }
+.online-fold[open] > summary .online-chevron, .online-src[open] > summary .online-chevron { transform: rotate(45deg); }
 .online-fold > summary:hover .online-title { color: var(--tw-indigo-200); }
 /* Inbox: a reminder while closed that there are matches to check (gone once it's open). */
 .online-remind { margin: 0; }
@@ -1059,6 +1059,12 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .online-src.is-weak { border-left-color: var(--tw-check); }
 .online-src.is-error { border-left-color: var(--tw-warn); }
 .src-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1.5rem; }
+/* Each source's panel folds on its own: its head is the switch. */
+.online-src > summary.src-head { margin: 0; cursor: pointer; list-style: none; }
+.online-src > summary::-webkit-details-marker { display: none; }
+.online-src > summary::after { display: none; }  /* Pico's chevron: ours sits on the left */
+.online-src > summary:hover .src-name strong { color: var(--tw-indigo-200); }
+.src-name .online-chevron { align-self: center; }
 .src-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.85rem; min-width: 0; }
 .src-name strong { color: var(--tw-ink); font-size: 1.02rem; }
 .src-name small { color: var(--tw-ink-3); font-size: 0.8rem; }
@@ -1080,6 +1086,9 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .src-values div { min-width: 0; }
 .src-values dt { margin: 0 0 0.3rem; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tw-ink-3); }
 .src-values dd { margin: 0; font-size: 0.92rem; line-height: 1.45; color: var(--tw-ink-1); }
+.src-ids { margin: 0.2rem 0 0.4rem; color: var(--tw-ink-2); line-height: 1.6; }
+/* MusicBrainz and Discogs IDs (36 characters): small, and they may break anywhere. */
+.id-value, .id-value code { font-size: 0.78rem; overflow-wrap: anywhere; }
 .src-values .mark, .legend { font-size: 0.75rem; font-weight: 600; }
 .src-values .is-same .mark, .legend.is-same { color: var(--tw-ink-3); }
 .src-values .is-new dd { color: var(--tw-ink); }
