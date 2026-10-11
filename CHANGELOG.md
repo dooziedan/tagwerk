@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.19.4] - 2026-10-11
+
 ### Added
 - **MusicBrainz and Discogs IDs from the online lookup**: the sources already sent the IDs of the tracks they found; Tagwerk now keeps them and suggests them, more carefully than other values, because a wrong ID is worse than none (Navidrome and Picard trust it):
   - **The MusicBrainz recording** (and its artists) only when AcoustID recognised the sound clearly, or when AcoustID and MusicBrainz name the same recording. Two sources agreeing on the title isn't enough.
@@ -13,7 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - **Only empty ID fields** are filled; IDs your files already have are never replaced. While a MusicBrainz field holds a Discogs number, run **Fix IDs** first.
   - **Library tracks**: sure IDs become pending changes after *Look up online*, like the other sure values (final tracks get nothing). **Inbox tracks**: they are written on import, and the review page lists them. **Use these values** takes a result's IDs over too.
   - Each ID is a **link** to its page at MusicBrainz or Discogs, on the Online sources card, the Changes page and the inbox review page, so you can check where it points before you apply.
-  - Tracks looked up before this version get their IDs with **Look up again**.
+  - Tracks looked up before this version get their IDs with **Look up again** (or, for many at once: Tracks → *Missing: MusicBrainz IDs* → *Look up all matching tracks*).
+
+### Changed
+- **Each source on the Online sources card folds on its own**: click a source's name to close or open its panel. Sources that found the track (or couldn't be asked) start open, the others closed, so the card stays short.
 
 ## [0.19.3] - 2026-10-11
 
