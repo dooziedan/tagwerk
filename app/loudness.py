@@ -200,15 +200,34 @@ class Overview:
         return deciles[0], statistics.median(values), deciles[-1]
 
 
+def _staged(session: Session, track_id: int | None = None) -> dict[int, dict[str, str | None]]:
+    """ReplayGain values already waiting on the Changes page, per track (or one track's)."""
+    query = select(PendingChange).where(col(PendingChange.field).in_(list(writer.REPLAYGAIN)))
+    if track_id is not None:
+        query = query.where(PendingChange.track_id == track_id)
+    staged: dict[int, dict[str, str | None]] = {}
+    for change in session.exec(query):
+        staged.setdefault(change.track_id, {})[change.field] = change.new_value
+    return staged
+
+
+def _mark(found: Check, final: bool, staged: dict[str, str | None]) -> Check:
+    """Final tracks and fixes already pending are shown, but not fixed again. A value the
+    file already has (e.g. the right peak) gets no pending change, so it counts as done."""
+    found.final = final
+    found.pending = found.status in TO_FIX and all(
+        staged.get(name, writer.current_value(found.track, name)) == value
+        for name, value in found.values.items()
+        if writer.supports(found.track.format, name)
+    )
+    return found
+
+
 def overview(session: Session) -> Overview:
     tracks = list(session.exec(select(Track).where(Track.error.is_(None))))
     rows = {r.track_id: r for r in session.exec(select(LibraryLoudness))}
     final = set(session.exec(select(FinalTrack.track_id)))
-    staged: dict[int, dict[str, str | None]] = {}
-    for change in session.exec(
-        select(PendingChange).where(col(PendingChange.field).in_(list(writer.REPLAYGAIN)))
-    ):
-        staged.setdefault(change.track_id, {})[change.field] = change.new_value
+    staged = _staged(session)
     checks, unmeasured, failed = [], [], 0
     for track in tracks:
         row = rows.get(track.id)
@@ -218,14 +237,7 @@ def overview(session: Session) -> Overview:
             failed += 1
         else:
             found = check(track, row)
-            found.final = track.id in final
-            mine = staged.get(track.id, {})
-            found.pending = all(
-                mine.get(name) == value
-                for name, value in found.values.items()
-                if writer.supports(track.format, name)
-            )
-            checks.append(found)
+            checks.append(_mark(found, track.id in final, staged.get(track.id, {})))
     return Overview(len(tracks), len(checks), failed, checks, unmeasured)
 
 
@@ -250,4 +262,5 @@ def track_check(session: Session, track: Track) -> Check | None:
     row = session.get(LibraryLoudness, track.id)
     if not fresh(row, track) or row.error or row.lufs is None:
         return None
-    return check(track, row)
+    final = session.get(FinalTrack, track.id) is not None
+    return _mark(check(track, row), final, _staged(session, track.id).get(track.id, {}))

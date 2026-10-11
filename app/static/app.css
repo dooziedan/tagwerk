@@ -768,6 +768,9 @@ a.wheel-seg, a.wheel-seg:hover, a.wheel-seg text { text-decoration: none; }
 .status-you { color: var(--tw-indigo-200); border-color: var(--tw-line-strong); background: rgba(129, 140, 248, 0.12); }
 .status-final { color: var(--tw-gold); border-color: var(--tw-gold-line); background: var(--tw-gold-soft); }
 .status-secret { color: var(--tw-secret); border-color: var(--tw-secret-line); background: var(--tw-secret-soft); }
+/* A long label in a table cell ("Old ReplayGain 1 value (about 4 dB too loud) →") wraps on
+   phones instead of making the page wider. */
+.kv .status { white-space: normal; }
 
 /* --- Buttons (Pico buttons, restyled) --------------------------------------------------------- */
 button, [role="button"], input[type="submit"] {

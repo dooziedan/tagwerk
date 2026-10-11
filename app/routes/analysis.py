@@ -1,7 +1,8 @@
-"""BPM and key from the audio (app/analysis.py): start analyses, read results.
+"""BPM, key and loudness from the audio (app/analysis.py, app/loudness.py): start analyses,
+read results.
 
 Inbox tracks are analysed after every inbox check on their own; library tracks when asked.
-Nothing here writes to files: "Use" stages a pending change.
+Nothing here writes to files: "Use" and the ReplayGain fix stage pending changes.
 """
 
 from typing import Annotated
@@ -11,14 +12,14 @@ from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlmodel import select
 
-from app import analysis, changes, genres
+from app import analysis, changes, genres, loudness, writer
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
 from app.jobs import analysis_job
 from app.keys import display
 from app.library import TrackFilter
-from app.models import FinalTrack, InboxTrack, Track
+from app.models import FinalTrack, InboxTrack, LibraryLoudness, Track
 from app.navigation import back_url, reload_page, with_saved_note
 from app.templating import templates
 
@@ -89,6 +90,25 @@ def track_analysis(track_id: int, session: SessionDep) -> dict:
     return _answer(session, track_id, library=True)
 
 
+@router.post("/api/tracks/{track_id}/loudness", status_code=202, tags=["analysis"])
+def measure_track_loudness(track_id: int, session: SessionDep, settings: SettingsDep) -> dict:
+    """Measure only the loudness of a library track (background, a few seconds): whether its
+    ReplayGain fits. Analysing a track measures it too."""
+    if session.get(Track, track_id) is None:
+        raise HTTPException(404)
+    analysis_job.start(settings, [track_id], force=True, library=True, loudness_only=True)
+    return {"status": "running"}
+
+
+@router.post("/api/tracks/{track_id}/replaygain/fix", tags=["changes"])
+def fix_track_replaygain(track_id: int, session: SessionDep) -> dict:
+    """A pending change with the measured track gain and peak, if the ReplayGain tags don't
+    match the audio (not for final tracks). Review and apply on Changes."""
+    if session.get(Track, track_id) is None:
+        raise HTTPException(404)
+    return {"pending_changes": loudness.stage_fixes(session, [track_id])}
+
+
 @router.post("/api/inbox/{track_id}/analyse", status_code=202, tags=["analysis"])
 def analyse_inbox_track(
     track_id: int, session: SessionDep, settings: SettingsDep, force: bool = True
@@ -118,11 +138,16 @@ def audio_context(session, track, library: bool = True, genre: str | None = None
     if row is not None and not row.error:
         found = analysis.decide_for(session, track, library, genre)
     more = analysis.detail(row) if row else {}
+    loud = loudness_context(session, track) if library else None  # inbox: not measured
     return {
         "audio": {
             "row": row,
             "decision": found,
-            "analysing": analysis_job.queued(track.id, library),
+            # A full analysis (BPM, key and loudness); measuring only the loudness keeps the
+            # box as it is, with a line of its own.
+            "analysing": analysis_job.queued(track.id, library)
+            and not (loud and loud["measuring"]),
+            "loudness": loud,
             "bpm_alternatives": [
                 v for v in more.get("bpm_alternatives", []) if found and v != found.bpm
             ],
@@ -136,6 +161,20 @@ def audio_context(session, track, library: bool = True, genre: str | None = None
             if library and found and not session.get(FinalTrack, track.id)
             else [],
         }
+    }
+
+
+def loudness_context(session, track) -> dict:
+    """The Loudness line of the box (library tracks): the measurement next to the track's
+    ReplayGain tags, or why there is none."""
+    row = session.get(LibraryLoudness, track.id)
+    measured = loudness.fresh(row, track)
+    return {
+        "check": loudness.track_check(session, track),  # None: not measured, or it failed
+        "measured": measured,  # False: never measured, or the file was replaced since
+        "error": row.error if measured else None,  # unreadable or silent
+        "measuring": analysis_job.measuring_loudness(track.id),
+        "has_peak": writer.supports(track.format, "replaygain_track_peak"),  # not Opus
     }
 
 
@@ -203,6 +242,21 @@ async def use_audio(request: Request, track_id: int, session: SessionDep):
     elif field == "key" and found.key:
         values["key"] = display(found.key, "musical")
     count = changes.stage(session, [track_id], values, "audio")[0] if values else 0
+    return RedirectResponse(
+        with_saved_note(f"/tracks/{track_id}", count) + "#audio", status_code=303
+    )
+
+
+@router.post("/tracks/{track_id}/loudness", include_in_schema=False)
+def measure_one(track_id: int, session: SessionDep, settings: SettingsDep):
+    measure_track_loudness(track_id, session, settings)
+    return RedirectResponse(f"/tracks/{track_id}#audio", status_code=303)
+
+
+@router.post("/tracks/{track_id}/replaygain", include_in_schema=False)
+def fix_one(track_id: int, session: SessionDep):
+    """The box's ReplayGain button: stage the measured gain and peak for this track."""
+    count = fix_track_replaygain(track_id, session)["pending_changes"]
     return RedirectResponse(
         with_saved_note(f"/tracks/{track_id}", count) + "#audio", status_code=303
     )

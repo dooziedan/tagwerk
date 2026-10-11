@@ -185,3 +185,187 @@ def test_the_job_can_measure_only_the_loudness(engine, settings, monkeypatch):
     assert (job.progress.processed, job.progress.failed) == (2, 0)
     with Session(engine) as session:
         assert session.get(LibraryLoudness, ids["mp3"]).lufs == -9.0
+
+
+# --- The track page: ReplayGain as a suggestion in the "From the audio" box (issue #71) -----
+
+
+def audio_box(client, track_id: int) -> str:
+    page = client.get(f"/tracks/{track_id}").text
+    return page[page.index('id="audio"') :].split("</article>")[0]
+
+
+def analysed(engine, track_id: int) -> None:
+    """A stored BPM/key result (the box shows its table)."""
+    from app.audio_analysis import ANALYSIS_VERSION
+    from tests.conftest import FAKE_ANALYSIS
+
+    with Session(engine) as session:
+        duration = session.get(Track, track_id).duration
+        found = FAKE_ANALYSIS | {"version": ANALYSIS_VERSION}
+        analysis.store(session, track_id, True, found, duration)
+
+
+def untagged(engine) -> int:
+    with Session(engine) as session:
+        return session.exec(select(Track.id).where(Track.path.endswith("untagged.mp3"))).one()
+
+
+@pytest.mark.parametrize(
+    ("fmt", "lufs", "line", "button"),
+    [
+        ("opus", -11.8, "· ReplayGain -6.20 dB ✓ matches", None),  # Opus: no peak needed
+        (
+            "flac",
+            -7.8,
+            "ReplayGain -6.20 dB in the file is an old ReplayGain 1 value, about 4 "
+            "dB too loud: it should be -10.20 dB (peak 0.900).",
+            "Use -10.20 dB",
+        ),
+        (
+            "flac",
+            -5.0,
+            "ReplayGain -6.20 dB in the file doesn't match the audio: it should be "
+            "-13.00 dB (peak 0.900).",
+            "Use -13.00 dB",
+        ),
+        ("opus", -5.0, "it should be -13.00 dB.", "Use -13.00 dB"),
+        ("mp3", -11.8, "The peak is missing: the audio says 0.900.", "Add the peak"),
+    ],
+)
+def test_the_box_says_what_is_wrong_with_the_replaygain(
+    client, engine, settings, fmt, lufs, line, button
+):
+    track_id = library(engine, settings.music_dir)[fmt]
+    measured(engine, {track_id: lufs})
+    box = audio_box(client, track_id)
+    assert f"<strong>{lufs:.1f} LUFS</strong>" in box and line in box
+    if button:
+        assert f'action="/tracks/{track_id}/replaygain"' in box and f">{button}</button>" in box
+    else:
+        assert "/replaygain" not in box
+
+
+def test_the_box_offers_missing_replaygain(client, engine, settings):
+    library(engine, settings.music_dir)
+    track_id = untagged(engine)
+    measured(engine, {track_id: -8.0})
+    box = audio_box(client, track_id)
+    assert "ReplayGain is missing: the audio says -10.00 dB (peak 0.900)." in box
+    assert ">Add ReplayGain</button>" in box
+    assert "BPM and key not analysed yet." in box  # measured on the ReplayGain page
+
+
+def test_the_box_before_and_after_measuring(client, engine, settings):
+    ids = library(engine, settings.music_dir)
+    box = audio_box(client, ids["flac"])  # nothing analysed: Analyse does both
+    assert "Analyse measures BPM, key and loudness." in box and "/loudness" not in box
+    analysed(engine, ids["flac"])  # e.g. imported from the inbox: BPM and key came along
+    box = audio_box(client, ids["flac"])
+    assert "Loudness not measured yet" in box and ">Measure loudness</button>" in box
+    with Session(engine) as session:
+        duration = session.get(Track, ids["flac"]).duration
+        loudness.store(session, ids["flac"], {"error": "The audio is silent"}, duration)
+    box = audio_box(client, ids["flac"])
+    assert "Couldn't measure the loudness: The audio is silent" in box
+    assert "Measure loudness" not in box and "LUFS" not in box
+
+
+def test_final_and_pending_tracks_get_no_button(client, engine, settings):
+    ids = library(engine, settings.music_dir)
+    measured(engine, {ids["flac"]: -7.8, ids["mp3"]: -7.8})
+    with Session(engine) as session:
+        session.add(FinalTrack(track_id=ids["flac"], mtime=0))
+        session.commit()
+        loudness.stage_fixes(session, [ids["mp3"]])
+    box = audio_box(client, ids["flac"])
+    assert "-7.8 LUFS" in box and "Final: your tags stand" in box
+    assert "/replaygain" not in box and "old ReplayGain 1" not in box
+    page = client.get(f"/tracks/{ids['flac']}").text
+    assert 'href="#audio"' not in page  # the File card doesn't point at a fix either
+    box = audio_box(client, ids["mp3"])
+    assert "old ReplayGain 1 value" in box and "ReplayGain fix waits on the Changes page" in box
+    assert "<button" not in box.split("old ReplayGain 1 value")[1]
+    page = client.get(f"/tracks/{ids['mp3']}").text
+    assert 'href="#audio">Old ReplayGain 1 value' in page  # the File card's status link
+
+
+def test_the_button_stages_the_fix_for_this_track_only(client, engine, settings):
+    ids = library(engine, settings.music_dir)
+    measured(engine, {ids["flac"]: -7.8, ids["mp3"]: -7.8, ids["opus"]: -5.0, ids["m4a"]: -5.0})
+    with Session(engine) as session:
+        session.add(FinalTrack(track_id=ids["m4a"], mtime=0))
+        session.commit()
+    response = client.post(f"/tracks/{ids['flac']}/replaygain", follow_redirects=False)
+    assert response.headers["location"] == f"/tracks/{ids['flac']}?saved=2#audio"
+    with Session(engine) as session:
+        check = loudness.track_check(session, session.get(Track, ids["flac"]))
+        pending = {(c.track_id, c.field): c.new_value for c in session.exec(select(PendingChange))}
+    assert pending == {(ids["flac"], name): value for name, value in check.values.items()}
+    assert check.pending  # the box says it waits on Changes now
+
+    assert client.post(f"/api/tracks/{ids['opus']}/replaygain/fix").json() == {
+        "pending_changes": 1  # Opus: the gain, no peak
+    }
+    assert client.post(f"/api/tracks/{ids['m4a']}/replaygain/fix").json() == {
+        "pending_changes": 0  # final
+    }
+    assert client.post("/api/tracks/99999/replaygain/fix").status_code == 404
+
+
+def test_a_fix_whose_peak_is_already_right_counts_as_pending(client, engine, settings):
+    """Only the gain becomes a pending change (the file has the peak); that's the whole fix."""
+    ids = library(engine, settings.music_dir)
+    measured(engine, {ids["flac"]: -7.8})
+    with Session(engine) as session:
+        session.get(Track, ids["flac"]).replaygain_track_peak = 0.9  # as measured
+        session.commit()
+    assert client.post(f"/api/tracks/{ids['flac']}/replaygain/fix").json() == {"pending_changes": 1}
+    assert "ReplayGain fix waits on the Changes page" in audio_box(client, ids["flac"])
+    with Session(engine) as session:
+        assert loudness.overview(session).to_fix == []  # nor on the ReplayGain page
+
+
+def test_measure_queues_only_this_track_for_its_loudness(client, engine, settings, monkeypatch):
+    ids = library(engine, settings.music_dir)
+    started = []
+    monkeypatch.setattr(
+        "app.routes.analysis.analysis_job.start",
+        lambda settings, track_ids, **options: started.append((track_ids, options)),
+    )
+    response = client.post(f"/tracks/{ids['flac']}/loudness", follow_redirects=False)
+    assert response.headers["location"] == f"/tracks/{ids['flac']}#audio"
+    assert client.post(f"/api/tracks/{ids['mp3']}/loudness").status_code == 202
+    options = {"force": True, "library": True, "loudness_only": True}
+    assert started == [([ids["flac"]], options), ([ids["mp3"]], options)]
+    assert client.post("/api/tracks/99999/loudness").status_code == 404
+
+
+def test_the_box_keeps_bpm_and_key_while_the_loudness_is_measured(
+    client, engine, settings, monkeypatch
+):
+    """Measuring only the loudness takes seconds: BPM and key stay, the line says so. A full
+    analysis asked for meanwhile shows as one."""
+    import threading
+
+    from app.jobs import analysis_job
+
+    ids = library(engine, settings.music_dir)
+    analysed(engine, ids["flac"])
+    release = threading.Event()
+    monkeypatch.setattr(
+        loudness, "measure", lambda path: release.wait(10) and {"lufs": -9.0, "peak": 0.8}
+    )
+    try:
+        client.post(f"/tracks/{ids['flac']}/loudness")
+        assert analysis_job.measuring_loudness(ids["flac"])
+        box = audio_box(client, ids["flac"])
+        assert "Measuring the loudness… about 2 seconds" in box and '<th scope="row">BPM' in box
+        assert "analysis-status" in box  # polls until it's done
+        analysis_job.start(settings, [ids["flac"]], force=True, library=True)
+        assert not analysis_job.measuring_loudness(ids["flac"])
+        assert "Measuring BPM, key and loudness" in audio_box(client, ids["flac"])
+    finally:
+        release.set()
+        analysis_job.wait(30)
+    assert "-9.0 LUFS" in audio_box(client, ids["flac"])

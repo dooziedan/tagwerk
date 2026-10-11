@@ -17,3 +17,8 @@ ReplayGain is a tag, not a change to the sound: only players that read it apply 
 - A big library takes a while to measure the first time (about 40 minutes of one core for 1,500 tracks, shared between the workers).
 - ffmpeg prints the loudness with one decimal, so gains are exact to 0.1 dB, far finer than anyone hears.
 - The loudness spread on the page (and the track page) helps to set the trim before a set; making the decks themselves even needs the later sound-changing release.
+
+## Addendum: fixing one track from its page
+[Issue #71](https://github.com/dooziedan/tagwerk/issues/71), 2026-10-12. The track page's **From the audio** box shows the loudness under BPM and key and, when the ReplayGain doesn't fit, the same suggestion as for BPM and key: what is wrong, what the tag should be, and one button that stages the fix for this track (`stage_fixes` with one id, so final tracks and fixes already pending are left out the same way as on the ReplayGain page). The track page and the page share how final and pending are found.
+
+**Analyse** measures BPM, key and loudness together (one button), as it already did. A second, quick **Measure loudness** button appears only when BPM and key are there but the loudness isn't: imported tracks bring their BPM and key from the inbox, but inbox tracks aren't measured for loudness, and analysing them again would take 5-10 seconds instead of about 2. While it runs, the box keeps showing BPM and key.

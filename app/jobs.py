@@ -456,7 +456,8 @@ class AnalysisJob:
         self._lock = threading.Lock()
         # (library?, track id) -> force (analyse again even if the result is fresh), in order
         self._queue: dict[tuple[bool, int], bool] = {}
-        self._current: set[tuple[bool, int]] = set()  # being analysed now
+        # Being analysed now -> True if only its loudness is measured
+        self._current: dict[tuple[bool, int], bool] = {}
         # Library tracks that only get their loudness measured (the ReplayGain page)
         self._loudness_only: set[tuple[bool, int]] = set()
         self._threads: list[threading.Thread] = []
@@ -525,9 +526,9 @@ class AnalysisJob:
                         self.progress.current = ""
                     return
                 (library, track_id), force = picked
-                self._current.add((library, track_id))
                 only_loudness = (library, track_id) in self._loudness_only
                 self._loudness_only.discard((library, track_id))
+                self._current[(library, track_id)] = only_loudness
                 self.progress.total = (
                     self.progress.processed + len(self._current) + len(self._queue)
                 )
@@ -553,7 +554,7 @@ class AnalysisJob:
                 log.exception("Audio analysis failed for track %s", track_id)
                 failed = True
             with self._lock:
-                self._current.discard((library, track_id))
+                self._current.pop((library, track_id), None)
                 self.progress.processed += 1
                 self.progress.failed += failed
                 self.progress.skipped += skipped
@@ -569,6 +570,16 @@ class AnalysisJob:
         """True while this track waits for (or is in) an analysis."""
         key = (library, track_id)
         return self.running and (key in self._queue or key in self._current)
+
+    def measuring_loudness(self, track_id: int) -> bool:
+        """True while this library track waits for (or is in) a pass that measures only its
+        loudness, and no full analysis: its page keeps showing BPM and key meanwhile."""
+        key = (True, track_id)
+        if not self.running:
+            return False
+        if key in self._queue:
+            return key in self._loudness_only
+        return self._current.get(key, False)
 
     def stop(self) -> int:
         """Forget the waiting tracks; the ones being analysed finish. Returns how many."""

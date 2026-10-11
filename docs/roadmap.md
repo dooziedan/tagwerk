@@ -161,6 +161,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.20 | Longer versions: Beatport as a source, each Discogs version with its own length, club mixes recognised and checked; Beatport's key as a hint for the audio; Discogs track IDs in their own field. | [0033](decisions/0033-discogs-track-ids.md), [0034](decisions/0034-longer-versions.md) |
 | 0.21 | Notifications: a bell with what Tagwerk did while you were away, chosen in Settings → Notifications. | [0035](decisions/0035-notifications.md) |
 | 0.22 | Secret tracks: edits and bootlegs never looked up online and complete without a cover; the import folder's Secret folder. | [0036](decisions/0036-secret-tracks.md) |
+| 0.23 | ReplayGain fixed from a track's page: the From the audio box says what's wrong, with one button; Measure loudness for one track. | [0029](decisions/0029-loudness-and-replaygain-check.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.

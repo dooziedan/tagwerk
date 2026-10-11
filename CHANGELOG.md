@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-12
+
+### Added
+- **Fix a track's ReplayGain on its own page.** The **From the audio** box now has a **Loudness** line below BPM and key. When the ReplayGain doesn't fit the audio, it says what's wrong and what the tag should be, with one button, like the BPM and key suggestions:
+  - an old ReplayGain 1 value or a gain that doesn't match: **Use −10.80 dB**
+  - no ReplayGain at all: **Add ReplayGain**
+  - the gain is right but the peak is missing: **Add the peak**
+
+  The button creates a pending change (track gain and peak; Opus only has the gain), so you review and apply it on the Changes page as usual, with undo. Once it's waiting there, the box says so instead of showing the button. Final tracks show their loudness without a suggestion. The **ReplayGain** page stays the place to fix many tracks at once.
+- Tracks that have BPM and key but no loudness yet (for example ones imported from the inbox) get a **Measure loudness** button in the box: it measures only the loudness, in about 2 seconds, and the box updates by itself. **Analyse** still measures BPM, key and loudness together.
+- The *Doesn't match the audio* link in the **File** card now jumps to the box on the same page instead of the ReplayGain page.
+- The API has `POST /api/tracks/{id}/replaygain/fix` and `POST /api/tracks/{id}/loudness`.
+
+### Fixed
+- The **ReplayGain** page kept listing a track after its fix was waiting on the Changes page when the file already had the right peak (only the gain needed a change).
+- Buttons in the **From the audio** box (Analyse, **Use 175**, …) no longer send you to the top of the track page: the box stays where it was.
+- On phones, a long status in the track page's **File** card (*Old ReplayGain 1 value (about 4 dB too loud)*) wraps instead of making the page scroll sideways.
+
 ## [0.22.1] - 2026-10-12
 
 ### Added
