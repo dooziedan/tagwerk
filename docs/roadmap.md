@@ -8,15 +8,16 @@ deliberately leaves alone is listed under [Not in scope](#not-in-scope).
 
 **1.0 means:** Tagwerk can be trusted with the real master library, and it is a joy to look at.
 
-## Where we are (v0.21)
+## Where we are (v0.22)
 Everything on the original plan is built: scanning and statistics, editing with review and undo,
 the import inbox with automatic mode, online identification, BPM and key from the audio, final
 tracks, converting to AIFF, the play bar, the night-sky look, duplicates in the library (with
 the copy to keep and a trash) and the README. Since 0.15: made for DJs (no more Collector
 mode), merging genre spellings, mix names with capitals, ReplayGain read, edited and checked
 against the audio, Discogs IDs fixed on import, a Tools section in the menu, release notes
-on GitHub, IDs from the online lookup, club versions checked against Beatport and Discogs, and
-notifications for what Tagwerk did while the owner was away.
+on GitHub, IDs from the online lookup, club versions checked against Beatport and Discogs,
+notifications for what Tagwerk did while the owner was away, and secret tracks for edits and
+bootlegs.
 What's left before 1.0: the owner's run on the real library and an onboarding tour.
 
 ## Road to 1.0
@@ -83,7 +84,7 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   only what needs the owner or could lose data, e.g. inbox-trash files 3 days **before** they
   are removed for good. Later: the release watch and AcoustID report here too, and
   notifications can go to the phone (ntfy, Gotify, Unraid), switchable per topic.
-- **Secret tracks** ✅ (next release, [ADR 0036](decisions/0036-secret-tracks.md)). Edits
+- **Secret tracks** ✅ v0.22 ([ADR 0036](decisions/0036-secret-tracks.md)). Edits
   and bootlegs: never looked up online (online sources only find the original release) and
   complete without a cover. Marked by the import folder's `Secret` folder, a switch on the track
   and inbox pages, or ticked in the lists; kept in Tagwerk only, it moves with the track on
@@ -159,6 +160,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.19 | ReplayGain checked against the audio (loudness), Changes and History on phones, the Online sources card, release notes on GitHub, a Tools section in the menu, the play bar's title opens the track; 0.19.3: store genres matched against the genre map; 0.19.4: MusicBrainz and Discogs IDs from the online lookup. | [0029](decisions/0029-loudness-and-replaygain-check.md), [0031](decisions/0031-store-genres-matched.md), [0032](decisions/0032-ids-from-the-online-lookup.md) |
 | 0.20 | Longer versions: Beatport as a source, each Discogs version with its own length, club mixes recognised and checked; Beatport's key as a hint for the audio; Discogs track IDs in their own field. | [0033](decisions/0033-discogs-track-ids.md), [0034](decisions/0034-longer-versions.md) |
 | 0.21 | Notifications: a bell with what Tagwerk did while you were away, chosen in Settings → Notifications. | [0035](decisions/0035-notifications.md) |
+| 0.22 | Secret tracks: edits and bootlegs never looked up online and complete without a cover; the import folder's Secret folder. | [0036](decisions/0036-secret-tracks.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.

@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-11
+
 ### Added
 - **Secret tracks, for your edits and bootlegs.** An edit shares the original's artist, title and much of its sound, so online sources find the original release and suggest its label, cover and IDs. And bootlegs rarely have official artwork. A track marked **Secret**:
   - is **never looked up online**: no source is asked, not even AcoustID with the audio. Whatever was found online before is forgotten when you mark it.
