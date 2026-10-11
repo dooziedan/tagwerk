@@ -916,6 +916,8 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .task-list .grow small { display: block; color: var(--tw-ink-2); font-size: 0.8rem; margin-top: 0.1rem; }
 .task-list .go { color: var(--tw-ink-3); flex: none; }
 .empty-note { display: flex; align-items: center; gap: 0.6rem; color: var(--tw-ink-2); font-size: 0.92rem; margin: 0; }
+/* Something below it (e.g. the "Last analysis" box): keep some air between them. */
+.empty-note:not(:last-child) { margin-bottom: 1rem; }
 .empty-note svg { color: var(--tw-ok); }
 
 /* Cover cards (Recently added) */

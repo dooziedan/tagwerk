@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- **Home**: in the "Waiting for you" card, "Nothing waiting." no longer sits right on top of the "Last analysis" box below it.
+
 ## [0.20.0] - 2026-10-11
 
 ### Added
