@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 - **Tick many tracks at once on the Tracks page**: tick one track, hold **Shift** and click another, and every track in between is ticked too. A Shift-click that unticks a track unticks the ones in between, so you can trim a selection the same way. The box in the header shows when every track on the page is ticked.
 
+### Fixed
+- **"Longer version" finds the long version whatever a store calls it.** Stores name versions loosely: the long one is the *Original Mix* on Beatport but the *Extended Mix* elsewhere, and a *Radio Mix* is usually the same as a *Radio Edit*. Tagwerk only knew some of these words, so a file tagged "(Radio Mix)" that is really the 6:30 Original Mix didn't count Beatport's Original Mix of the same length, and the card said Beatport only had the short version. Now *original, extended, radio, club, single, album, short, mix, edit* and *version* at the end of a title all mean "a version of the same track", and the length decides which one your file is. Remixes and other people's edits ("Hush Remix", "Dimitri Edit") still count as other tracks.
+
 ## [0.22.0] - 2026-10-11
 
 ### Added
