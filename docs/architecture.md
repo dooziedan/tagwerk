@@ -70,13 +70,13 @@ Files are never modified directly from a form or a lookup:
 | `app/routes/setup.py` | The setup wizard; its `apply_choices` is shared with Settings, so a choice means the same in both | 0.7 |
 | `app/navigation.py` | Where "← Back" and "after saving" lead (only pages of the app) | 0.7 |
 | `app/sources/` | Online metadata sources behind one interface (`base.py`): MusicBrainz, AcoustID (fpcalc), Discogs, iTunes, Deezer | 0.8 |
-| `app/identify.py` | Asks the sources about inbox tracks, scores the matches, stores them (`onlinelookup`) and turns agreement into suggestions and a cover ([ADR 0014](decisions/0014-online-identification.md)) | 0.8 |
+| `app/identify.py` | Asks the sources about inbox tracks, scores the matches, stores them (`onlinelookup`) and turns agreement into suggestions and a cover ([ADR 0014](decisions/0014-online-identification.md)); sure MusicBrainz and Discogs IDs for empty ID fields ([ADR 0032](decisions/0032-ids-from-the-online-lookup.md)) | 0.8 |
 | `app/routes/lookup.py` | Look up online for library tracks: sure values become pending changes, "Use these values" stages one result | 0.8.1 |
 | `app/routes/player.py`, `app/static/player.js` | The play bar: serves audio (range requests; ffmpeg → MP3 for AIFF/ALAC). Pages swap in place with hx-boost so playback continues ([ADR 0015](decisions/0015-player.md)) | 0.8.2 |
 | `app/audio_analysis.py` | BPM and key from the audio with Essentia (read-only; also runnable by hand: `python -m app.audio_analysis FILE`) ([ADR 0017](decisions/0017-audio-analysis.md)) | 0.9 |
 | `app/analysis.py` | Runs the analysis per track in a low-priority process (as many at once as the container has CPU cores and memory for), stores results (`inboxanalysis`, `libraryanalysis`), combines them with genre, filename and online BPMs, stages sure values | 0.9 |
 | `app/loudness.py`, `app/routes/replaygain.py` | Loudness from the audio (ffmpeg EBU R128, in the analysis job, kept in `libraryloudness`) and the ReplayGain page: tags checked against it, fixes staged as pending changes ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)) | 0.19 |
-| `app/ids.py` | MusicBrainz ID fields holding other values: what's wrong, and the fix (Discogs numbers to their own fields), also on import ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md), [0030](decisions/0030-ids-fixed-on-import.md)) | 0.9 |
+| `app/ids.py` | MusicBrainz ID fields holding other values: what's wrong, and the fix (Discogs numbers to their own fields), also on import ([ADR 0018](decisions/0018-musicbrainz-and-discogs-ids.md), [0030](decisions/0030-ids-fixed-on-import.md)); each ID's page at MusicBrainz or Discogs | 0.9 |
 | `app/jobs.py` | Background jobs (scan, inbox check, apply, import, undo) in a thread; one shared lock so they never overlap. After each, `after_library_change` reworks BPM/key decisions and duplicates | 0.2 |
 | `docker/entrypoint.sh` | Applies PUID/PGID/UMASK, then starts the app | 0.1 |
 | `unraid/tagwerk.xml` | Unraid container template | 0.1 |

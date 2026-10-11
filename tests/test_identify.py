@@ -24,11 +24,14 @@ def answer(name: str) -> dict:
 
 @pytest.fixture
 def web(monkeypatch):
-    """The sources get saved answers (real ones from MusicBrainz, iTunes, Deezer)."""
+    """The sources get saved answers (real ones from MusicBrainz, iTunes, Deezer; the AcoustID
+    and Discogs ones are made up in their real format)."""
     asked = []
 
     def get_json(self, url, params=None, headers=None):
         asked.append(url)
+        if "musicbrainz.org/ws/2/release/" in url:
+            return answer("mb_release.json")
         if "musicbrainz.org" in url:
             return answer("mb_search.json")
         if "itunes.apple.com" in url:
@@ -39,6 +42,8 @@ def web(monkeypatch):
             return answer("deezer_track.json")
         if "api.deezer.com/album/" in url:
             return answer("deezer_album.json")
+        if "api.discogs.com/releases/" in url:
+            return answer("discogs_release.json")
         if "discogs.com" in url:
             return answer("discogs_search.json")
         if "acoustid.org" in url:
@@ -54,6 +59,11 @@ def web(monkeypatch):
 @pytest.fixture
 def track(engine, settings, monkeypatch):
     """An untagged inbox track named "Fisher - Losing It.mp3", 4:08 long."""
+    return inbox_fixture(engine, settings, monkeypatch)
+
+
+def inbox_fixture(engine, settings, monkeypatch) -> int:
+    """The inbox track of ``track`` (also used by tests/test_lookup_ids.py)."""
     monkeypatch.setattr(settings, "acoustid_key", "test-key")
     monkeypatch.setattr(settings, "discogs_token", "test-token")
     settings.import_dir.mkdir()

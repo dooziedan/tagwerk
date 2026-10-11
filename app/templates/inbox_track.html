@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button, toast %}
+{% from "macros.html" import id_value, play_button, toast %}
 {% block title %}{{ t.title or t.path }} · Inbox · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -36,6 +36,16 @@
     {% for w in plan.wrong_ids %}<li>{{ w.label }}: <code>{{ w.value }}</code> – {{ w.explanation }}</li>{% endfor %}
   </ul>
   <p><small class="muted">Fixed on import; real MusicBrainz IDs stay. Undoing the import puts the old values back.</small></p>
+</div>
+{% endif %}
+
+{% if plan.found_ids %}
+<div class="notice" role="note">
+  <p><strong>IDs found online</strong></p>
+  <ul>
+    {% for name, value, why in plan.found_ids %}<li>{{ field_label(name) }}: {{ id_value(name, value) }} – {{ why }}</li>{% endfor %}
+  </ul>
+  <p><small class="muted">Written on import into ID fields that are still empty. Undoing the import removes them again.</small></p>
 </div>
 {% endif %}
 

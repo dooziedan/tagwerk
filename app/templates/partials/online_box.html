@@ -4,7 +4,8 @@
    "check" tag while there are matches to look at.
 
    Folded by default: the closed card still shows one pill per source. Open, every source gets
-   its own panel: the best match first with its values beside the file's, then the rest. #}
+   its own panel: the best match first with its values beside the file's, then the rest. Each
+   panel folds on its own; it starts open when the source found the track or couldn't be asked. #}
 {% set matched = online | selectattr("best") | list %}
 {% macro use_form(f, n) %}
 <form method="post" action="{{ base }}/online" hx-disabled-elt="find button">{# no second click while it is sent #}
@@ -52,9 +53,9 @@
       {% if looking_up %}<p class="notice" role="status"><span aria-busy="true">Looking up again…</span> This page updates by itself when the answers are in.</p>{% endif %}
       {% for f in online %}
       {% set top = f.candidates[0] if f.candidates else none %}
-      <section class="online-src {% if f.error %}is-error{% elif f.best %}is-match{% elif top %}is-weak{% else %}is-none{% endif %}" aria-label="{{ f.label }}">
-        <header class="src-head">
-          <div class="src-name"><strong>{{ f.label }}</strong><small>{{ f.about }}</small></div>
+      <details class="online-src {% if f.error %}is-error{% elif f.best %}is-match{% elif top %}is-weak{% else %}is-none{% endif %}"{% if f.best or f.error %} open{% endif %}>
+        <summary class="src-head">
+          <div class="src-name"><span class="online-chevron" aria-hidden="true"></span><strong>{{ f.label }}</strong><small>{{ f.about }}</small></div>
           <div class="src-score">
             {% if top and not f.error %}<span class="src-meter" aria-hidden="true"><i style="width: {{ '%d' % (top.score * 100) }}%"></i></span><b>{{ "%d" % (top.score * 100) }}%</b>{% endif %}
             {% if f.error %}<span class="status status-warn">couldn't ask</span>
@@ -62,7 +63,7 @@
             {% elif top %}<span class="status status-help">no good match</span>
             {% else %}<span class="status">nothing found</span>{% endif %}
           </div>
-        </header>
+        </summary>
         {% if f.error %}<p class="src-msg">⚠️ {{ f.error }}</p>{% endif %}
         {% if f.best %}
         {% set c = f.best %}
@@ -83,6 +84,11 @@
               </div>
               {% endfor %}
             </dl>
+            {% endif %}
+            {% set id_groups = id_link_groups(f.ids[0]) if f.ids else [] %}
+            {% if id_groups %}
+            <p class="src-ids"><small>IDs:
+              {%- for service, found_links in id_groups %} {{ service }}:{% for name, url in found_links %} <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ name }} ↗</a>{% if not loop.last %} ·{% endif %}{% endfor %}{% if not loop.last %} —{% endif %}{% endfor %}</small></p>
             {% endif %}
             <div class="src-actions">
               {{ use_form(f, 0) }}
@@ -109,9 +115,9 @@
           {% endfor %}
         </details>
         {% endif %}
-      </section>
+      </details>
       {% endfor %}
-      <p class="fine">{% if matched %}<span class="legend is-same">✓ same as your tags</span> · <span class="legend is-new">new: fills an empty field</span> · <span class="legend is-differs">yours: what the file says now</span><br>{% endif %}{{ note }} Sure when two sources agree (or the audio matches clearly).</p>
+      <p class="fine">{% if matched %}<span class="legend is-same">✓ same as your tags</span> · <span class="legend is-new">new: fills an empty field</span> · <span class="legend is-differs">yours: what the file says now</span><br>{% endif %}{{ note }} Sure when two sources agree (or the audio matches clearly). IDs only fill empty ID fields.</p>
     </div>
   </details>
   {% endif %}

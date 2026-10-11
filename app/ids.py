@@ -11,6 +11,9 @@ flags this (``Track.mbid_invalid``); "Fix IDs" proposes pending changes that
 
 Nothing is written before the owner applies the changes; undo restores the old values.
 Inbox tracks are fixed while importing (ADR 0030): the review page shows what happens.
+
+Correct IDs come from the online lookup (app/identify.py, ADR 0032); ``links`` gives each ID's
+page at MusicBrainz or Discogs, so the owner can check where an ID points.
 """
 
 import logging
@@ -39,6 +42,15 @@ _DISCOGS_MARKUP = re.compile(r"^\[([ra])=?(\d+)\]$", re.I)
 # Release number and position, as some taggers write the track ID: "33199809-10" is track 10
 # of release 33199809. Only the release number is kept.
 _DISCOGS_POSITION = re.compile(r"^(\d+)-\d+$")
+# Where each ID field's IDs have their page.
+PAGES = {
+    "mb_trackid": "https://musicbrainz.org/recording/{}",
+    "mb_albumid": "https://musicbrainz.org/release/{}",
+    "mb_artistid": "https://musicbrainz.org/artist/{}",
+    "mb_albumartistid": "https://musicbrainz.org/artist/{}",
+    "discogs_releaseid": "https://www.discogs.com/release/{}",
+    "discogs_artistid": "https://www.discogs.com/artist/{}",
+}
 
 
 @dataclass
@@ -101,6 +113,58 @@ def fixes(track: Track | FileInfo) -> dict[str, str | None]:
         numbers = _parts(getattr(track, target)) + [w.number for w in wrong if w.moves_to == target]
         result[target] = "; ".join(dict.fromkeys(numbers))
     return result
+
+
+def links(field: str, value: str | None) -> list[tuple[str, str | None]]:
+    """Each ID in a field's value with its page: [(id, url)], url None for a value that isn't
+    a real ID (or a field without pages). Several IDs are separated by ";"."""
+    page = PAGES.get(field)
+    result = []
+    for part in _parts(value):
+        real = MBID_RE.match(part) if field.startswith("mb_") else part.isdigit()
+        result.append((part, page.format(part.lower()) if page and real else None))
+    return result
+
+
+# Short names for a list of links grouped by service: "MusicBrainz: recording · artist".
+SERVICES = {"mb_": "MusicBrainz", "discogs_": "Discogs"}
+SHORT = {
+    "mb_trackid": "recording",
+    "mb_albumid": "release",
+    "mb_artistid": "artist",
+    "mb_albumartistid": "album artist",
+    "discogs_releaseid": "release",
+    "discogs_artistid": "artist",
+}
+
+
+def link_groups(found: dict[str, str]) -> list[tuple[str, list[tuple[str, str]]]]:
+    """A result's IDs as links grouped by service, for the Online sources card:
+    [("MusicBrainz", [("recording", url), ("artist", url)]), ("Discogs", [...])]. Several
+    artists get a number each ("artist 1", "artist 2")."""
+    groups = []
+    for prefix, service in SERVICES.items():
+        links_ = []
+        for field in PAGES:
+            if not field.startswith(prefix):
+                continue
+            pages = [url for _, url in links(field, found.get(field)) if url]
+            for n, url in enumerate(pages, 1):
+                links_.append((f"{SHORT[field]} {n}" if len(pages) > 1 else SHORT[field], url))
+        if links_:
+            groups.append((service, links_))
+    return groups
+
+
+def file_ids(path: Path) -> dict[str, str | None] | None:
+    """A file's ID fields as they are now, or None if it can't be read (inbox tracks don't keep
+    every ID field)."""
+    try:
+        info = read_file(path)
+    except Exception as exc:  # unreadable files are reported by the inbox check
+        log.warning("Could not read the IDs of %s: %s", path, exc)
+        return None
+    return {name: getattr(info, name) for name in writer.IDS}
 
 
 def in_file(path: Path) -> FileInfo | None:

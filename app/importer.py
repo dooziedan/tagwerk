@@ -5,6 +5,7 @@ Per track (ADR 0007):
 2. The destination is checked first: an existing file is never overwritten.
 3. Tags are written with a snapshot (app/writer.py), exactly like an applied edit.
    MusicBrainz fields holding other values (e.g. Discogs numbers) are fixed (app/ids.py).
+   IDs found online fill ID fields that are still empty (app/identify.py, ADR 0032).
 4. The file is copied into the library folder, the copy is verified, then the original is
    deleted. **The filename never changes.**
 5. The track joins the library database; the import is recorded in the history, and undo
@@ -51,6 +52,8 @@ class ImportPlan:
     new_genre: str | None = None
     # Values in MusicBrainz fields that aren't MusicBrainz IDs: fixed on import (app/ids.py).
     wrong_ids: list[ids.WrongId] = field(default_factory=list)
+    # IDs found online that the import writes: (field, value, why), ADR 0032.
+    found_ids: list[tuple[str, str, str]] = field(default_factory=list)
 
     @property
     def destination(self) -> str:
@@ -93,6 +96,9 @@ def plan(
             changes[name] = writer.normalize(name, new)
             old[name] = getattr(found, name)
             sources[name] = "fix-ids"
+    found_ids = _online_ids(session, track, fields, mine, changes)
+    for name, (value, source, _why) in found_ids.items():
+        changes[name], old[name], sources[name] = value, None, source
     names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
     existing = naming.existing_folders(music_dir)
     folder = naming.folder(
@@ -100,6 +106,7 @@ def plan(
     )
     result = ImportPlan(track, changes, old, sources, folder)
     result.wrong_ids = ids.wrong_ids(found) if found else []
+    result.found_ids = [(name, value, why) for name, (value, _, why) in found_ids.items()]
     if prefs.folder_layout == "genre" and folder == naming.UNSORTED and names["genre"]:
         result.new_genre = names["genre"]
     if track.error:
@@ -110,6 +117,39 @@ def plan(
     if (music_dir / result.destination).exists():
         result.problems.append(f"{result.destination} already exists in the library")
     return result
+
+
+def _online_ids(
+    session: Session, track: InboxTrack, fields: list, mine: dict, changes: dict
+) -> dict[str, tuple[str, str, str]]:
+    """IDs found online for ID fields that are empty once the import's ID fixes are done:
+    the owner's ("Use these values") and the sure ones. {field: (value, source, why)}.
+
+    The file is only read when there is an ID to write (inbox tracks don't keep every ID).
+    """
+    if track.error:
+        return {}
+    # The album, label and catalog number the track gets, if they can be trusted: its own tags,
+    # the owner's values or sure suggestions (identify.id_suggestions).
+    context = {}
+    for f in fields:
+        if f.field in identify.CONTEXT:
+            trusted = f.origin in ("file", "you") or (f.suggestion and f.suggestion.sure)
+            context[f.field] = f.value if trusted else f.in_file
+    wanted = {
+        name: (value, "you", "you took this result over")
+        for name, value in mine.items()
+        if name in writer.IDS and value
+    }
+    for p in identify.id_suggestions(session, track, {}, context, taken=set(wanted)):
+        wanted[p.field] = (p.value, "online", p.reason)
+    if not wanted:
+        return {}
+    in_file = ids.file_ids(get_settings().import_dir / track.path)
+    if in_file is None:
+        return {}
+    now = in_file | {name: changes[name] for name in writer.IDS if name in changes}
+    return {name: found for name, found in wanted.items() if not now.get(name)}
 
 
 # A file must be unchanged for this long before an automatic import: it may still be copying.

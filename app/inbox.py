@@ -183,6 +183,19 @@ def save_values(session: Session, track: InboxTrack, typed: dict[str, str]) -> d
     return {}
 
 
+def save_ids(session: Session, track: InboxTrack, values: dict[str, str]) -> None:
+    """IDs the owner took over from an online result ("Use these values"), kept as the owner's
+    values. The import writes them into ID fields that are still empty (ADR 0032)."""
+    stored = {
+        r.field: r for r in session.exec(select(InboxValue).where(InboxValue.track_id == track.id))
+    }
+    for name, value in values.items():
+        row = stored.get(name) or InboxValue(track_id=track.id, field=name)
+        row.value = value
+        session.add(row)
+    session.commit()
+
+
 def set_cover(session: Session, track: InboxTrack, image_id: str | None) -> None:
     """The cover to write on import: an image from the ImageStore, or None to remove it."""
     row = session.exec(

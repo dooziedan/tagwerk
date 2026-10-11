@@ -9,6 +9,9 @@
 3. **Suggest**: candidates that match well fill fields that are still empty. A value is
    **sure** when two sources agree on it, or when AcoustID recognised the audio clearly;
    otherwise the owner should check it. Tags in the file always win.
+4. **IDs** (ADR 0032): MusicBrainz and Discogs IDs follow stricter rules, because a wrong ID is
+   worse than none (Navidrome and Picard trust it). Only sure IDs are suggested, only for empty
+   ID fields: see id_suggestions().
 
 Inbox tracks get suggestions on their review page. **Library tracks** ("Look up online") get
 the same lookups; their sure values become pending changes (stage_sure), so they go through the
@@ -48,6 +51,7 @@ from app.sources.deezer import Deezer
 from app.sources.discogs import Discogs
 from app.sources.itunes import ITunes
 from app.sources.musicbrainz import MusicBrainz
+from app.tags import MBID_FIELDS, MBID_RE
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +63,8 @@ KEEP = 5  # candidates stored per source
 REFRESH_AFTER = timedelta(days=30)
 # Fields online sources may fill (title and artist only when nothing else knows them).
 FIELDS = ["title", "artist", "album", "date", "genre", "label", "catalognumber", "bpm"]
+# What an ID suggestion needs to know about the track (see id_suggestions()).
+CONTEXT = ("album", "label", "catalognumber")
 
 
 def enabled(settings: Settings, prefs: preferences.Preferences) -> list[Source]:
@@ -119,7 +125,9 @@ def lookup(
         else:
             query = query_for(session, track, settings.import_dir)
         asked = 0
-        for source in enabled(settings, prefs):
+        sources = enabled(settings, prefs)
+        asked_now = set()
+        for source in sources:
             row = _row(session, table, track.id, source.name)
             if not force and row and _fresh(row, query):
                 continue
@@ -142,6 +150,9 @@ def lookup(
             session.add(row)
             session.commit()
             asked += 1
+            asked_now.add(source.name)
+        if asked_now:
+            _look_up_ids(session, track.id, table, {s.name: s for s in sources}, asked_now)
         if images is not None and not track.has_cover:
             _fetch_cover(session, track, images, table)
         if library:
@@ -152,18 +163,61 @@ def lookup(
 def stage_sure(session: Session, track: Track) -> int:
     """Turn a library track's sure online values into pending changes (for empty fields the
     owner hasn't edited yet). Final tracks are skipped by changes.stage(). Returns how many."""
-    pending = {
-        c.field
+    staged = {
+        c.field: c.new_value
         for c in session.exec(select(PendingChange).where(PendingChange.track_id == track.id))
     }
+    pending = set(staged)
     values = {
         p.field: p.value for p in suggestions(session, track, taken=pending, library=True) if p.sure
     }
+    current = {name: writer.current_value(track, name) for name in writer.IDS}
+    # The album, label and catalog number the track will have: its tag, else a pending change
+    # (the owner's, or a sure value from an earlier lookup), else a sure value found now.
+    context = {
+        name: writer.current_value(track, name) or staged.get(name) or values.get(name)
+        for name in CONTEXT
+    }
+    for p in id_suggestions(session, track, current, context, taken=pending, library=True):
+        values[p.field] = p.value
     count = changes.stage(session, [track.id], values, "online")[0] if values else 0
     cover = cover_suggestion(session, track, library=True)
     if cover and cover.sure and writer.COVER not in pending:
         count += changes.stage_cover(session, [track.id], cover.image_id, "online")
     return count
+
+
+def _look_up_ids(session: Session, track_id: int, table, sources: dict, asked: set[str]) -> None:
+    """IDs the searches don't give, one request each and only for the best match of a source
+    asked just now: the Discogs release's artist IDs, and the Discogs release a MusicBrainz
+    release links to (with Discogs switched on). A failed request only leaves the ID out."""
+    rows = {r.source: r for r in session.exec(select(table).where(table.track_id == track_id))}
+    discogs, musicbrainz = sources.get("discogs"), sources.get("musicbrainz")
+    wanted = []  # (source, ask, the ID it needs, the ID it adds)
+    if discogs and "discogs" in asked:
+        ask = discogs.release_artists
+        wanted.append(("discogs", ask, "discogs_releaseid", "discogs_artistid"))
+    if musicbrainz and discogs and "musicbrainz" in asked:
+        ask = musicbrainz.discogs_release
+        wanted.append(("musicbrainz", ask, "mb_albumid", "discogs_releaseid"))
+    for name, ask, needs, adds in wanted:
+        row = rows.get(name)
+        stored = json.loads(row.candidates) if row else []
+        if not stored or stored[0].get("score", 0) < MATCH or not stored[0]["values"].get(needs):
+            continue
+        try:
+            found = ask(stored[0]["values"][needs])
+        except SourceError as exc:
+            log.info("No %s for %s: %s", adds, name, exc)
+            continue
+        except Exception as exc:  # an odd answer must not stop the lookup
+            log.warning("%s: unexpected answer for %s: %s", name, adds, exc)
+            continue
+        if found:
+            stored[0]["values"][adds] = found
+            row.candidates = json.dumps(stored)
+            session.add(row)
+            session.commit()
 
 
 def _fetch_cover(session: Session, track, images: ImageStore, table) -> None:
@@ -322,6 +376,7 @@ class Found:
     looked_up_at: datetime | None = None
     about: str = ""  # what the source is good for (Source.about)
     fields: list[list["Compared"]] = field(default_factory=list)  # per candidate, see review()
+    ids: list[dict[str, str]] = field(default_factory=list)  # per candidate: candidate_ids()
 
     @property
     def best(self) -> Candidate | None:
@@ -385,6 +440,7 @@ def review(session: Session, track, library: bool = False) -> list[Found]:
     genre_map = genres.active(session)
     for f in found:
         f.fields = [compare(c, track, genre_map) for c in f.candidates]
+        f.ids = [candidate_ids(c) for c in f.candidates]
     return found
 
 
@@ -437,6 +493,159 @@ def suggestions(session: Session, track, taken: set[str], library: bool = False)
             reason += f" ({group[0][0].score:.0%} match)"
         proposals.append(Proposal(name, value, None, "online", sure, reason))
     return proposals
+
+
+def candidate_ids(candidate: Candidate) -> dict[str, str]:
+    """The valid MusicBrainz and Discogs IDs a candidate carries, normalized; odd values
+    (not an MBID, not a number) are left out."""
+    found = {}
+    for name in writer.IDS:
+        try:
+            value = writer.normalize(name, candidate.values.get(name))
+        except ValueError:
+            continue
+        if value:
+            found[name] = value
+    return found
+
+
+def ids_to_take(candidate: Candidate, current: dict[str, str | None]) -> dict[str, str]:
+    """The IDs "Use these values" takes from one result: only for empty ID fields, and no
+    MusicBrainz IDs while a MusicBrainz field holds something else (Fix IDs first)."""
+    wrong = _wrong_mbid(current)
+    return {
+        name: value
+        for name, value in candidate_ids(candidate).items()
+        if not current.get(name) and not (wrong and name in MBID_FIELDS)
+    }
+
+
+def id_suggestions(
+    session: Session,
+    track,
+    current: dict[str, str | None],
+    context: dict[str, str | None],
+    taken: set[str] = frozenset(),
+    library: bool = False,
+) -> list[Proposal]:
+    """Sure MusicBrainz and Discogs IDs for the track's empty ID fields (ADR 0032).
+
+    ``current``: the ID fields as the file has them now (only empty ones are filled, and no
+    MusicBrainz ID is suggested while a MusicBrainz field holds something else: Fix IDs first).
+    ``context``: the album, label and catalog number the track has or gets (its own tags or
+    sure suggestions). ``taken``: fields the owner already edited. Everything else a source
+    found waits on the page, where "Use these values" takes it over.
+    """
+    found = {f.source: f for f in results(session, track.id, library)}
+    sure = {} if _wrong_mbid(current) else _musicbrainz_ids(found, context)
+    sure |= _discogs_ids(found, context)
+    return [
+        Proposal(name, value, None, "online", True, reason)
+        for name, (value, reason) in sure.items()
+        if name not in taken and not current.get(name)
+    ]
+
+
+def _matches(found: dict[str, Found], source: str) -> list[Candidate]:
+    """A source's candidates that match well enough to be used, best first."""
+    return [c for c in found[source].candidates if c.score >= MATCH] if source in found else []
+
+
+def _musicbrainz_ids(found: dict[str, Found], context: dict) -> dict[str, tuple[str, str]]:
+    """The recording is sure when AcoustID recognised the sound clearly, or when AcoustID and
+    MusicBrainz name the same recording; two sources agreeing on the title is not enough. Its
+    artist IDs come with it; the album IDs only from MusicBrainz' release of that recording,
+    and only when that release is the track's album (never a compilation)."""
+    heard = next(iter(_matches(found, "acoustid")), None)
+    recording = candidate_ids(heard).get("mb_trackid") if heard else None
+    if not recording:
+        return {}
+    named = [c for c in _matches(found, "musicbrainz") if candidate_ids(c).get("mb_trackid")]
+    same = next((c for c in named if candidate_ids(c)["mb_trackid"] == recording), None)
+    clear = (heard.fingerprint_score or 0) >= SURE_FINGERPRINT
+    if same is None and not clear:
+        return {}
+    if same is not None:
+        reason = "AcoustID + MusicBrainz agree"
+    else:
+        reason = f"AcoustID recognised the sound ({heard.fingerprint_score:.0%})"
+    ids = {"mb_trackid": recording}
+    from_mb = candidate_ids(same) if same is not None else {}
+    if artists := from_mb.get("mb_artistid") or candidate_ids(heard).get("mb_artistid"):
+        ids["mb_artistid"] = artists
+    if from_mb.get("mb_albumid") and _same_text(same.values.get("album"), context.get("album")):
+        ids["mb_albumid"] = from_mb["mb_albumid"]
+        if from_mb.get("mb_albumartistid"):
+            ids["mb_albumartistid"] = from_mb["mb_albumartistid"]
+    return {name: (value, reason) for name, value in ids.items()}
+
+
+def _discogs_ids(found: dict[str, Found], context: dict) -> dict[str, tuple[str, str]]:
+    """Discogs is the only source with Discogs IDs, so "two sources agree" means: the
+    MusicBrainz release links to this Discogs release, or the Discogs release is the track's
+    album and its label or catalog number agrees too. Of several pressings (vinyl, digital,
+    reissue) the one matching label and catalog number wins; if none clearly does, no ID."""
+    releases: dict[str, Candidate] = {}  # Discogs release ID -> its best candidate
+    for candidate in _matches(found, "discogs"):
+        if release := candidate_ids(candidate).get("discogs_releaseid"):
+            releases.setdefault(release, candidate)
+    if not releases:
+        return {}
+    linked = {candidate_ids(c).get("discogs_releaseid") for c in _matches(found, "musicbrainz")}
+    if len(hits := [r for r in releases if r in linked]) == 1:
+        chosen, reason = releases[hits[0]], "MusicBrainz links to this Discogs release"
+    else:
+        if len(releases) == 1:
+            chosen = next(iter(releases.values()))
+        else:
+            fitting = [
+                c
+                for c in releases.values()
+                if _same_text(c.values.get("label"), context.get("label"))
+                and _same_catno(c.values.get("catalognumber"), context.get("catalognumber"))
+            ]
+            if len(fitting) != 1:
+                return {}
+            chosen = fitting[0]
+        same_label = _same_text(chosen.values.get("label"), context.get("label"))
+        same_catno = _same_catno(chosen.values.get("catalognumber"), context.get("catalognumber"))
+        if not _same_text(chosen.values.get("album"), context.get("album")):
+            return {}
+        if not (same_label or same_catno):
+            return {}
+        reason = "Discogs: same album and " + ("label" if same_label else "catalog number")
+    ids = {"discogs_releaseid": candidate_ids(chosen)["discogs_releaseid"]}
+    # The artist IDs are only asked for Discogs' best match: take them from a release by the
+    # same artist.
+    artist = chosen.values.get("artist")
+    for c in [chosen, *releases.values()]:
+        artists = candidate_ids(c).get("discogs_artistid")
+        if artists and c.values.get("artist") == artist:
+            ids["discogs_artistid"] = artists
+            break
+    return {name: (value, reason) for name, value in ids.items()}
+
+
+def _wrong_mbid(current: dict[str, str | None]) -> bool:
+    """A MusicBrainz field holds something that isn't an MBID (e.g. a Discogs number)."""
+    return any(
+        not all(MBID_RE.match(part.strip()) for part in value.split(";") if part.strip())
+        for value in (current.get(name) for name in MBID_FIELDS)
+        if value
+    )
+
+
+def _same_text(a: str | None, b: str | None) -> bool:
+    return bool(a and b) and normalized(a) == normalized(b)
+
+
+def _same_catno(a: str | None, b: str | None) -> bool:
+    """Catalog numbers alike without spaces, dashes and case: "CATCH 109" = "catch-109"."""
+
+    def plain(text: str | None) -> str:
+        return "".join(ch for ch in (text or "").lower() if ch.isalnum())
+
+    return bool(plain(a)) and plain(a) == plain(b)
 
 
 @dataclass

@@ -97,9 +97,10 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   aren't counted as missing MusicBrainz IDs. (Supersedes the old idea "look up everything
   without IDs"; doing that by hand already works with the track list's filter and *Look up
   online*.)
-- **MusicBrainz and Discogs IDs from the online lookup**
-  ([issue #48](https://github.com/dooziedan/tagwerk/issues/48)). The lookup already gets the
-  IDs but drops them; sure IDs become pending changes, only for empty fields.
+- **MusicBrainz and Discogs IDs from the online lookup** ✅ done, comes with the next release
+  ([issue #48](https://github.com/dooziedan/tagwerk/issues/48),
+  [ADR 0032](decisions/0032-ids-from-the-online-lookup.md)): sure IDs become pending changes
+  (library) or are written on import (inbox), only for empty ID fields.
 - **Add to MusicBrainz**. For released tracks that aren't on MusicBrainz yet: a button that
   opens MusicBrainz's "Add release" form already filled with Tagwerk's values (artist, title,
   label, catalog number, date, length, Discogs link). The owner checks and submits it on

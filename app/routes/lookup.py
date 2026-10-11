@@ -95,6 +95,9 @@ async def use_online(request: Request, track_id: int, session: SessionDep, setti
         return RedirectResponse(f"/tracks/{track_id}", status_code=303)
     candidate = result.candidates[n]
     values = {k: v for k, v in candidate.values.items() if k in writer.EDITABLE and v}
+    track = session.get(Track, track_id)
+    current = {name: writer.current_value(track, name) for name in writer.IDS}
+    values |= identify.ids_to_take(candidate, current)  # only for empty ID fields (ADR 0032)
     count, errors = changes.stage(session, [track_id], values, "online")
     if errors:  # an odd value (e.g. a date format): stage the others
         rest = {k: v for k, v in values.items() if k not in errors}
