@@ -12,6 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Kept short: one notification per job, never one per track; a problem that lasts is reported once, and once more when it is fine again.
 - On phones narrower than 430 px the top bar shows the logo without the word "Tagwerk", so the bell fits.
 
+### Fixed
+- **Home**: in the "Waiting for you" card, "Nothing waiting." no longer sits right on top of the "Last analysis" box below it.
+
 ## [0.20.0] - 2026-10-11
 
 ### Added
