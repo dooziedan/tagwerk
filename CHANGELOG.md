@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-11
+
 ### Added
 - **Discogs track IDs**: taggers write a Discogs track as the release number and the track's position, like `33199809-3` (track 3 of release 33199809). Tagwerk now keeps them in their own field, **Discogs track ID** (`DISCOGS_TRACK_ID`), shown on the track page next to the release and artist IDs and linked to the release's page.
   - **Fix IDs** and the import move a Discogs track from the MusicBrainz track ID field into **Discogs track ID** (and its release number into **Discogs release ID**). Until now only the release number was kept and the position was lost. A Discogs track ID already in the file stays.
