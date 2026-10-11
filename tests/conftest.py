@@ -76,6 +76,7 @@ def offline(monkeypatch):
         raise SourceError("offline during tests")
 
     monkeypatch.setattr(Source, "get_json", no_network)
+    monkeypatch.setattr(Source, "_get", no_network)  # every request (get_text: Beatport's page)
 
 
 # What the stand-in analysis "hears" (tests can change it); the real one is tested on its own.
