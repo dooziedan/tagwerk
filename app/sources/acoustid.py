@@ -14,6 +14,9 @@ import subprocess
 
 from app.sources.base import Candidate, Query, Source, SourceError
 
+# AcoustID's error code for a wrong application key (it comes with HTTP 400, not 401/403).
+INVALID_KEY = 4
+
 
 class AcoustID(Source):
     name = "acoustid"
@@ -43,6 +46,15 @@ class AcoustID(Source):
                 if recording.get("title"):
                     candidates.append(_candidate(recording, float(result.get("score", 0))))
         return candidates
+
+    def key_refused(self, code: int, body: bytes) -> bool:
+        """AcoustID answers a wrong key with HTTP 400 and its own error code 4."""
+        try:
+            if code == 400 and json.loads(body)["error"]["code"] == INVALID_KEY:
+                return True
+        except (ValueError, KeyError, TypeError):
+            pass  # not AcoustID's error format
+        return super().key_refused(code, body)
 
 
 def fingerprint_of(query: Query) -> tuple[int, str]:

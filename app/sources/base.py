@@ -88,7 +88,7 @@ class SourceError(Exception):
 
 
 class KeyRefused(SourceError):
-    """The source refused Tagwerk's key or token (HTTP 401/403): it won't answer until the
+    """The source refused Tagwerk's key or token (``Source.key_refused``): it won't answer until the
     owner fixes it, so this is reported at once (app/identify.py, notifications)."""
 
 
@@ -140,14 +140,23 @@ class Source:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403):
-                check = f": check {self.needs}" if self.needs else ""
-                raise KeyRefused(f"{self.label} refused the request{check}") from None
-            if exc.code in (429, 503):
-                raise SourceError(f"{self.label} is busy (rate limit); tried again later") from None
-            raise SourceError(f"{self.label} answered with error {exc.code}") from None
+            raise self.http_error(exc.code, exc.read()) from None
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise SourceError(f"Can't reach {self.label} ({getattr(exc, 'reason', exc)})") from None
+
+    def http_error(self, code: int, body: bytes) -> SourceError:
+        """The error for an HTTP error answer (``code``, with the answer's ``body``)."""
+        if self.key_refused(code, body):
+            check = f": check {self.needs}" if self.needs else ""
+            return KeyRefused(f"{self.label} refused the request{check}")
+        if code in (429, 503):
+            return SourceError(f"{self.label} is busy (rate limit); tried again later")
+        return SourceError(f"{self.label} answered with error {code}")
+
+    def key_refused(self, code: int, body: bytes) -> bool:
+        """True if the answer means the key or token is wrong. Most sources say so with
+        HTTP 401/403; a source that says it differently overrides this (AcoustID)."""
+        return code in (401, 403)
 
 
 def year_or_date(text: str | None) -> str | None:

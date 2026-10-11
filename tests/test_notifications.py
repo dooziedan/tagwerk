@@ -155,6 +155,37 @@ def test_inbox_trash_files_are_announced_three_days_before_once(engine, settings
     assert len(_all(engine)) == 2
 
 
+def test_inbox_trash_dates_are_in_the_owners_time_zone(engine, settings):
+    """Settings → General → Time zone: near midnight the day depends on it."""
+    from datetime import UTC, datetime
+
+    from app import reminders
+
+    late_evening = datetime(2026, 10, 13, 23, 30, tzinfo=UTC)
+    with Session(engine) as session:
+        prefs = preferences.load(session)
+        assert prefs.time_zone == ""  # the container's
+        prefs = preferences.save(session, replace(prefs, time_zone="Europe/Berlin"))
+    assert reminders._day(late_evening, preferences.zone(prefs)) == "14 Oct"
+    assert reminders._day(late_evening, preferences.zone(replace(prefs, time_zone="UTC"))) == (
+        "13 Oct"
+    )
+    with Session(engine) as session:
+        preferences.save(session, replace(prefs, time_zone="Mars/Olympus_Mons"))
+        assert preferences.load(session).time_zone == ""  # unknown: back to the container's
+
+
+def test_settings_save_the_time_zone(client, engine):
+    page = client.get("/settings").text
+    assert 'id="general"' in page and '<select name="time_zone"' in page
+    assert "<option>Europe/Berlin</option>" in page
+    response = client.post("/settings", data={"time_zone": "Europe/Berlin"})
+    assert response.url.query == b"saved=general"
+    with Session(engine) as session:
+        assert preferences.load(session).time_zone == "Europe/Berlin"
+    assert "<option selected>Europe/Berlin</option>" in client.get("/settings").text
+
+
 def test_the_restore_link_opens_the_inbox_trash(client, settings):
     from app import trash
 
@@ -491,6 +522,18 @@ def test_nothing_new_in_an_empty_menu(client):
     assert 'class="count-badge"' not in client.get("/partials/notifications/count").text
 
 
+def test_the_bell_shows_9_plus_from_10_on(client, engine):
+    """ "128" would cover the bell in the side menu: from 10 on it says "9+" (the owner's
+    choice, tinier than "99+"); screen readers still hear the whole number."""
+    for i in range(9):
+        notifications.notify("navidrome", "problem", f"Problem {i}", engine=engine)
+    assert '<span class="count-badge">9<' in client.get("/partials/notifications/count").text
+    for i in range(119):
+        notifications.notify("navidrome", "problem", f"More {i}", engine=engine)
+    count = client.get("/partials/notifications/count").text
+    assert '<span aria-hidden="true">9+</span><span class="visually-hidden">128 new</span>' in count
+
+
 def test_the_page_new_history_mark_all_as_read_and_clear_history(client, engine):
     trash_note, navidrome_note = _seed(engine)
     page = client.get("/notifications").text
@@ -537,6 +580,16 @@ def test_home_has_a_line_for_notifications_that_need_you(client, engine):
     _seed(engine)
     home = client.get("/").text
     assert "1 notification needs you" in home and "data-open-bell" in home
+    assert 'hx-get="/partials/home/waiting" hx-trigger="every 60s"' in home
+
+
+def test_homes_waiting_card_keeps_up_while_home_stays_open(client, engine):
+    """The card is reloaded every minute like the bell's number, not only on a page change."""
+    card = client.get("/partials/home/waiting").text
+    assert 'id="home-waiting"' in card and "Nothing waiting" in card
+    _seed(engine)
+    card = client.get("/partials/home/waiting").text
+    assert "1 notification needs you" in card and "Nothing waiting" not in card
 
 
 def test_settings_switch_topics_on_and_off(client, engine):

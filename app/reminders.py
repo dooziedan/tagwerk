@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session
 
-from app import notifications, trash
+from app import notifications, preferences, trash
 from app.config import Settings
 from app.db import get_engine
 
@@ -53,10 +53,12 @@ def announce_inbox_trash(settings: Settings, now: datetime | None = None) -> boo
     ]
     written = False
     if due:
+        with Session(get_engine(settings.database_url)) as session:
+            zone = preferences.zone(preferences.load(session))
         due.sort(key=lambda item: item.removed_for_good)
-        first = _day(due[0].removed_for_good)
-        when = f"on {first}" if _day(due[-1].removed_for_good) == first else f"from {first}"
-        files = "\n".join(f"• {item.path} ({_day(item.removed_for_good)})" for item in due)
+        first = _day(due[0].removed_for_good, zone)
+        when = f"on {first}" if _day(due[-1].removed_for_good, zone) == first else f"from {first}"
+        files = "\n".join(f"• {item.path} ({_day(item.removed_for_good, zone)})" for item in due)
         written = notifications.notify(
             "inbox_trash",
             "needs_you",
@@ -115,7 +117,7 @@ def report_inbox_help(settings: Settings) -> bool:
     return written
 
 
-def _day(when: datetime) -> str:
-    """'14 Oct', in the container's time zone (TZ; UTC if not set)."""
-    local = when.astimezone()
+def _day(when: datetime, zone) -> str:
+    """'14 Oct', in the owner's time zone (Settings → General; None: the container's)."""
+    local = when.astimezone(zone)
     return f"{local.day} {local:%b}"

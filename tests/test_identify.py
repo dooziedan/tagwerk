@@ -182,6 +182,25 @@ def test_a_refused_key_becomes_one_notification(web, monkeypatch, engine, settin
     assert summaries == ["Discogs refused Tagwerk's key"]  # the others answered: nothing
 
 
+def test_acoustid_reports_a_wrong_key_with_http_400(settings):
+    """AcoustID doesn't use 401/403 for a wrong key: HTTP 400 with its error code 4 (a real
+    answer, saved). Reported at once like Discogs's 401, not after 5 failed lookups."""
+    from app.sources.base import KeyRefused
+    from app.sources.discogs import Discogs
+
+    source = acoustid.AcoustID(settings)
+    wrong_key = (ONLINE / "acoustid_invalid_key.json").read_bytes()
+    assert isinstance(source.http_error(400, wrong_key), KeyRefused)
+    assert "check ACOUSTID_KEY" in str(source.http_error(400, wrong_key))
+    other = b'{"error": {"code": 3, "message": "invalid fingerprint"}, "status": "error"}'
+    for code, body in ((400, other), (400, b"<html>Bad request</html>"), (500, wrong_key)):
+        error = source.http_error(code, body)
+        assert not isinstance(error, KeyRefused) and str(code) in str(error)
+    assert isinstance(source.http_error(401, b""), KeyRefused)
+    assert isinstance(Discogs(settings).http_error(401, b""), KeyRefused)
+    assert not isinstance(Discogs(settings).http_error(400, wrong_key), KeyRefused)
+
+
 def test_switched_off_sources_are_not_asked(web, engine, settings, track):
     with Session(engine) as session:
         prefs = preferences.load(session)

@@ -29,13 +29,13 @@
   </form>
 </div>
 
-{% set saved_text = {"display": "Display saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved."} %}
+{% set saved_text = {"general": "General settings saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved."} %}
 {% if saved in saved_text %}<div class="toasts">{% call toast() %}✅ {{ saved_text[saved] }}{% endcall %}</div>{% endif %}
 
 <div class="settings-layout">
   {# Where everything is, and how it's set right now. #}
   <nav class="settings-nav" aria-label="Settings sections">
-    <a href="#display">{{ nav_icon("eye") }}<span>Display<small>{{ notations[prefs.key_notation].split(" ")[0] }} · {{ "full effects" if prefs.effects == "full" else "lighter effects" }}</small></span></a>
+    <a href="#general">{{ nav_icon("eye") }}<span>General<small>{{ notations[prefs.key_notation].split(" ")[0] }} · {{ "full effects" if prefs.effects == "full" else "lighter effects" }}</small></span></a>
     <a href="#import">{{ nav_icon("inbox") }}<span>Import<small>{{ layouts[prefs.folder_layout] }} · {{ "always ask" if prefs.automation == "ask" else "automatic" }}</small></span></a>
     <a href="#genres">{{ nav_icon("fields") }}<span>Genre map<small>{{ genre_rules | plural('rule') }} · {{ "your own" if genre_map_custom else "built-in" }}</small></span></a>
     <a href="#final">{{ nav_icon("final") }}<span>Final tracks<small>{{ "renamed on marking" if prefs.rename_on_final else "names stay" }}</small></span></a>
@@ -45,8 +45,8 @@
   </nav>
 
   <div class="settings-body">
-    <section id="display" class="settings-section">
-      {{ section_head("display", "eye", "Display", "How keys read, and how much the night sky moves.") }}
+    <section id="general" class="settings-section">
+      {{ section_head("general", "eye", "General", "How keys read, how much the night sky moves, and your time zone.") }}
       <form method="post" action="/settings">
         <div class="setting">
           <div class="setting-text"><strong>Key notation</strong><small class="muted">Files always keep standard keys (Am, F#).</small></div>
@@ -56,7 +56,14 @@
           <div class="setting-text"><strong>Effects</strong><small class="muted">Try it: the page changes right away.</small></div>
           <div class="setting-control">{{ segmented("effects", effects, prefs.effects, "Effects", {"full": "The night sky with drifting stars, glass and glow. Pages slide in; converting jumps through hyperspace; applying sets the list alight and it burns into stardust.", "light": "No blur, no moving stars, no glow, no animations: for weak devices, or if scrolling stutters."}) }}</div>
         </div>
-        <div class="section-foot"><button type="submit">Save display</button></div>
+        <div class="setting">
+          <div class="setting-text"><strong>Time zone</strong><small class="muted">For dates Tagwerk writes into notifications, like "removed for good on 14 Oct". <span data-browser-zone hidden>Your browser: <button type="button" class="link-button"></button></span></small></div>
+          <div class="setting-control"><select name="time_zone" aria-label="Time zone">
+            <option value="">The container's ({{ container_zone }})</option>
+            {% for zone in time_zones %}<option{% if zone == prefs.time_zone %} selected{% endif %}>{{ zone }}</option>{% endfor %}
+          </select></div>
+        </div>
+        <div class="section-foot"><button type="submit">Save general</button></div>
       </form>
     </section>
 
@@ -167,6 +174,16 @@
         if (e.target.name === "effects") document.documentElement.dataset.effects = e.target.value;
       });
     });
+    // Time zone: offer the browser's own, a click picks it (saved with Save).
+    const browserZone = document.querySelector("[data-browser-zone]");
+    const select = document.querySelector("select[name=time_zone]");
+    const own = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserZone && own && [...select.options].some((o) => o.value === own) && select.value !== own) {
+      const pick = browserZone.querySelector("button");
+      pick.textContent = own;
+      pick.addEventListener("click", () => { select.value = own; browserZone.hidden = true; });
+      browserZone.hidden = false;
+    }
     // After saving: back to the section (base.html drops "saved" from the address).
     const saved = document.getElementById(new URL(location.href).searchParams.get("saved") || "-");
     if (saved) saved.scrollIntoView({ block: "start" });

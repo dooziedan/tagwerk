@@ -46,6 +46,7 @@ def test_settings_api(client):
     assert client.get("/api/settings").json() == {
         "key_notation": "camelot",
         "effects": "full",
+        "time_zone": "",  # the container's (TZ)
         "backup_confirmed": False,
         "setup_done": True,  # set by the client fixture (tests/conftest.py)
         "folder_layout": "genre",
