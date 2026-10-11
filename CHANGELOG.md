@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.19.3] - 2026-10-11
+
+### Fixed
+- **Genres from online lookups are matched against your genre map**: iTunes sends store categories such as "Jungle/Drum'n'bass", which arrived as pending changes as they were. Tagwerk now checks each part against the genre map, and when all parts belong to the same main genre, the suggestion is that genre: "Drum & Bass". The Online sources card, "Use these values" and the values staged after "Look up online" all show the matched genre. Categories that mix two main genres ("House/Techno") or name one the map doesn't know stay as the source sent them; add a line to the genre map in Settings to match them too.
+
 ## [0.19.2] - 2026-10-11
 
 ### Changed

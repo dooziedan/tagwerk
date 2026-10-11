@@ -72,7 +72,7 @@
       {{ section_head("genres", "fields", "Genre map", "How Tagwerk tidies genres and picks the main genre (and with it the genre folder).") }}
       <details class="genre-map-box"{% if errors.genre_map %} open{% endif %}>
         <summary>{{ genre_rules | plural('rule') }}, {{ "your own map" if genre_map_custom else "the built-in map" }} <small class="muted">· show and edit</small></summary>
-        <p class="muted"><small>One rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines.</small></p>
+        <p class="muted"><small>One rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines. Genres from online lookups are matched too, also store categories like <code>Jungle/Drum'n'bass</code> (→ Drum &amp; Bass).</small></p>
         <form method="post" action="/settings/genres">
           <textarea name="genre_map" rows="14" spellcheck="false" class="genre-map"{% if errors.genre_map %} aria-invalid="true"{% endif %}>{{ genre_text }}</textarea>
           {% if errors.genre_map %}<small class="form-error">{{ errors.genre_map }}</small>{% endif %}
