@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.19, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library; see the [roadmap](docs/roadmap.md).
+> **Status: v0.19, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library and an onboarding tour; see the [roadmap](docs/roadmap.md).
 
 ![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
 
@@ -51,7 +51,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 
 **Look:** the night sky: a dark, space-inspired design with glass panels and slowly drifting stars, plus a Lighter effects switch for weak devices.
 
-Next (see the [roadmap](docs/roadmap.md)): checks on a real library before 1.0, then Navidrome numbers on Home.
+Next (see the [roadmap](docs/roadmap.md)): checks on a real library and an onboarding tour before 1.0; notifications for what Tagwerk did while you were away.
 
 ## Install on Unraid
 
