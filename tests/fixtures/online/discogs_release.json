@@ -29,5 +29,19 @@
     "Single"
    ]
   }
+ ],
+ "tracklist": [
+  {
+   "position": "1",
+   "type_": "track",
+   "title": "Losing It",
+   "duration": "4:08"
+  },
+  {
+   "position": "2",
+   "type_": "track",
+   "title": "Losing It (Radio Edit)",
+   "duration": "2:43"
+  }
  ]
 }

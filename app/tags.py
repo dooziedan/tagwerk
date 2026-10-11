@@ -45,6 +45,9 @@ LOSSLESS_FORMATS = {"flac", "wav", "aiff"}
 
 MBID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 MBID_FIELDS = ("mb_trackid", "mb_albumid", "mb_artistid", "mb_albumartistid")
+# A Discogs track: the release number and the track's position on it, "33199809-3" (Discogs
+# itself has no track IDs; taggers write it like this). Positions may be "A1", "1-3", "2.1".
+DISCOGS_TRACK_RE = re.compile(r"^(\d+)-([0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)$")
 
 
 class UnsupportedFileError(Exception):
@@ -79,6 +82,7 @@ class FileInfo:
     # Discogs numbers, in their own fields (Mp3tag's names); see app/ids.py
     discogs_releaseid: str | None = None
     discogs_artistid: str | None = None
+    discogs_trackid: str | None = None  # release and position: 33199809-3
     mbid_invalid: bool = False
     has_cover: bool = False
     has_lyrics: bool = (
@@ -192,6 +196,7 @@ def _read_id3(tags: ID3, info: FileInfo) -> None:
         info.mb_trackid = ufid.data.decode("ascii", "replace") or None
     info.discogs_releaseid = _id3_txxx(tags, "DISCOGS_RELEASE_ID")
     info.discogs_artistid = _id3_txxx(tags, "DISCOGS_ARTIST_ID")
+    info.discogs_trackid = _id3_txxx(tags, "DISCOGS_TRACK_ID")
     info.has_cover = bool(tags.getall("APIC"))
     info.has_lyrics = any(str(f).strip() for f in tags.getall("USLT")) or bool(tags.getall("SYLT"))
 
@@ -244,6 +249,7 @@ def _read_vorbis(tags: VCommentDict, info: FileInfo, opus: bool = False) -> None
     info.mb_albumartistid = get("musicbrainz_albumartistid")
     info.discogs_releaseid = get("discogs_release_id")
     info.discogs_artistid = get("discogs_artist_id")
+    info.discogs_trackid = get("discogs_track_id")
     info.has_cover = "metadata_block_picture" in tags
     info.has_lyrics = bool(get("lyrics", "unsyncedlyrics"))
 
@@ -293,6 +299,7 @@ def _read_mp4(tags: MP4Tags, info: FileInfo) -> None:
     info.mb_albumartistid = freeform("MusicBrainz Album Artist Id")
     info.discogs_releaseid = freeform("DISCOGS_RELEASE_ID")
     info.discogs_artistid = freeform("DISCOGS_ARTIST_ID")
+    info.discogs_trackid = freeform("DISCOGS_TRACK_ID")
     info.has_cover = bool(tags.get("covr"))
     info.has_lyrics = bool(text("\xa9lyr"))
 

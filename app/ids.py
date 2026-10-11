@@ -4,9 +4,10 @@ Some taggers write Discogs numbers (or links) into the MusicBrainz ID fields. Th
 flags this (``Track.mbid_invalid``); "Fix IDs" proposes pending changes that
 
 - keep every real MusicBrainz ID,
-- move Discogs numbers (also "release-position", e.g. 33199809-10) into their own fields:
-  ``DISCOGS_RELEASE_ID`` from the track and album fields, ``DISCOGS_ARTIST_ID`` from the
-  artist fields (Mp3tag's names),
+- move Discogs numbers into their own fields: ``DISCOGS_RELEASE_ID`` from the track and album
+  fields, ``DISCOGS_ARTIST_ID`` from the artist fields (Mp3tag's names). A Discogs track
+  ("release-position", e.g. 33199809-10: track 10 of release 33199809) in the track field
+  moves to ``DISCOGS_TRACK_ID``, and its release number to ``DISCOGS_RELEASE_ID`` (ADR 0033),
 - remove anything else (it isn't an ID Tagwerk or Navidrome could use).
 
 Nothing is written before the owner applies the changes; undo restores the old values.
@@ -25,7 +26,7 @@ from sqlmodel import Session, col, select
 
 from app import changes, writer
 from app.models import Track
-from app.tags import MBID_FIELDS, MBID_RE, FileInfo, read_file
+from app.tags import DISCOGS_TRACK_RE, MBID_FIELDS, MBID_RE, FileInfo, read_file
 
 log = logging.getLogger(__name__)
 
@@ -39,10 +40,8 @@ DISCOGS_FOR = {
 # Discogs links and the short forms in Discogs' own markup: [r123] release, [a123] artist.
 _DISCOGS_LINK = re.compile(r"discogs\.com/(?:.*/)?(release|artist)/(\d+)", re.I)
 _DISCOGS_MARKUP = re.compile(r"^\[([ra])=?(\d+)\]$", re.I)
-# Release number and position, as some taggers write the track ID: "33199809-10" is track 10
-# of release 33199809. Only the release number is kept.
-_DISCOGS_POSITION = re.compile(r"^(\d+)-\d+$")
-# Where each ID field's IDs have their page.
+# Where each ID field's IDs have their page (a Discogs track: its release's page; Discogs has
+# no pages for single tracks).
 PAGES = {
     "mb_trackid": "https://musicbrainz.org/recording/{}",
     "mb_albumid": "https://musicbrainz.org/release/{}",
@@ -50,6 +49,7 @@ PAGES = {
     "mb_albumartistid": "https://musicbrainz.org/artist/{}",
     "discogs_releaseid": "https://www.discogs.com/release/{}",
     "discogs_artistid": "https://www.discogs.com/artist/{}",
+    "discogs_trackid": "https://www.discogs.com/release/{}",
 }
 
 
@@ -58,7 +58,7 @@ class WrongId:
     field: str  # the MusicBrainz field, e.g. "mb_albumid"
     value: str  # the value that isn't a MusicBrainz ID
     moves_to: str | None  # the Discogs field it moves to, or None: it is removed
-    number: str | None = None  # the Discogs number
+    number: str | None = None  # the Discogs number (a track: "release-position")
 
     @property
     def label(self) -> str:
@@ -66,6 +66,12 @@ class WrongId:
 
     @property
     def explanation(self) -> str:
+        if self.moves_to == "discogs_trackid":
+            release, position = DISCOGS_TRACK_RE.match(self.number).groups()
+            return (
+                f"Discogs track {position} of release {release}: moves to Discogs track ID, "
+                f"the release number to Discogs release ID"
+            )
         if self.moves_to:
             return f"Discogs number {self.number}: moves to {writer.label(self.moves_to)}"
         return "not an ID Tagwerk knows: removed"
@@ -75,7 +81,9 @@ def _discogs_number(field: str, value: str) -> tuple[str, str] | None:
     """(Discogs field, number) if the value is a Discogs number or link."""
     if value.isdigit():
         return DISCOGS_FOR[field], value
-    if (match := _DISCOGS_POSITION.match(value)) and DISCOGS_FOR[field] == "discogs_releaseid":
+    if (match := DISCOGS_TRACK_RE.match(value)) and DISCOGS_FOR[field] == "discogs_releaseid":
+        if field == "mb_trackid":  # a Discogs track: it keeps its position
+            return "discogs_trackid", value
         return "discogs_releaseid", match.group(1)
     if match := _DISCOGS_LINK.search(value) or _DISCOGS_MARKUP.match(value):
         kind, number = match.groups()
@@ -109,9 +117,19 @@ def fixes(track: Track | FileInfo) -> dict[str, str | None]:
     for field in {w.field for w in wrong}:
         kept = [p for p in _parts(getattr(track, field)) if MBID_RE.match(p)]
         result[field] = "; ".join(kept) or None
-    for target in {w.moves_to for w in wrong if w.moves_to}:
-        numbers = _parts(getattr(track, target)) + [w.number for w in wrong if w.moves_to == target]
-        result[target] = "; ".join(dict.fromkeys(numbers))
+    moves = [(w.moves_to, w.number) for w in wrong if w.moves_to]
+    for w in wrong:  # a Discogs track also gives its release number
+        if w.moves_to == "discogs_trackid":
+            moves.append(("discogs_releaseid", DISCOGS_TRACK_RE.match(w.number).group(1)))
+    for target in {target for target, _ in moves}:
+        if target == "discogs_trackid":  # one value: a track ID already in the file stays
+            if not getattr(track, target):
+                result[target] = next(number for t, number in moves if t == target)
+            continue
+        numbers = _parts(getattr(track, target)) + [n for t, n in moves if t == target]
+        joined = "; ".join(dict.fromkeys(numbers))
+        if joined != getattr(track, target):
+            result[target] = joined
     return result
 
 
@@ -121,6 +139,10 @@ def links(field: str, value: str | None) -> list[tuple[str, str | None]]:
     page = PAGES.get(field)
     result = []
     for part in _parts(value):
+        if field == "discogs_trackid":
+            track = DISCOGS_TRACK_RE.match(part)
+            result.append((part, page.format(track.group(1)) if track else None))
+            continue
         real = MBID_RE.match(part) if field.startswith("mb_") else part.isdigit()
         result.append((part, page.format(part.lower()) if page and real else None))
     return result
@@ -135,6 +157,7 @@ SHORT = {
     "mb_albumartistid": "album artist",
     "discogs_releaseid": "release",
     "discogs_artistid": "artist",
+    "discogs_trackid": "track",
 }
 
 

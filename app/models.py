@@ -46,6 +46,7 @@ class Track(SQLModel, table=True):
     mbid_invalid: bool = False  # a MusicBrainz field holds something that isn't an MBID
     discogs_releaseid: str | None = None  # Discogs numbers (app/ids.py)
     discogs_artistid: str | None = None
+    discogs_trackid: str | None = None  # "release-position", e.g. 33199809-3
     has_cover: bool = False
     has_lyrics: bool = False  # embedded lyrics
     has_lrc: bool = False  # a .lrc lyrics file with the same name sits next to the track

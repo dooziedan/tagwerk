@@ -152,7 +152,8 @@ def lookup(
             asked += 1
             asked_now.add(source.name)
         if asked_now:
-            _look_up_ids(session, track.id, table, {s.name: s for s in sources}, asked_now)
+            sources_by_name = {s.name: s for s in sources}
+            _look_up_ids(session, track.id, table, sources_by_name, asked_now, query)
         if images is not None and not track.has_cover:
             _fetch_cover(session, track, images, table)
         if library:
@@ -187,37 +188,63 @@ def stage_sure(session: Session, track: Track) -> int:
     return count
 
 
-def _look_up_ids(session: Session, track_id: int, table, sources: dict, asked: set[str]) -> None:
+def _look_up_ids(
+    session: Session, track_id: int, table, sources: dict, asked: set[str], query: Query
+) -> None:
     """IDs the searches don't give, one request each and only for the best match of a source
-    asked just now: the Discogs release's artist IDs, and the Discogs release a MusicBrainz
-    release links to (with Discogs switched on). A failed request only leaves the ID out."""
+    asked just now: the Discogs release's artist IDs and the track's Discogs track ID (from the
+    release's tracklist), and the Discogs release a MusicBrainz release links to (with Discogs
+    switched on). A failed request only leaves those IDs out."""
     rows = {r.source: r for r in session.exec(select(table).where(table.track_id == track_id))}
     discogs, musicbrainz = sources.get("discogs"), sources.get("musicbrainz")
-    wanted = []  # (source, ask, the ID it needs, the ID it adds)
+
+    def from_discogs(release_id: str) -> dict[str, str | None]:
+        release = discogs.release(release_id)
+        track = _discogs_track(release.tracks, query)
+        return {
+            "discogs_artistid": release.artist_ids,
+            "discogs_trackid": f"{release_id}-{track}" if track else None,
+        }
+
+    def from_musicbrainz(release_id: str) -> dict[str, str | None]:
+        return {"discogs_releaseid": musicbrainz.discogs_release(release_id)}
+
+    wanted = []  # (source, the ID it needs, how to ask)
     if discogs and "discogs" in asked:
-        ask = discogs.release_artists
-        wanted.append(("discogs", ask, "discogs_releaseid", "discogs_artistid"))
+        wanted.append(("discogs", "discogs_releaseid", from_discogs))
     if musicbrainz and discogs and "musicbrainz" in asked:
-        ask = musicbrainz.discogs_release
-        wanted.append(("musicbrainz", ask, "mb_albumid", "discogs_releaseid"))
-    for name, ask, needs, adds in wanted:
+        wanted.append(("musicbrainz", "mb_albumid", from_musicbrainz))
+    for name, needs, ask in wanted:
         row = rows.get(name)
         stored = json.loads(row.candidates) if row else []
         if not stored or stored[0].get("score", 0) < MATCH or not stored[0]["values"].get(needs):
             continue
         try:
-            found = ask(stored[0]["values"][needs])
+            found = {k: v for k, v in ask(stored[0]["values"][needs]).items() if v}
         except SourceError as exc:
-            log.info("No %s for %s: %s", adds, name, exc)
+            log.info("No more IDs from %s: %s", name, exc)
             continue
         except Exception as exc:  # an odd answer must not stop the lookup
-            log.warning("%s: unexpected answer for %s: %s", name, adds, exc)
+            log.warning("%s: unexpected answer while asking for IDs: %s", name, exc)
             continue
         if found:
-            stored[0]["values"][adds] = found
+            stored[0]["values"].update(found)
             row.candidates = json.dumps(stored)
             session.add(row)
             session.commit()
+
+
+def _discogs_track(tracks: list[tuple[str, str, float | None]], query: Query) -> str | None:
+    """The track's position on a Discogs release ("3", "A1"): the only track with its title
+    (another version's title only when the length agrees, within 3 s)."""
+    found = []
+    for position, title, seconds in tracks:
+        match = _title_match(query.title, title)
+        known = bool(seconds and query.duration)
+        same_length = known and abs(seconds - query.duration) <= 3
+        if (same_length and match >= 0.8) or (not known and match == 1.0):
+            found.append(position)
+    return found[0] if len(found) == 1 and found[0] else None
 
 
 def _fetch_cover(session: Session, track, images: ImageStore, table) -> None:
@@ -615,6 +642,9 @@ def _discogs_ids(found: dict[str, Found], context: dict) -> dict[str, tuple[str,
             return {}
         reason = "Discogs: same album and " + ("label" if same_label else "catalog number")
     ids = {"discogs_releaseid": candidate_ids(chosen)["discogs_releaseid"]}
+    track = candidate_ids(chosen).get("discogs_trackid")  # found in this release's tracklist
+    if track and track.startswith(ids["discogs_releaseid"] + "-"):
+        ids["discogs_trackid"] = track
     # The artist IDs are only asked for Discogs' best match: take them from a release by the
     # same artist.
     artist = chosen.values.get("artist")

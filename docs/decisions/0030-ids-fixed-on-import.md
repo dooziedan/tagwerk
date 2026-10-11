@@ -11,7 +11,7 @@ Some taggers also write the Discogs release number with the track's position as 
 - The inbox review page lists each wrong value and what the import will do with it, like the track page.
 - Inbox tracks keep only some ID fields in the database, so the import reads the file's IDs at the time it plans the import. No new columns and no inbox rescan are needed.
 - The fix needs no setting: nothing is lost (the Discogs numbers are kept), it is shown before the import and it can be undone. An automatic import does it too.
-- `release-position` (`33199809-10`) in the track and album fields is read as a Discogs release number, in the library and on import. Only the release number is kept: Discogs has no track IDs.
+- `release-position` (`33199809-10`) in the track and album fields is read as a Discogs release number, in the library and on import. Only the release number is kept: Discogs has no track IDs. (Changed in [ADR 0033](0033-discogs-track-ids.md): in the track field it is kept as the Discogs track ID.)
 
 ## Consequences
 - Library tracks are still fixed with **Fix IDs** (track page, or all of them from Home's link), as pending changes to review.

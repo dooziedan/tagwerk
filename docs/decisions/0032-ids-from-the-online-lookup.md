@@ -17,6 +17,7 @@ IDs are stricter than text values: a wrong ID is worse than none, because Navidr
 - **"Use these values"** also takes over the result's IDs, again only for empty ID fields (library: pending changes; inbox: the owner's values, written on import).
 - **Seen before written**: the Online sources card links the IDs a result found; the Changes page and the inbox review page show each ID as a link to its MusicBrainz or Discogs page, so the owner can check where it points. IDs are listed after the DJ fields and in small type, so they don't crowd BPM, key and genre ([ADR 0024](0024-made-for-djs.md)).
 - No setting: IDs are always suggested when sure, like every other online value.
+- (Added in [ADR 0033](0033-discogs-track-ids.md): the Discogs track ID, from the release's tracklist.)
 
 ## Consequences
 - Tracks looked up before this change have no IDs in their stored results; *Look up again* (or the 30-day refresh) brings them.
