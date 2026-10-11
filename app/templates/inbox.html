@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button, toast %}
+{% from "macros.html" import hint, play_button, toast %}
 {% block title %}Inbox · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -16,6 +16,7 @@
 {% if deleted and deleted != "0" %}{% call toast() %}🗑️ Moved {{ deleted | int | plural('file') }} to the trash. You can restore {{ "it" if deleted == "1" else "them" }} under <a href="#trash">Recently deleted</a> for {{ keep_days }} days.{% endcall %}{% endif %}
 {% if restored %}{% call toast() %}↩️ Restored. The file is back in the inbox.{% endcall %}{% endif %}
 </div>
+{% call hint("secret", prefs.hidden_hints) %}🤫 <strong>Edits and bootlegs?</strong> Put them into the <code>{{ secret_folder }}</code> folder of your import folder. Tagwerk marks them <span class="status status-secret">Secret</span>: never looked up online (sources would only find the original release), and complete without a cover. A track can also be switched to Secret on its page.{% endcall %}
 {% endif %}
 
 {% if not configured %}
@@ -39,14 +40,14 @@
 {% endif %}
 {% set q = "" if show == "all" else "?show=" ~ show %}
 <nav class="view-tabs" aria-label="Show">
-  {% for key, label, count in views if key != "unreadable" or count or key == show %}
+  {% for key, label, count in views if key not in optional_views or count or key == show %}
   <a href="/inbox{% if key != 'all' %}?show={{ key }}{% endif %}" data-view="{{ key }}"{% if key == show %} aria-current="page"{% endif %}>{{ label }} <span class="view-count">{{ count }}</span></a>
   {% endfor %}
 </nav>
 <p class="muted">Click a track to check and correct its values. Filenames never change.</p>
 <p class="muted" id="inbox-empty"{% if shown %} hidden{% endif %}>No tracks here right now.</p>
 
-<form id="inbox-import" method="post" action="/inbox/import"></form>
+<form id="inbox-import" method="post" action="/inbox/import"><input type="hidden" name="show" value="{{ show }}" id="inbox-show"></form>
 <table class="inbox-list">
   <thead>
     <tr>
@@ -70,6 +71,7 @@
         </div>
       </div></td>
       <td class="inbox-status">
+        {% if r.secret %}<span class="status status-secret" title="An edit or bootleg: never looked up online, no cover needed">Secret</span>{% endif %}
         {% if r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}
         {% if t.error %}<span class="status status-warn" title="{{ t.error }}">Unreadable</span>
         {% else %}
@@ -90,6 +92,9 @@
     <button type="submit" form="inbox-import" id="inbox-import-button" {% if busy %}disabled{% endif %}>Import</button>
     <button type="submit" form="inbox-import" formaction="/inbox/delete" class="outline secondary" id="inbox-delete-button"
             data-confirm="Move the ticked files to the trash?" data-confirm-ok="Move to trash" {% if busy %}disabled{% endif %}>Move to trash</button>
+    <button type="submit" form="inbox-import" formaction="/inbox/secret" name="secret" value="1" class="outline secondary" id="inbox-secret-button"{% if show == "secret" %} hidden{% endif %}
+            data-confirm="Mark the ticked tracks as secret? Use it for edits and bootlegs: they are never looked up online again and don't need a cover. What online sources found for them is forgotten." data-confirm-ok="Mark as secret">Mark as secret</button>
+    <button type="submit" form="inbox-import" formaction="/inbox/secret" name="secret" value="0" class="outline secondary" id="inbox-unsecret-button"{% if show != "secret" %} hidden{% endif %}>Not secret</button>
     <small class="muted">Writes the tags shown on each track's page and moves it into the library by genre. Filenames stay the same. Tracks without title or artist stay in the inbox.</small>
   </div>
 </div>
@@ -110,6 +115,9 @@
       row.querySelector("a.inbox-track").href = row.querySelector("a.inbox-track").pathname + query;
     });
     document.getElementById("inbox-empty").hidden = shown > 0;
+    document.getElementById("inbox-show").value = view;
+    document.getElementById("inbox-secret-button").hidden = view === "secret";
+    document.getElementById("inbox-unsecret-button").hidden = view !== "secret";
     history.replaceState(history.state, "", "/inbox" + query);
     inboxSelection();
   }));

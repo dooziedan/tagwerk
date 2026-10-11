@@ -83,6 +83,10 @@
   --tw-ok-soft: rgba(110, 231, 183, 0.1);
   --tw-check-soft: rgba(253, 186, 116, 0.1);
   --tw-warn-soft: rgba(251, 113, 133, 0.1);
+  /* Secret tracks (edits, bootlegs): not a problem, a kind of track. Violet, always with the word */
+  --tw-secret: #c084fc;           /* 6.5 */
+  --tw-secret-soft: rgba(192, 132, 252, 0.1);
+  --tw-secret-line: rgba(192, 132, 252, 0.38);
 
   /* Glass. Full effects: see-through + blur. Fallback/light effects: the solid values. */
   --tw-glass: rgba(15, 15, 35, 0.62);          /* cards */

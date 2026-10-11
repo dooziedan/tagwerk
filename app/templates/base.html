@@ -105,6 +105,18 @@
     {% elif saved == "0" %}✅ Nothing changed: the values were already the same.
     {% else %}✅ Saved {{ saved | int | plural('pending change') }}. <a href="/changes">Review →</a>{% endif %}{% endcall %}</div>
   {% endif %}
+  {% set secret_on = request.query_params.get("secret_on", "") %}
+  {% set secret_off = request.query_params.get("secret_off", "") %}
+  {% if secret_on.isdigit() or secret_off.isdigit() %}
+  {# After the Secret switch or "Mark as secret" (app/routes/secret.py). #}
+  {% set one = (secret_on or secret_off) == "1" %}
+  <div class="toasts">{% call toast() %}
+    {%- if secret_on == "0" %}✅ Nothing changed: already secret.
+    {%- elif secret_off == "0" %}✅ Nothing changed: not secret.
+    {%- elif secret_on %}🤫 Marked {{ secret_on | int | plural('track') }} as secret: never looked up online, complete without a cover. What online sources found before is forgotten.
+    {%- elif request.url.path.startswith("/inbox") %}✅ Removed the secret mark from {{ secret_off | int | plural('track') }}. Tagwerk looks {{ "it" if one else "them" }} up online now, like any new inbox track.
+    {%- else %}✅ Removed the secret mark from {{ secret_off | int | plural('track') }}. {{ "It needs" if one else "They need" }} a cover to be set-ready again; <em>Look up online</em> works again when you ask.{% endif %}{% endcall %}</div>
+  {% endif %}
   <footer>
     <small>Tagwerk v{{ version }} · <a href="https://github.com/dooziedan/tagwerk">Source code</a> (AGPL-3.0)</small>
   </footer>
@@ -170,7 +182,7 @@
     // shouldn't show them again), and leave them out of the page kept for the Back button.
     function dropNotes() {
       const url = new URL(location.href);
-      const notes = ["saved", "kept", "done", "trashed", "restored", "emptied"];
+      const notes = ["saved", "kept", "done", "trashed", "restored", "emptied", "secret_on", "secret_off"];
       if (!notes.some((k) => url.searchParams.has(k))) return;
       notes.forEach((k) => url.searchParams.delete(k));
       history.replaceState(history.state, "", url.pathname + url.search + url.hash);

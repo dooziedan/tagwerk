@@ -54,3 +54,4 @@ What gets easier, what gets harder.
 | [0033](0033-discogs-track-ids.md) | Discogs track IDs (`33199809-3`): their own field, kept by Fix IDs, found in the release's tracklist | Accepted |
 | [0034](0034-longer-versions.md) | Longer versions: Beatport, Discogs tracklists, and recognising club mixes | Accepted |
 | [0035](0035-notifications.md) | Notifications: what Tagwerk did while you were away; few, chosen by the owner, read and cleared only by the owner | Accepted |
+| [0036](0036-secret-tracks.md) | Secret tracks: edits and bootlegs, never looked up online, complete without a cover | Accepted |

@@ -219,6 +219,28 @@ class FinalTrack(SQLModel, table=True):
     name_before: str | None = None
 
 
+class _Secret(SQLModel):
+    """A track the owner marked as secret: an unofficial edit or bootleg (app/secret.py).
+
+    Secret tracks are never looked up online and are complete without a cover. Only stored
+    here: no tag is written for it.
+    """
+
+    marked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class SecretTrack(_Secret, table=True):
+    """A secret library track."""
+
+    track_id: int = Field(foreign_key="track.id", primary_key=True, ondelete="CASCADE")
+
+
+class SecretInboxTrack(_Secret, table=True):
+    """A secret inbox track: the mark moves with it into the library on import."""
+
+    track_id: int = Field(foreign_key="inboxtrack.id", primary_key=True, ondelete="CASCADE")
+
+
 class _Lookup(SQLModel):
     """What one online source found for one track (app/identify.py).
 

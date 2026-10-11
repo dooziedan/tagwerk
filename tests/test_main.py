@@ -68,6 +68,7 @@ def test_settings_api(client):
             "auto_import": False,
             "long_jobs": False,
         },
+        "hidden_hints": [],  # messages hidden with "Don't show again"
     }
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}

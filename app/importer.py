@@ -24,13 +24,20 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import analysis, genres, identify, ids, naming, preferences, writer
+from app import analysis, genres, identify, ids, naming, preferences, secret, writer
 from app.changes import WriteProgress, sources_json
 from app.config import get_settings
 from app.duplicates import LibraryIndex
 from app.images import ImageStore
-from app.inbox import owner_values, review
-from app.models import ChangeEntry, ChangeSet, InboxTrack, Track
+from app.inbox import add_file, owner_values, review
+from app.models import (
+    ChangeEntry,
+    ChangeSet,
+    InboxTrack,
+    SecretInboxTrack,
+    SecretTrack,
+    Track,
+)
 from app.rawtags import BINARY
 from app.scanner import store_file
 
@@ -166,7 +173,8 @@ def ready_for_auto_import(
 ) -> bool:
     """True when Tagwerk may import this track without asking (automation "auto").
 
-    Only complete tracks: title, artist, genre, BPM, key and cover; every suggestion sure;
+    Only complete tracks: title, artist, genre, BPM, key and cover (secret tracks need no
+    cover, app/secret.py); every suggestion sure;
     nothing that blocks an import; no likely copy in the library (the owner decides those);
     the file unchanged for a while (no half downloads); and its audio analysed.
     """
@@ -186,10 +194,11 @@ def ready_for_auto_import(
         return False
     has_cover = mine[writer.COVER] is not None if writer.COVER in mine else track.has_cover
     has_cover = has_cover or online_cover is not None
+    cover_done = has_cover or secret.is_secret(session, track.id, inbox=True)
     values = {f.field: f.value for f in fields}
     if library.matches(track, values["title"], values["artist"], import_dir, music_dir):
         return False
-    return has_cover and all(values.get(n) for n in ("title", "artist", "genre", "bpm", "key"))
+    return cover_done and all(values.get(n) for n in ("title", "artist", "genre", "bpm", "key"))
 
 
 def import_tracks(
@@ -285,6 +294,8 @@ def _import_one(
     entry.track_id = library_track.id
     entry.mtime_after = stat.st_mtime
     analysis.copy_to_library(session, track.id, library_track.id)  # same sound, no new analysis
+    if secret.is_secret(session, track.id, inbox=True):  # the mark moves with the track
+        session.add(SecretTrack(track_id=library_track.id))
     session.delete(track)
 
 
@@ -315,13 +326,20 @@ def _sha256(path: Path) -> str:
 
 
 def move_back(session: Session, entry: ChangeEntry, import_dir: Path, music_dir: Path) -> None:
-    """Undo of an import: the file goes back to where it was in the inbox."""
+    """Undo of an import: the file goes back to where it was in the inbox.
+
+    A secret track is read into the inbox list at once and keeps its mark, so the inbox
+    check that follows doesn't take it for a new file and look it up online.
+    """
     source = music_dir / entry.path
     target = import_dir / entry.moved_from
     if target.exists():
         raise writer.WriteError(f"{entry.moved_from} already exists in the inbox")
     move_file(source, target)
     track = session.get(Track, entry.track_id) if entry.track_id else None
+    if track and secret.is_secret(session, track.id):
+        inbox_track = add_file(session, import_dir, entry.moved_from)
+        session.add(SecretInboxTrack(track_id=inbox_track.id))
     if track:
         session.delete(track)
     entry.track_id = None

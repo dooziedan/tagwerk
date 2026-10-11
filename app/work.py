@@ -19,6 +19,7 @@ from app.keys import to_camelot
 from app.library import FLAGS, TrackFilter, count
 from app.models import ChangeEntry, ChangeSet, Track
 from app.percent import percent
+from app.secret import secret_ids
 
 # Rows of the "per field" table that stand for several fields.
 IDS_ROW = "MusicBrainz & Discogs IDs"
@@ -201,8 +202,9 @@ def _activity(months: dict[str, Month]) -> list[Month]:
 _READY_TEXT = ("title", "artist", "genre")
 
 
-def _ready(track: Track, values: dict[str, str | None]) -> bool:
-    """Set-ready, with ``values`` (field -> value as in the form) instead of the track's own."""
+def _ready(track: Track, values: dict[str, str | None], is_secret: bool = False) -> bool:
+    """Set-ready, with ``values`` (field -> value as in the form) instead of the track's own.
+    A secret track (app/secret.py) needs no cover."""
 
     def value(name: str) -> str | None:
         return values[name] if name in values else writer.current_value(track, name)
@@ -212,7 +214,7 @@ def _ready(track: Track, values: dict[str, str | None]) -> bool:
         and all(value(name) for name in _READY_TEXT)
         and bool(value("bpm"))
         and to_camelot(value("key") or "") is not None
-        and value(writer.COVER) is not None
+        and (is_secret or value(writer.COVER) is not None)
     )
 
 
@@ -223,12 +225,13 @@ def _set_ready(
     and tracks that came in through the inbox (before = as they arrived)."""
     groups = {"library": [0, 0, 0], "imported": [0, 0, 0]}  # tracks, before, now
     ids = list(before)
+    secret = secret_ids(session, ids)  # the mark counts for before too: it isn't a tag
     for start in range(0, len(ids), 500):  # SQLite limits the number of parameters
         for track in session.exec(select(Track).where(col(Track.id).in_(ids[start : start + 500]))):
             group = groups["imported" if track.id in imported_ids else "library"]
             group[0] += 1
-            group[1] += _ready(track, before[track.id])
-            group[2] += _ready(track, {})
+            group[1] += _ready(track, before[track.id], track.id in secret)
+            group[2] += _ready(track, {}, track.id in secret)
     library, imported = groups["library"], groups["imported"]
     return (
         ReadyWork(*library, url=TrackFilter(flag="tagwerk_edited").url()) if library[0] else None,

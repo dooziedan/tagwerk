@@ -30,6 +30,7 @@ from app.routes import (
     player,
     replaygain,
     scan,
+    secret,
     settings,
     setup,
     system,
@@ -94,6 +95,7 @@ app.include_router(duplicates.router)
 app.include_router(notifications.router)
 app.include_router(convert.router)
 app.include_router(lookup.router)
+app.include_router(secret.router)
 app.include_router(ids.router)
 app.include_router(analysis.router)
 app.include_router(player.router)

@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-11
+
+### Added
+- **Secret tracks, for your edits and bootlegs.** An edit shares the original's artist, title and much of its sound, so online sources find the original release and suggest its label, cover and IDs. And bootlegs rarely have official artwork. A track marked **Secret**:
+  - is **never looked up online**: no source is asked, not even AcoustID with the audio. Whatever was found online before is forgotten when you mark it.
+  - is **complete without a cover**: set-ready, ready for **Mark as final**, and imported automatically (in automatic mode) without one. *Missing cover art* and the inbox's "Needs cover" leave secret tracks out.
+- **How to mark tracks:**
+  - Put edits and bootlegs into a folder called **`Secret`** inside your import folder (subfolders count). Tagwerk marks them as soon as it finds them, before any lookup. The folder doesn't change where a track goes in your library, and the filename stays the same.
+  - Use the **Secret** switch at the top of a track's page or its inbox page.
+  - Tick tracks and press **Mark as secret**, in the track list or in the inbox's bottom bar. The track list's new *Secret* filter and the inbox's *Secret* tab list them, and there the button removes the mark again.
+  - The mark is kept in Tagwerk only, like *Final*; nothing is written into the files. It moves with a track when it's imported, and back if you undo the import.
+- The **Inbox** explains the `Secret` folder in a message you can hide for good with **Don't show again** (on every device; the same message on the track list's *Secret* filter goes with it). Settings → Online lookups keeps a short note.
+- Secret tracks show a violet **Secret** label in the track list, the inbox and on Final check. Their *Online sources* card says they're not asked, and Statistics counts them under *Missing tags*. Everything that runs on your server works for them as before: BPM and key from the audio, loudness and ReplayGain, Fix IDs, mix names, duplicates, Convert to AIFF.
+- The API has `POST /api/tracks/secret` and `POST /api/inbox/secret`, and tracks carry `"secret": true/false`. Hidden messages are in the settings as `hidden_hints`.
+
+### Changed
+- **Look up online** for several tracks leaves secret tracks out and says how many. When you take the mark off an inbox track, Tagwerk looks it up straight away, like any new inbox track.
+
 ## [0.21.2] - 2026-10-11
 
 ### Fixed

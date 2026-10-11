@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import id_value, play_button, toast %}
+{% from "macros.html" import id_value, play_button, secret_switch, toast %}
 {% block title %}{{ t.title or t.path }} · Inbox · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -21,6 +21,7 @@
     {% if not t.error %}<p class="track-actions">{{ play_button(t, "/inbox/" ~ t.id, "Play") }}</p>{% endif %}
     {% if summary.missing %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}
     {% if not t.error %}<p class="muted"><small>On import goes to <code>{{ plan.destination }}</code>{% if plan.new_genre %}: {{ plan.new_genre }} has no folder yet. After the import, the Changes page proposes one for you to review.{% endif %}</small></p>{% endif %}
+    {{ secret_switch("/inbox/" ~ t.id ~ "/secret", secret, {"show": show if show != "all" else ""}) }}
   </div>
 </div>
 

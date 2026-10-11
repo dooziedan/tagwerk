@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import play_button, toast %}
+{% from "macros.html" import play_button, secret_switch, toast, track_cover %}
 {% block title %}{{ t.title or t.path }} · Tagwerk{% endblock %}
 {% block content %}
 {% set n = prefs.key_notation %}
@@ -31,7 +31,7 @@
     </div>
   </details>
 <div class="track-head hero glass">
-  {% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" role="img" aria-label="No cover art">{# a little planet, like on Home #}<span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((t.artist or t.path) | length) % 8] }}"><i></i><b></b><em></em></span></div>{% endif %}
+  {{ track_cover(t) }}
   <div>
     <h1>{{ t.title or t.path.rsplit("/", 1)[-1] }}</h1>
     <p class="track-sub">
@@ -79,6 +79,7 @@
     {% if t.format in ("flac", "wav", "m4a") and not t.error %} <a href="/convert?ids={{ t.id }}" role="button" class="outline secondary">Convert to AIFF…</a>{% endif %}
     {% if pending %} <a href="/changes" class="secondary"><small>{{ pending | length | plural('pending change') }} →</small></a>{% endif %}</p>
     {% endif %}
+    {{ secret_switch("/tracks/" ~ t.id ~ "/secret", secret, {"back": back}) }}
   </div>
 </div>
 </div>

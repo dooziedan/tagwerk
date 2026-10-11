@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from app import identify, preferences, trash, writer
+from app import identify, preferences, secret, trash, writer
 from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
@@ -55,9 +55,10 @@ def inbox_api(session: SessionDep) -> list[dict]:
         result.append(
             {
                 **t.model_dump(),
-                "missing": missing(t),
+                "secret": row.secret,
+                "missing": missing(t, row.secret),
                 "proposals": [p.__dict__ for p in proposals],
-                "still_missing": still_missing(t, proposals),
+                "still_missing": still_missing(t, proposals, row.secret),
                 "duplicates": [
                     {"track_id": m.track.id, "path": m.track.path, "reason": m.reason}
                     for m in row.duplicates
@@ -97,6 +98,7 @@ def inbox_page(request: Request, session: SessionDep, settings: SettingsDep):
                 (key, label, sum(1 for r in rows if test(r)))
                 for key, (label, test) in VIEWS.items()
             ],
+            "optional_views": OPTIONAL_VIEWS,
             "show": show,
             "job": inbox_job,
             "write": write_job,
@@ -124,6 +126,7 @@ class InboxRow:
     edited: bool  # the owner set values on the review page
     missing: list[str]
     duplicates: list[Match]  # likely copies already in the library
+    secret: bool = False  # an edit or bootleg: never looked up online, no cover needed
 
     @property
     def ready(self) -> bool:
@@ -137,8 +140,11 @@ VIEWS = {
     "edited": ("Edited", lambda r: r.edited),
     "ready": ("Ready", lambda r: r.ready),
     "duplicates": ("In library", lambda r: bool(r.duplicates)),
+    "secret": ("Secret", lambda r: r.secret),
     "unreadable": ("Unreadable", lambda r: bool(r.track.error)),
 }
+# Tabs shown only when they have tracks (or are the one chosen).
+OPTIONAL_VIEWS = ("secret", "unreadable")
 
 
 def counts(session) -> dict:
@@ -175,7 +181,8 @@ def _shown(url: str, show: str) -> str:
 def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) -> InboxRow:
     fields = review(session, track, list(writer.EDITABLE))
     proposals = [f.suggestion for f in fields if f.origin == "suggested"]
-    missing = still_missing(track, proposals)
+    is_secret = secret.is_secret(session, track.id, inbox=True)
+    missing = still_missing(track, proposals, is_secret)
     # A value the owner typed fills a gap too.
     mine = {f.field for f in fields if f.origin == "you" and f.value}
     labels = {"Title": "title", "Artist": "artist", "Genre": "genre", "BPM": "bpm", "Key": "key"}
@@ -186,7 +193,7 @@ def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) ->
     if writer.COVER in owner:  # a new cover chosen, or the cover removed
         changes += 1
         edited = True
-        has_cover = owner[writer.COVER] is not None
+        has_cover = owner[writer.COVER] is not None or is_secret
         missing = [m for m in missing if m != "Cover"] + ([] if has_cover else ["Cover"])
     elif identify.cover_suggestion(session, track):  # a cover found online
         changes += 1
@@ -197,7 +204,9 @@ def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) ->
     duplicates = [] if track.error else library.matches(
         track, value["title"], value["artist"], settings.import_dir, settings.music_dir
     )  # fmt: skip
-    return InboxRow(track, value["title"], value["artist"], changes, edited, missing, duplicates)
+    return InboxRow(
+        track, value["title"], value["artist"], changes, edited, missing, duplicates, is_secret
+    )
 
 
 @router.get("/inbox/{track_id:int}", response_class=HTMLResponse, include_in_schema=False)
@@ -274,8 +283,11 @@ def _start_import(ids: list[int], settings) -> RedirectResponse:
 
 @router.post("/api/inbox/{track_id}/lookup", status_code=202, tags=["inbox"])
 def inbox_lookup_api(track_id: int, session: SessionDep, settings: SettingsDep) -> dict:
-    """Ask the online sources about this track again (in the background)."""
+    """Ask the online sources about this track again (in the background). Not for secret
+    tracks: they are never looked up."""
     _inbox_track(session, track_id)
+    if secret.is_secret(session, track_id, inbox=True):
+        raise HTTPException(409, "The track is secret: it is never looked up online")
     identify_job.start(settings, [track_id], force=True)
     return {"status": "running"}
 
@@ -294,7 +306,7 @@ def inbox_online_api(track_id: int, session: SessionDep) -> list[dict]:
 async def inbox_lookup(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
     _inbox_track(session, track_id)
     show = _view((await read_form(request)).get("show"))
-    identify_job.start(settings, [track_id], force=True)
+    identify_job.start(settings, [track_id], force=True)  # secret tracks are left out
     return RedirectResponse(_shown(f"/inbox/{track_id}", show) + "#online", status_code=303)
 
 
@@ -466,6 +478,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
         show, tracks = "all", _ordered(session)
     before, after = _neighbours(session, track, show)
     online = identify.review(session, track)
+    is_secret = secret.is_secret(session, track.id, inbox=True)
     return templates.TemplateResponse(
         request,
         "inbox_track.html",
@@ -481,7 +494,8 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "total": len(tracks),
             "summary": _summary(session, track),
             "plan": plan(session, track, get_settings().music_dir),
-            "cover": _cover_field(session, track),
+            "cover": _cover_field(session, track, is_secret),
+            "secret": is_secret,
             "busy": _blocked(),
             "show": show,
             "view_label": VIEWS[show][0],
@@ -502,7 +516,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
     )
 
 
-def _cover_field(session, track: InboxTrack) -> dict:
+def _cover_field(session, track: InboxTrack, is_secret: bool = False) -> dict:
     """The cover row: the owner's choice if any, else the cover in the file."""
     owner = owner_values(session, track.id)
     chosen = writer.COVER in owner
@@ -519,7 +533,8 @@ def _cover_field(session, track: InboxTrack) -> dict:
         status = f"Suggested · {online.reason}" + ("" if online.sure else " · check")
         badge = "online"
     else:
-        src, status = None, "No cover art"
+        src = None
+        status = "No cover art: not needed, the track is secret" if is_secret else "No cover art"
     return {
         "src": src,
         "badge": badge,

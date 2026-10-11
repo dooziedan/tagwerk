@@ -17,6 +17,7 @@ from app.db import SessionDep
 from app.forms import read_form
 from app.genres import DEFAULT_MAP, GenreMap
 from app.keys import NOTATIONS
+from app.navigation import back_url
 from app.preferences import EFFECTS, Preferences, PreferencesDep
 from app.routes.setup import apply_choices, choices_context
 from app.templating import templates
@@ -143,6 +144,19 @@ async def save_notifications(request: Request, session: SessionDep):
     chosen = {name: name in form.getlist("topics") for name in notifications.TOPICS}
     preferences.save(session, replace(preferences.load(session), notifications=chosen))
     return RedirectResponse("/settings?saved=notifications", status_code=303)
+
+
+@router.post("/hints/{key}", include_in_schema=False)
+def hide_hint(request: Request, key: str, session: SessionDep):
+    """ "Don't show again" under a message (macros.html → hint). The API way is PUT
+    /api/settings with ``hidden_hints``."""
+    prefs = preferences.load(session)
+    if key in preferences.HINTS and key not in prefs.hidden_hints:
+        preferences.save(session, replace(prefs, hidden_hints=[*prefs.hidden_hints, key]))
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")  # htmx puts nothing in the message's place
+    back = back_url(request, request.headers.get("referer"), fallback="/")
+    return RedirectResponse(back, status_code=303)
 
 
 @router.post("/settings/setup-again", include_in_schema=False)

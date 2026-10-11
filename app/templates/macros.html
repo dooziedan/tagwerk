@@ -137,3 +137,34 @@
 {% macro id_value(field, value) -%}
 {%- for id, url in id_links(field, value) -%}{% if not loop.first %}; {% endif %}{% if url %}<a class="id-value" href="{{ url }}" target="_blank" rel="noopener noreferrer"><code>{{ id }}</code></a>{% else %}<code class="id-value">{{ id }}</code>{% endif %}{%- endfor -%}
 {%- endmacro %}
+
+{# A library track's cover, or Home's little planet when it has none (track page, Final check). #}
+{% macro track_cover(t) -%}
+{% if t.has_cover %}<img class="cover" src="/tracks/{{ t.id }}/cover?v={{ t.mtime }}" alt="Cover art" width="160" height="160">{% else %}<div class="cover cover-missing" role="img" aria-label="No cover art"><span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((t.artist or t.path) | length) % 8] }}"><i></i><b></b><em></em></span></div>{% endif %}
+{%- endmacro %}
+
+{# The Secret switch (app/secret.py): an edit or bootleg is never looked up online and is complete
+   without a cover. Switching sends the form at once; ``hidden``: extra form fields. #}
+{% macro secret_switch(action, on, hidden={}) -%}
+<form method="post" action="{{ action }}" class="secret-switch">
+  {% for k, v in hidden.items() if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <input type="hidden" name="secret" value="{{ 0 if on else 1 }}">
+  <label><input type="checkbox" role="switch"{% if on %} checked{% endif %} onchange="this.form.requestSubmit()"> Secret</label>
+  <small>{% if on %}An edit or bootleg: never looked up online, complete without a cover.{% else %}Edit or bootleg? Switch on: never looked up online, complete without a cover.{% endif %}</small>
+  <noscript><button type="submit" class="outline secondary small">{{ "Not secret" if on else "Mark as secret" }}</button></noscript>
+</form>
+{%- endmacro %}
+
+{# A message that explains a feature until the owner presses "Don't show again" (stored in
+   Preferences.hidden_hints, so it stays hidden on every device). ``hidden``: prefs.hidden_hints.
+   Without JavaScript the button sends the form and the page comes back without the message. #}
+{% macro hint(key, hidden) -%}
+{% if key not in hidden %}
+<div class="notice hint" id="hint-{{ key }}" role="note">
+  <span class="hint-text">{{ caller() }}</span>
+  <form method="post" action="/hints/{{ key }}" hx-post="/hints/{{ key }}" hx-target="#hint-{{ key }}" hx-swap="outerHTML">
+    <button type="submit" class="outline secondary small">Don't show again</button>
+  </form>
+</div>
+{% endif %}
+{%- endmacro %}
