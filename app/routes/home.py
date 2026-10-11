@@ -30,17 +30,14 @@ def _inbox(session) -> dict:
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def home_page(request: Request, settings: SettingsDep, session: SessionDep):
     status = setup_status(request, settings)
-    prefs = data = inbox = None
-    pending = folders = 0
-    work = None
+    prefs = data = work = None
+    waiting = {"inbox": None, "pending": 0, "folders": 0}
     if status["database_ok"]:
         prefs = preferences.load(session)
         if not prefs.setup_done and status["ok"]:
             return RedirectResponse("/setup", status_code=303)  # first start: the wizard
         data = home_data(session)
-        inbox = _inbox(session) if settings.import_dir.is_dir() else None
-        pending = changes.pending_count(session)
-        folders = proposal_count(session, settings.music_dir)
+        waiting = _waiting(session, settings)
         work = home_line(session)
     return templates.TemplateResponse(
         request,
@@ -49,9 +46,7 @@ def home_page(request: Request, settings: SettingsDep, session: SessionDep):
             "status": status,
             "prefs": prefs,
             "home": data,
-            "inbox": inbox,
-            "pending": pending,
-            "folders": folders,  # new genre folders proposed on the Changes page
+            **waiting,
             "work": work,  # (tag values written, tracks) for "Tagwerk's work"
             "job": scan_job,
             "analysis_job": analysis_job,
@@ -59,6 +54,30 @@ def home_page(request: Request, settings: SettingsDep, session: SessionDep):
             "write_job": write_job,
         },
     )
+
+
+@router.get("/partials/home/waiting", response_class=HTMLResponse, include_in_schema=False)
+def waiting_partial(request: Request, settings: SettingsDep, session: SessionDep):
+    """Home's "Waiting for you" card, reloaded every minute while Home stays open."""
+    return templates.TemplateResponse(
+        request,
+        "partials/home_waiting.html",
+        {
+            **_waiting(session, settings),
+            "analysis_job": analysis_job,
+            "identify_job": identify_job,
+            "write_job": write_job,
+        },
+    )
+
+
+def _waiting(session, settings) -> dict:
+    """The numbers in "Waiting for you" (the unread notifications come from the template)."""
+    return {
+        "inbox": _inbox(session) if settings.import_dir.is_dir() else None,
+        "pending": changes.pending_count(session),
+        "folders": proposal_count(session, settings.music_dir),  # new genre folders proposed
+    }
 
 
 @router.get("/stats", response_class=HTMLResponse, include_in_schema=False)

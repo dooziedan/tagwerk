@@ -96,8 +96,9 @@
 {%- endmacro %}
 
 {# The bell's number; swapped in again when it changes (oob: as an htmx out-of-band swap). #}
+{# The bell's number: "9+" from 10 on, so it never covers the bell (screen readers get all of it). #}
 {% macro bell_count(where, count, oob=false) -%}
-<span class="bell-count" id="bell-count-{{ where }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if count %}<span class="count-badge">{{ count }}<span class="visually-hidden"> new</span></span>{% endif %}</span>
+<span class="bell-count" id="bell-count-{{ where }}"{% if oob %} hx-swap-oob="true"{% endif %}>{% if count %}<span class="count-badge">{% if count > 9 %}<span aria-hidden="true">9+</span><span class="visually-hidden">{{ count }} new</span>{% else %}{{ count }}<span class="visually-hidden"> new</span>{% endif %}</span>{% endif %}</span>
 {%- endmacro %}
 
 {# A notification that slides in at the top (inside a .toasts stack). "ok" fades out after a few

@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-10-11
+
+### Added
+- **Settings → General → Time zone** (the section was called Display): dates in notifications, like "removed for good on 14 Oct", use your time zone. Settings offers your browser's with one click; left empty, the container's is used (Unraid sets it for every container).
+
+### Changed
+- **The bell shows 9+** from 10 unread notifications on, so the number never covers the bell in the side menu. Screen readers still hear the whole number.
+
+### Fixed
+- **Home keeps up while it stays open**: "Waiting for you" (the notifications that need you, the inbox numbers, pending changes) now updates every minute like the bell's number, not only when you change pages.
+- **A wrong AcoustID key is reported at once**, like a wrong Discogs token. AcoustID says "invalid API key" with an error 400 instead of 401/403, so until now it only showed up after 5 failed lookups as "AcoustID keeps failing".
+
 ## [0.21.0] - 2026-10-11
 
 ### Added

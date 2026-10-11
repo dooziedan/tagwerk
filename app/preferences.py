@@ -4,8 +4,11 @@ Not to be confused with ``app.config``, which holds the container's environment 
 """
 
 import json
+import os
 from dataclasses import asdict, dataclass, field, fields
+from functools import cache
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, available_timezones
 
 from fastapi import Depends
 from sqlmodel import Session, select
@@ -45,6 +48,9 @@ class Preferences:
     # (Old databases may still hold "style", "appearance", "mode" or "show_musicbrainz" rows:
     # load() ignores unknown keys.)
     effects: Effects = "full"
+    # Settings → General: the owner's time zone for dates Tagwerk writes into notifications
+    # ("removed for good on 14 Oct"), e.g. "Europe/Berlin". Empty: the container's (TZ).
+    time_zone: str = ""
     # Set once the owner confirmed having a backup, before the very first write to files.
     backup_confirmed: bool = False
     # The setup wizard was completed (or skipped); until then the start page leads there.
@@ -110,6 +116,8 @@ def _validated(prefs: Preferences) -> Preferences:
     prefs.backup_confirmed = bool(prefs.backup_confirmed)
     if prefs.effects not in EFFECTS:
         prefs.effects = default.effects
+    if prefs.time_zone not in time_zones():
+        prefs.time_zone = default.time_zone
     for flag in ("setup_done", "rename_on_final"):
         setattr(prefs, flag, bool(getattr(prefs, flag)))
     if prefs.folder_layout not in LAYOUTS:
@@ -127,6 +135,25 @@ def _validated(prefs: Preferences) -> Preferences:
     chosen = prefs.notifications if isinstance(prefs.notifications, dict) else {}
     prefs.notifications = {name: bool(chosen.get(name, topic.on)) for name, topic in TOPICS.items()}
     return prefs
+
+
+@cache
+def time_zones() -> list[str]:
+    """The time zones to choose from (Settings → General): "Europe/Berlin", …, and "UTC"."""
+    old_names = ("Etc/", "SystemV/", "US/", "posix/", "right/")
+    zones = (z for z in available_timezones() if "/" in z and not z.startswith(old_names))
+    return [*sorted(zones), "UTC"]
+
+
+def container_zone() -> str:
+    """The container's time zone (TZ; Unraid sets it for every container), used when the
+    owner didn't choose one."""
+    return os.environ.get("TZ") or "UTC"
+
+
+def zone(prefs: Preferences) -> ZoneInfo | None:
+    """The owner's time zone; None means the container's (``datetime.astimezone(None)``)."""
+    return ZoneInfo(prefs.time_zone) if prefs.time_zone else None
 
 
 def get_preferences(session: SessionDep) -> Preferences:

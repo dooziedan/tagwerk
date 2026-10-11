@@ -1,6 +1,6 @@
 """The Settings page and the preferences API.
 
-Sections: Display (key notation, effects, MusicBrainz), Import, Genre map, Final tracks,
+Sections: General (key notation, effects, time zone), Import, Genre map, Final tracks,
 Online lookups, Notifications, Navidrome. Each section is its own form; after saving, the page
 comes back with ``?saved=<section>`` and scrolls to it.
 """
@@ -68,6 +68,8 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
             "prefs": prefs,
             "notations": NOTATIONS,
             "effects": EFFECTS,
+            "time_zones": preferences.time_zones(),
+            "container_zone": preferences.container_zone(),
             "saved": saved,
             "online": [
                 {
@@ -173,9 +175,10 @@ async def save_settings_form(request: Request, prefs: PreferencesDep, session: S
         prefs,
         key_notation=form.get("key_notation", prefs.key_notation),
         effects=form.get("effects", prefs.effects),
+        time_zone=form.get("time_zone", ""),
     )
     preferences.save(session, updated)
-    return RedirectResponse("/settings?saved=display", status_code=303)
+    return RedirectResponse("/settings?saved=general", status_code=303)
 
 
 async def _form(request: Request) -> dict[str, str]:

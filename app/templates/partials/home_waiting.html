@@ -1,0 +1,25 @@
+{# Home's "Waiting for you". It keeps up while Home stays open: reloaded every minute, like the
+   bell's number (base.html), so the "N notifications need you" line and the inbox numbers match it. #}
+{% from "macros.html" import nav_icon %}
+<article id="home-waiting" hx-get="/partials/home/waiting" hx-trigger="every 60s" hx-swap="outerHTML">
+  <header><strong>Waiting for you</strong></header>
+  {% set busy = analysis_job.running or identify_job.running or write_job.running %}
+  {% set needs_you = unread_notifications("needs_you") %}
+  {% if not (inbox and inbox.total) and not pending and not folders and not busy and not needs_you %}
+  <p class="empty-note">{{ nav_icon("check") }} Nothing waiting.</p>
+  {% endif %}
+  <ul class="task-list">
+    {# Unread "needs you" notifications: the line opens the bell's menu (app/static/bell.js). #}
+    {% if needs_you %}<li><span class="ic gold">{{ nav_icon("bell") }}</span><span class="grow"><button type="button" class="link-button plain" data-open-bell>{{ needs_you | plural('notification') }} {{ "needs" if needs_you == 1 else "need" }} you</button><small>Tagwerk found something while you were away</small></span><span class="count-badge">{{ needs_you }}</span></li>{% endif %}
+    {% if inbox and inbox.total %}
+    <li><span class="ic gold">{{ nav_icon("inbox") }}</span><span class="grow"><a href="/inbox">{{ inbox.total | plural('track') }} in the inbox</a>{% if inbox.ready or inbox.help %}<small>
+      {% if inbox.ready %}<a href="/inbox?show=ready" class="ok-link">{{ inbox.ready | number }} ready to import</a>{% endif %}{% if inbox.ready and inbox.help %} · {% endif %}
+      {% if inbox.help %}<a href="/inbox?show=help" class="check-link">{{ inbox.help | number }} need your help</a>{% endif %}</small>{% endif %}</span><span class="count-badge">{{ inbox.total }}</span></li>
+    {% endif %}
+    {% if pending %}<li><span class="ic gold">{{ nav_icon("changes") }}</span><span class="grow"><a href="/changes">{{ pending | plural('pending change') }}</a><small>to review and apply</small></span><span class="count-badge">{{ pending }}</span></li>{% endif %}
+    {% if folders %}<li><span class="ic">{{ nav_icon("folder") }}</span><span class="grow"><a href="/changes">{{ folders | plural('new genre folder') }}</a><small>proposed</small></span></li>{% endif %}
+    {% if write_job.running %}<li><span class="ic">{{ nav_icon("edit") }}</span><span class="grow"><span aria-busy="true">Writing tags…</span> <a href="/changes/history">History</a></span></li>{% endif %}
+    {% if identify_job.running %}<li><span class="ic">{{ nav_icon("scan") }}</span><span class="grow"><span aria-busy="true">Looking up online: {{ identify_job.progress.processed }} of {{ identify_job.progress.total }}</span></span></li>{% endif %}
+  </ul>
+  {% with job = analysis_job %}{% include "partials/analysis_status.html" %}{% endwith %}
+</article>
