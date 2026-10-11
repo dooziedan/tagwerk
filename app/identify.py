@@ -388,11 +388,20 @@ def _title_match(wanted: str | None, found: str | None) -> float:
     return SequenceMatcher(None, a, b).ratio() * 0.9
 
 
+# Words at the end of a title that only name a version of the same track. Stores use them
+# loosely: the long version is the "Original Mix" on Beatport but the "Extended Mix" elsewhere,
+# and a "Radio Mix" is usually the same as a "Radio Edit". So the length decides which version
+# a file is, not these words. A remixer's name isn't one of them: "Song (Hush Remix)" and
+# "Song (Dimitri Edit)" stay other tracks.
+_VERSION_WORDS = re.compile(
+    r"(?: (?:original|extended|radio|club|single|album|short|mix|edit|version))+$"
+)
+
+
 def _base(text: str) -> str:
-    """The title without its version words (normalized() already dropped the brackets' marks)."""
-    for word in ("original mix", "extended mix", "radio edit", "extended", "original", "mix"):
-        text = text.replace(word, "")
-    return " ".join(text.split())
+    """The title without its version words (normalized() already dropped the brackets' marks):
+    "losing it radio mix" -> "losing it". A title that is only such a word ("Radio") stays."""
+    return _VERSION_WORDS.sub("", text)
 
 
 def _artist_match(wanted: str | None, found: str | None) -> float:

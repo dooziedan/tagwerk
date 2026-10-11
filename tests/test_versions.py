@@ -200,6 +200,57 @@ def test_a_source_with_a_longer_version_too_doesnt_count():
     assert identify.longer_version([both, short]).shorter == ["Deezer"]
 
 
+def test_the_version_words_dont_decide_the_length():
+    """Stores name versions loosely: a file tagged "Radio Mix" can be the long Original Mix,
+    and Beatport's "Radio Mix" is Deezer's "Radio Edit"."""
+    asked = Query("Fisher", "Losing It (Radio Mix)", 401.0)  # mis-tagged: it's the long one
+
+    def version(name, duration):
+        return Candidate(
+            "x", {"title": f"Losing It ({name})", "artist": "Fisher"}, duration=duration
+        )
+
+    beatport = [version("Original Mix", 401.0), version("Radio Mix", 249.0)]
+    deezer = [version("Radio Edit", 248.0)]
+    longer = identify.longer_version([
+        identify.Found("beatport", "Beatport", beatport, asked=asked),
+        identify.Found("deezer", "Deezer", deezer, asked=asked),
+    ])  # fmt: skip
+    assert longer.shorter == ["Deezer"] and longer.confirmed == ["Beatport"]
+    assert longer.text == (
+        "Deezer only has a 4:08 version. Beatport lists this 6:41 version (Original Mix)."
+    )
+
+
+@pytest.mark.parametrize(
+    ("title", "same"),
+    [
+        ("Losing It", True),
+        ("Losing It (Original Mix)", True),
+        ("Losing It (Extended Mix)", True),
+        ("Losing It (Club Mix)", True),
+        ("Losing It - Radio Edit", True),
+        ("Losing It (Extended Version)", True),
+        ("Losing It (Hush Remix)", False),  # someone else's remix or edit: another track
+        ("Losing It (Dimitri Edit)", False),
+        ("Losing It (Hush Mix)", False),
+    ],
+)
+def test_version_words_name_the_same_track(title, same):
+    asked = Query("Fisher", "Losing It (Radio Mix)", 401.0)
+    assert identify._same_track(Candidate("x", {"title": title, "artist": "Fisher"}), asked) is same
+
+
+def test_a_title_that_is_a_version_word_stays():
+    radio = Query("Someone", "Radio", 300.0)
+    assert identify._same_track(
+        Candidate("x", {"title": "Radio (Club Mix)", "artist": "Someone"}), radio
+    )
+    assert not identify._same_track(
+        Candidate("x", {"title": "Original", "artist": "Someone"}), radio
+    )
+
+
 def test_track_page_says_longer_version(long_web, client, engine, settings, track):
     identify.lookup(engine, settings, track, library=True)
     page = client.get(f"/tracks/{track}").text
