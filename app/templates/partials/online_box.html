@@ -1,7 +1,7 @@
 {# What online sources found for a track (app/identify.py): inbox review page and track page.
-   Needs: online (identify.review), online_sources, looking_up, base (URL prefix for /lookup and
-   /online), hidden (extra form fields), note; remind (inbox): always start closed, with a
-   "check" tag while there are matches to look at.
+   Needs: online (identify.review), longer (identify.longer_version), online_sources, looking_up,
+   base (URL prefix for /lookup and /online), hidden (extra form fields), note; remind (inbox):
+   always start closed, with a "check" tag while there are matches to look at.
 
    Folded by default: the closed card still shows one pill per source. Open, every source gets
    its own panel: the best match first with its values beside the file's, then the rest. Each
@@ -42,6 +42,7 @@
         {%- elif matched %}{{ matched | length }} of {{ online | length }} found this track
         {%- else %}no good match{% endif %}</small>
       {% if remind and matched and not looking_up %}<span class="status status-help online-remind"><i aria-hidden="true"></i>Check {{ matched | length }} {{ "match" if matched | length == 1 else "matches" }}</span>{% endif %}
+      {% if longer and not looking_up %}<span class="status {{ 'status-sure' if longer.confirmed else 'status-help' }} online-longer" title="{{ longer.text }}">Longer version{% if longer.confirmed %} ✓{% endif %}</span>{% endif %}
       <span class="online-pills">
         {%- for f in online %}
         {%- set top = f.candidates[0] if f.candidates else none %}
@@ -51,6 +52,7 @@
     </summary>
     <div class="online-body">
       {% if looking_up %}<p class="notice" role="status"><span aria-busy="true">Looking up again…</span> This page updates by itself when the answers are in.</p>{% endif %}
+      {% if longer and not looking_up %}<p class="notice online-version{% if not longer.confirmed %} check{% endif %}"><strong>Longer version</strong><span>{{ longer.text }}</span></p>{% endif %}
       {% for f in online %}
       {% set top = f.candidates[0] if f.candidates else none %}
       <details class="online-src {% if f.error %}is-error{% elif f.best %}is-match{% elif top %}is-weak{% else %}is-none{% endif %}"{% if f.best or f.error %} open{% endif %}>
@@ -107,7 +109,7 @@
             {% if c.cover_image %}<img class="online-cover" src="/images/{{ c.cover_image }}" alt="Cover from {{ f.label }}" width="48" height="48">{% endif %}
             <div class="online-text">
               <strong>{{ title_of(c) }}</strong>
-              <small class="muted"><span class="match-why">{{ "%d" % (c.score * 100) }}% match{% if c.why %} · {{ c.why }}{% endif %}</span><br>{% if c.duration %}{{ c.duration | mmss }}{% endif %}{% for key in ("album", "date", "label", "catalognumber", "genre", "bpm") if c.values[key] %} · {{ c.values[key] }}{% endfor %}</small>
+              <small class="muted"><span class="match-why">{{ "%d" % (c.score * 100) }}% match{% if c.why %} · {{ c.why }}{% endif %}</span><br>{% if c.duration %}{{ c.duration | mmss }}{% endif %}{% for key in ("album", "date", "label", "catalognumber", "genre", "bpm", "key") if c.values[key] %} · {{ c.values[key] }}{% endfor %}</small>
               {% if c.url %}<small><a href="{{ c.url }}" target="_blank" rel="noopener noreferrer">Open at {{ f.label }} ↗</a></small>{% endif %}
             </div>
             {{ use_form(f, n) }}

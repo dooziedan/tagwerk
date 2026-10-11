@@ -383,6 +383,8 @@ def hints(session: Session, track, library: bool, online: bool = True) -> tuple[
         best = found.best
         if best and best.values.get("bpm"):
             bpm_hints.append((float(best.values["bpm"]), found.label))
+        if best and (code := to_camelot(best.values.get("key"))):  # Beatport knows keys
+            key_hints.append((code, found.label))
     if track.bpm:
         bpm_hints.append((track.bpm, "your tag"))
     if track.key_camelot:

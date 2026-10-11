@@ -69,7 +69,7 @@ Files are never modified directly from a form or a lookup:
 | `app/naming.py` | Folder and filename patterns (`{artist} - {title} [{bpm} {key}]`): empty bracket parts vanish, share-safe characters | 0.7 |
 | `app/routes/setup.py` | The setup wizard; its `apply_choices` is shared with Settings, so a choice means the same in both | 0.7 |
 | `app/navigation.py` | Where "← Back" and "after saving" lead (only pages of the app) | 0.7 |
-| `app/sources/` | Online metadata sources behind one interface (`base.py`): MusicBrainz, AcoustID (fpcalc), Discogs, iTunes, Deezer | 0.8 |
+| `app/sources/` | Online metadata sources behind one interface (`base.py`): MusicBrainz, AcoustID (fpcalc), Discogs (with tracklists), Beatport (public search page, [ADR 0032](decisions/0034-longer-versions.md)), iTunes, Deezer | 0.8 |
 | `app/identify.py` | Asks the sources about inbox tracks, scores the matches, stores them (`onlinelookup`) and turns agreement into suggestions and a cover ([ADR 0014](decisions/0014-online-identification.md)); sure MusicBrainz and Discogs IDs for empty ID fields ([ADR 0032](decisions/0032-ids-from-the-online-lookup.md)) | 0.8 |
 | `app/routes/lookup.py` | Look up online for library tracks: sure values become pending changes, "Use these values" stages one result | 0.8.1 |
 | `app/routes/player.py`, `app/static/player.js` | The play bar: serves audio (range requests; ffmpeg → MP3 for AIFF/ALAC). Pages swap in place with hx-boost so playback continues ([ADR 0015](decisions/0015-player.md)) | 0.8.2 |

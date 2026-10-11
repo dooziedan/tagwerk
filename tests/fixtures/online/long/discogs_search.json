@@ -1,0 +1,54 @@
+{
+ "pagination": {
+  "page": 1,
+  "pages": 1,
+  "per_page": 5,
+  "items": 1,
+  "urls": {}
+ },
+ "results": [
+  {
+   "country": "UK",
+   "year": "2019",
+   "format": [
+    "File",
+    "MP3"
+   ],
+   "label": [
+    "REALM Records"
+   ],
+   "type": "release",
+   "genre": [
+    "Electronic"
+   ],
+   "style": [
+    "Tech House"
+   ],
+   "id": 19222936,
+   "barcode": [],
+   "master_id": 0,
+   "master_url": null,
+   "uri": "/release/19222936-Billy-Kenny-Take-Me-To-Church",
+   "catno": "RLM021",
+   "title": "Billy Kenny - Take Me To Church",
+   "thumb": "",
+   "cover_image": "",
+   "resource_url": "https://api.discogs.com/releases/19222936",
+   "community": {
+    "want": 0,
+    "have": 0
+   },
+   "format_quantity": 0,
+   "formats": [
+    {
+     "name": "File",
+     "qty": "1",
+     "text": "320 kbps",
+     "descriptions": [
+      "MP3"
+     ]
+    }
+   ]
+  }
+ ]
+}

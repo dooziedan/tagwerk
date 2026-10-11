@@ -63,7 +63,14 @@ class Preferences:
 
     # Online identification (Settings → Online lookups, app/identify.py): which sources to ask.
     online_sources: list[str] = field(
-        default_factory=lambda: ["acoustid", "musicbrainz", "discogs", "deezer", "itunes"]
+        default_factory=lambda: [
+            "acoustid",
+            "musicbrainz",
+            "discogs",
+            "beatport",
+            "deezer",
+            "itunes",
+        ]
     )
 
     # Final tracks (wizard step 5, Settings → Final tracks): rename when marked final.

@@ -106,7 +106,8 @@
             <small class="muted">
               {%- if s.name == "acoustid" %}Recognises a track by its sound, even untagged. Free key at <a href="https://acoustid.org/new-application" target="_blank" rel="noopener">acoustid.org</a>, then <strong>AcoustID Key</strong> in the container settings.
               {%- elif s.name == "musicbrainz" %}The open music encyclopedia: official releases, dates, albums.
-              {%- elif s.name == "discogs" %}Labels, catalog numbers, styles; strong for electronic and vinyl. Free token: Discogs → Settings → Developers, then <strong>Discogs Token</strong> in the container settings.
+              {%- elif s.name == "discogs" %}Labels, catalog numbers, styles and each version's length; strong for electronic and vinyl. Free token: Discogs → Settings → Developers, then <strong>Discogs Token</strong> in the container settings.
+              {%- elif s.name == "beatport" %}The DJ store: club versions (Original Mix, Extended Mix) with length, BPM, key, genre and label. Read from Beatport's public search page; no account needed.
               {%- elif s.name == "deezer" %}Store catalogue: release date, label, BPM, large covers.
               {%- else %}Store catalogue: release date, genre, large covers.{% endif %}
             </small>

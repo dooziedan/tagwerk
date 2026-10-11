@@ -152,8 +152,10 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 ## Later / ideas
 Not planned for 1.0; open for discussion.
 - **Navidrome numbers** on Home: play counts and most played from Navidrome.
-- **Online keys**: an extra source with tempo and key (e.g. GetSongBPM, if its terms allow) to
-  confirm the audio analysis; Deezer only has BPM.
+- **More DJ stores**: Traxsource and Juno Download refuse requests that don't come from a
+  browser; Beatsource (Beatport's open-format store) has intro and clean versions. Beatport and
+  Discogs cover club versions and keys since
+  [ADR 0034](decisions/0034-longer-versions.md).
 - **Remove all private data** in one action, and a finder for PRIV data Tagwerk can't see (a
   second ID3 tag, a tag at the end of an MP3, ID3 in front of a FLAC).
 - **Energy or danceability** from the audio (Essentia) for statistics and set prep.

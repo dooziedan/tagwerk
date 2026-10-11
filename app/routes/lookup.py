@@ -120,8 +120,10 @@ def online_context(session, track: Track) -> dict:
     from app.preferences import load
 
     sources = identify.enabled(get_settings(), load(session))
+    online = identify.review(session, track, library=True)
     return {
-        "online": identify.review(session, track, library=True),
+        "online": online,
+        "longer": identify.longer_version(online),
         "online_sources": [s.label for s in sources],
         "looking_up": identify_job.queued(track.id, library=True),
     }

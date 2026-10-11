@@ -454,6 +454,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
     if track.id not in [t.id for t in tracks]:  # no longer in the tab: step through all
         show, tracks = "all", _ordered(session)
     before, after = _neighbours(session, track, show)
+    online = identify.review(session, track)
     return templates.TemplateResponse(
         request,
         "inbox_track.html",
@@ -475,7 +476,8 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "view_label": VIEWS[show][0],
             "deleted": request.query_params.get("deleted", ""),
             "keep_days": trash.KEEP_DAYS,
-            "online": identify.review(session, track),
+            "online": online,
+            "longer": identify.longer_version(online),
             "online_sources": [s.label for s in identify.enabled(get_settings(), prefs)],
             "looking_up": identify_job.queued(track.id),
             **audio_context(
