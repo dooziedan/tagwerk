@@ -3,7 +3,8 @@
 //
 // A play button carries the track in data attributes:
 //   data-play="/tracks/1/audio"  data-type="audio/flac"  data-mp3="/tracks/1/audio.mp3"
-//   data-title="…"  data-duration="248.5"
+//   data-title="…"  data-duration="248.5"  data-page="/tracks/1"
+// The title in the bar links to data-page, the track's page.
 // If the browser can't play the file's format (AIFF, mostly ALAC), it plays data-mp3 instead:
 // Tagwerk converts on the fly, and jumping restarts the conversion at that point (?start=).
 (() => {
@@ -13,7 +14,7 @@
   const toggle = document.getElementById("player-toggle");
   const seek = document.getElementById("player-seek");
   const time = document.getElementById("player-time");
-  const title = document.getElementById("player-title");
+  let title = document.getElementById("player-title");
   let track = null; // the dataset of the button that started it
   let converted = false; // playing the on-the-fly MP3
   let offset = 0; // with the MP3: where the current stream started, in seconds
@@ -114,6 +115,17 @@
   if (window.ResizeObserver) new ResizeObserver(measure).observe(bar);
   window.addEventListener("resize", measure);
 
+  // The title links to the track's page. htmx turns a link into a page swap (so the music
+  // keeps playing) only when it first sees it, so each track gets a fresh link for htmx.
+  function showTitle() {
+    const link = title.cloneNode(false);
+    link.textContent = track.title;
+    link.href = track.page;
+    title.replaceWith(link);
+    title = link;
+    if (window.htmx) htmx.process(link);
+  }
+
   function play(data) {
     startWebAudio();
     if (track && track.play === data.play) {
@@ -122,7 +134,7 @@
     }
     track = { ...data };
     converted = !audio.canPlayType(track.type);
-    title.textContent = track.title;
+    showTitle();
     bar.hidden = false;
     document.body.classList.add("with-player");
     measure();
