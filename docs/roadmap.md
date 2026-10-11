@@ -3,17 +3,19 @@
 ## Goal
 Tagwerk manages the Unraid/Navidrome library, which is the owner's master library. New music
 arrives in a separate **import inbox**; Tagwerk tags it as far as it can on its own, asks the
-owner only where it's unsure, then moves finished tracks into the library. Rekordbox and the DJ
-SSD are out of scope (that would be a separate tool).
+owner only where it's unsure, then moves finished tracks into the library. What Tagwerk
+deliberately leaves alone is listed under [Not in scope](#not-in-scope).
 
 **1.0 means:** Tagwerk can be trusted with the real master library, and it is a joy to look at.
 
-## Where we are (v0.15)
+## Where we are (v0.19)
 Everything on the original plan is built: scanning and statistics, editing with review and undo,
 the import inbox with automatic mode, online identification, BPM and key from the audio, final
 tracks, converting to AIFF, the play bar, the night-sky look, duplicates in the library (with
-the copy to keep and a trash) and the README. What's left before 1.0: the owner's run on the real library
-and an onboarding tour.
+the copy to keep and a trash) and the README. Since 0.15: made for DJs (no more Collector
+mode), merging genre spellings, mix names with capitals, ReplayGain read, edited and checked
+against the audio, Discogs IDs fixed on import, a Tools section in the menu and release notes
+on GitHub. What's left before 1.0: the owner's run on the real library and an onboarding tour.
 
 ## Road to 1.0
 In this order:
@@ -32,7 +34,9 @@ In this order:
    ([ADR 0022](decisions/0022-library-duplicates.md)). v0.14: suggests the copy to keep (the
    best sound) and lets the owner take tags and covers over from the other copies; v0.15: the
    other copies can go to a library trash that only the owner empties
-   ([ADR 0023](decisions/0023-library-trash.md)).
+   ([ADR 0023](decisions/0023-library-trash.md)); v0.17: copies are marked for the trash and
+   moved on Apply, together with the tag changes
+   ([ADR 0027](decisions/0027-queued-trash-decisions.md)).
 5. **Hardening on the real library**, partly done:
    - ✅ Speed at full size: `scripts/benchmark.py` times every page on a made-up library of
      20,000 tracks. A missing index made Home take 3.5 s and Statistics 10.7 s; now 0.15 s and
@@ -45,6 +49,7 @@ In this order:
      field in the main view.
    - ✅ v0.14: a scan never empties the library when the music folder looks empty (unmounted
      share); files moved outside Tagwerk keep their added date, final mark and analysis.
+   - ✅ v0.15.1: Apply works with more than 1,000 changes at once.
    - In progress: **the owner's real library** on Unraid (about 1,500 tracks, filled through
      the import inbox from a separate DJ library): scan time, memory and page times; WAV/AIFF
      tags compared with what Navidrome shows (open since v0.2).
@@ -54,24 +59,52 @@ In this order:
 7. **README** ✅ v0.14: screenshots from a made-up showcase library and a "first steps" guide.
 8. **Onboarding tour**: after the setup wizard, a short guided look at the interface for people
    new to Tagwerk. It highlights one area at a time with a sentence or two and *Next* / *Skip*:
-   the menu (Library, Work, System), Home's "Waiting for you" and "Worth a look", the way every
-   edit becomes a pending change (Changes → Apply → History and undo), the Inbox, Duplicates,
-   Statistics, and where Settings live. On the owner's real library, not a demo; works on
-   phones; shown once, and again from Settings (*Show the tour*). Calm, like the rest of the
-   motion: no constant movement, nothing with reduced motion.
+   the menu (Library, Work, Tools, System), Home's "Waiting for you" and "Worth a look", the
+   way every edit becomes a pending change (Changes → Apply → History and undo), the Inbox,
+   Duplicates, Statistics, and where Settings live (and the notification bell, once
+   Notifications is built). On the owner's real library, not a demo; works on phones; shown
+   once, and again from Settings (*Show the tour*). Calm, like the rest of the motion: no
+   constant movement, nothing with reduced motion.
 9. **Release `v1.0.0`** once the owner's real-library run (5.) shows nothing more to fix.
 
 ## Planned features
-Noted by the owner (2026-10-08); not yet placed before or after 1.0.
+Noted by the owner; not yet placed before or after 1.0. Order decided so far (2026-10-11):
+**Notifications first**, then the AcoustID plan gets more work. The rest isn't ordered yet.
 
-- **ReplayGain: analysis and editing**
-  ([issue #39](https://github.com/dooziedan/tagwerk/issues/39)). Tagwerk reads the track gain today but can't measure or change it. Measure loudness from the audio inside
-  the container (EBU R128 / ReplayGain 2.0: track gain and peak, album gain and peak for real
-  albums; ffmpeg is already in the image), offer the results as pending changes like BPM and
-  key, and make the ReplayGain fields editable in all 7 formats, including Opus's own
-  `R128_TRACK_GAIN` and exact undo. Navidrome uses these tags to even out playback volume.
-  *Done: all four fields are read and editable in every format ([ADR 0028](decisions/0028-replaygain.md)); loudness is measured and the tags checked and fixed on the ReplayGain page ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)).*
-- **Even loudness on the decks: change the sound itself**. CDJs and XDJs don't read ReplayGain. Apply the measured gain to the audio of lossless files (AIFF, WAV, FLAC: exact, no timing shift, so rekordbox cues stay right), keeping originals and undo like Convert. Lossy files would need re-encoding (quality loss, possible timing shift) and stay out. A separate release, decided by the owner (2026-10-09).
+- **Notifications**
+  ([issue #61](https://github.com/dooziedan/tagwerk/issues/61)). A place for what Tagwerk did
+  while the owner was away: a bell with the unread count (side menu next to the logo; top bar
+  on phones), a menu with short summaries and a card with the details, and a full page with
+  New and History. A notification is only read when the owner ticks it; nothing disappears
+  by itself, History is emptied only with *Clear history*. The owner chooses in Settings what
+  is reported; by default only what needs the owner or could lose data, e.g. inbox-trash files
+  3 days **before** they are removed for good.
+- **Share fingerprints with AcoustID** (no issue yet; the plan needs more work). Give back to
+  AcoustID, which Tagwerk's lookups use. Decided so far: only **final** tracks with a valid
+  MusicBrainz recording ID, shared by hand, one track at a time, from the track page; never
+  automatically and never unreleased tracks. Only the fingerprint, length, MusicBrainz ID,
+  format and bitrate are sent, no text tags (AcoustID's data is public and a submission can't
+  be taken back). Needs the owner's own AcoustID user key (`ACOUSTID_USER_KEY`).
+- **Release status and release watch** (no issue yet; needs Notifications and
+  [issue #48](https://github.com/dooziedan/tagwerk/issues/48)). A track is **Released** or
+  **Unreleased** (promo, dubplate, forthcoming); a per-track **Don't check online** switch
+  covers bootlegs, private edits and promos under NDA. Tagwerk regularly looks up **library**
+  tracks: unreleased ones weekly, released ones still missing release info (MusicBrainz ID,
+  label, date) about once a month. A track counts as "out now" when two sources agree or
+  AcoustID recognises the sound clearly; one source alone asks "Is this the release?". Found
+  values go through review → apply as usual. Final tracks stay locked: Tagwerk only tells the
+  owner, who removes the final mark, applies and marks the track final again. Unreleased tracks
+  aren't counted as missing MusicBrainz IDs. (Supersedes the old idea "look up everything
+  without IDs"; doing that by hand already works with the track list's filter and *Look up
+  online*.)
+- **MusicBrainz and Discogs IDs from the online lookup**
+  ([issue #48](https://github.com/dooziedan/tagwerk/issues/48)). The lookup already gets the
+  IDs but drops them; sure IDs become pending changes, only for empty fields.
+- **Add to MusicBrainz**. For released tracks that aren't on MusicBrainz yet: a button that
+  opens MusicBrainz's "Add release" form already filled with Tagwerk's values (artist, title,
+  label, catalog number, date, length, Discogs link). The owner checks and submits it on
+  MusicBrainz with their own account; the next lookup then finds the IDs. Not for private
+  edits: MusicBrainz is for released music.
 - **Advanced tags on the edit page**
   ([issue #40](https://github.com/dooziedan/tagwerk/issues/40)). A switch on a track's edit page that shows every tag field
   in the file (the raw fields the track page lists, with what each one feeds) and lets the owner
@@ -80,6 +113,15 @@ Noted by the owner (2026-10-08); not yet placed before or after 1.0.
   that feeds a Tagwerk field (e.g. `TBPM` → BPM) says so, so the two never fight. Needs a raw
   field path in the writer for every format, with snapshots for exact undo
   ([ADR 0009](decisions/0009-writing-tags.md)).
+- **Even loudness on the decks: change the sound itself**. CDJs and XDJs don't read ReplayGain.
+  Apply the measured gain ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)) to the
+  audio of lossless files (AIFF, WAV, FLAC: exact, no quality loss), keeping originals and undo
+  like Convert, so every track plays at the same level on the decks. Lossy files would need
+  re-encoding (quality loss) and stay out. A separate release, decided by the owner
+  (2026-10-09).
+- **Phone menu bar for one thumb**. On a phone held in one hand, the floating top bar is the
+  hardest place to reach. Rework the whole bar (Inbox, Changes, menu, the notification bell)
+  for one-thumb use instead of fixing it feature by feature.
 
 ## Released
 Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/README.md).
@@ -88,7 +130,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 |---|---|---|
 | 0.1 | Docker image with PUID/PGID, Unraid template, CI. Verified on Unraid 7.3.2. | [0001](decisions/0001-tech-stack.md), [0002](decisions/0002-unraid-deployment.md) |
 | 0.2 | Library scan (background job, unchanged files skipped), database with migrations, dashboard. Numbers checked against `ffprobe`. | [0005](decisions/0005-reading-tags.md) |
-| 0.3 | OGG and Opus; BPM, key (any notation), comment, label, catalog number, ReplayGain, lyrics; DJ and Collector modes. | [0006](decisions/0006-modes.md) |
+| 0.3 | OGG and Opus; BPM, key (any notation), comment, label, catalog number, ReplayGain, lyrics; DJ and Collector modes (Collector removed in 0.16). | [0006](decisions/0006-modes.md) |
 | 0.4 | Tag fields page: every raw field of every file. Found why few tracks had a BPM (Picard writes `0`). | |
 | 0.5 | Browse and search: track list with filters, artists, albums, track page; every dashboard number opens its tracks. 0.5.1: design language and cross-browser screenshots. | [0008](decisions/0008-design-language.md) |
 | 0.6 | The writing engine: edit one or many tracks → pending changes → review → apply → undo, all 7 formats; covers in 0.6.1. | [0003](decisions/0003-review-before-write.md), [0009](decisions/0009-writing-tags.md) |
@@ -101,11 +143,14 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.13 | Duplicates in the library, speed at full size, tidier Settings, 2D orbits, new motion. | [0022](decisions/0022-library-duplicates.md) |
 | 0.14 | The copy to keep among duplicates, safer scans, honest percentages, the stardust Apply, README screenshots. | [0022](decisions/0022-library-duplicates.md) |
 | 0.15 | A trash for duplicate copies (emptied only by the owner), Apply in a sensible order, long lists. | [0023](decisions/0023-library-trash.md) |
+| 0.16 | Made for DJs: Collector mode and its views removed; progress cards only on the page where the job started. | [0024](decisions/0024-made-for-djs.md) |
+| 0.17 | Merging genre spellings, mix names with capitals, trash decisions on the Duplicates page wait for Apply. | [0025](decisions/0025-genre-spellings.md), [0026](decisions/0026-mix-names.md), [0027](decisions/0027-queued-trash-decisions.md) |
+| 0.18 | ReplayGain: all four values read and editable in every format (Opus its own way); Discogs IDs in MusicBrainz fields fixed on import; the "MusicBrainz IDs" setting removed. | [0028](decisions/0028-replaygain.md), [0030](decisions/0030-ids-fixed-on-import.md) |
+| 0.19 | ReplayGain checked against the audio (loudness), Changes and History on phones, the Online sources card, release notes on GitHub, a Tools section in the menu, the play bar's title opens the track. | [0029](decisions/0029-loudness-and-replaygain-check.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.
-- **Navidrome numbers** on Home: play counts and most played from Navidrome. (Most played *as a
-  DJ* would need Rekordbox data, which is out of scope.)
+- **Navidrome numbers** on Home: play counts and most played from Navidrome.
 - **Online keys**: an extra source with tempo and key (e.g. GetSongBPM, if its terms allow) to
   confirm the audio analysis; Deezer only has BPM.
 - **Remove all private data** in one action, and a finder for PRIV data Tagwerk can't see (a
@@ -113,11 +158,23 @@ Not planned for 1.0; open for discussion.
 - **Energy or danceability** from the audio (Essentia) for statistics and set prep.
 - **Daily library snapshot** for trend lines in Tagwerk's work (set-ready, missing BPM/key/genre/
   cover over time), one row per day ([ADR 0020](decisions/0020-tagwerks-work.md)).
-- **Set prep**: harmonic mixing helpers (compatible keys), BPM/key filters.
-- **Batch jobs** for the existing library (e.g. look up everything without IDs).
+- **Set prep**: harmonic mixing helpers (compatible keys), and BPM range and key filters in the
+  track list's filter form (today those lists only open from a track's BPM or key).
 - **Reorganising the existing library** by the folder layout (so far only new inbox tracks are
   sorted; check how Navidrome handles moved files first).
 - **Filename parsing**: scene-style names (`artist-title-(vip)-128bpm`) and BPM/key at the end
   without brackets (`… (Extended Mix) 174 Am`) aren't read yet; `[174 Am]` is.
 - Last.fm genres.
 - Login protection (low priority: Tagwerk is a local tool for one user).
+
+## Not in scope
+Decided against, so they don't come back as ideas:
+- **Rekordbox and the DJ SSD.** Tagwerk doesn't read or write Rekordbox's collection (its
+  database or XML), playlists, cue points or play history, and doesn't copy anything to the DJ
+  SSD; that would be a separate tool. Tagwerk's job ends with well-tagged files in the Unraid
+  library.
+- **Most played as a DJ**: it would need Rekordbox's play history (see above). Navidrome's play
+  counts are an idea under Later.
+- **Modes and collector-only views**: Tagwerk is made for DJs; every page puts BPM, key, genre,
+  label, set-readiness and audio quality first
+  ([ADR 0024](decisions/0024-made-for-djs.md)).
