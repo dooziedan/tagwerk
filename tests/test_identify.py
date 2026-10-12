@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session, select
 
-from app import identify, preferences
+from app import identify, preferences, secret
 from app.inbox import review, scan_inbox
 from app.models import InboxTrack, OnlineLookup
 from app.scanner import ScanProgress
@@ -139,6 +139,49 @@ def test_lookup_suggests_what_sources_agree_on(web, engine, settings, track):
     # Asked again only when something changed
     web.clear()
     assert identify.lookup(engine, settings, track) == 0 and web == []
+
+
+def test_the_inbox_check_only_queues_tracks_that_need_a_lookup(
+    web, monkeypatch, engine, settings, track
+):
+    """needing_lookup() decides like lookup(): a track is queued exactly when lookup() would
+    ask a source or download a cover."""
+    from app.jobs import identify_job, image_store
+    from app.models import InboxValue
+    from tests.test_writer import PNG
+
+    def needed() -> list[int]:
+        with Session(engine) as session:
+            return identify.needing_lookup(session, settings)
+
+    monkeypatch.setattr(identify, "download_image", lambda url: PNG)
+    assert needed() == [track]  # never looked up
+    identify.lookup(engine, settings, track)
+    assert needed() == [track]  # answered, but the cover isn't downloaded yet
+    identify.lookup(engine, settings, track, images=image_store(settings))
+    assert needed() == []
+
+    web.clear()
+    identify_job.start(settings)  # what the inbox check does
+    identify_job.wait(10)
+    assert web == []
+
+    with Session(engine) as session:  # the owner typed another artist: ask again
+        session.add(InboxValue(track_id=track, field="artist", value="Someone Else"))
+        session.commit()
+    assert needed() == [track]
+    assert identify.lookup(engine, settings, track) > 0
+    assert needed() == []
+
+    with Session(engine) as session:  # an old answer is asked again
+        row = session.exec(select(OnlineLookup).where(OnlineLookup.source == "itunes")).one()
+        row.looked_up_at -= identify.REFRESH_AFTER
+        session.commit()
+    assert needed() == [track]
+
+    with Session(engine) as session:  # secret tracks never
+        secret.mark(session, [track], inbox=True)
+    assert needed() == []
 
 
 def test_file_tags_win_over_online_values(web, engine, settings, track):

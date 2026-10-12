@@ -17,6 +17,8 @@ from app.ids import file_ids
 from app.images import ImageError
 from app.importer import plan
 from app.inbox import (
+    Known,
+    load_known,
     missing,
     owner_values,
     reset_values,
@@ -48,10 +50,12 @@ RECHECK_AFTER = timedelta(seconds=10)
 def inbox_api(session: SessionDep) -> list[dict]:
     """Tracks in the import inbox: what each one is missing and what Tagwerk proposes."""
     result = []
+    tracks = list(session.exec(select(InboxTrack).order_by(InboxTrack.path)))
     library = LibraryIndex.load(session)
-    for t in session.exec(select(InboxTrack).order_by(InboxTrack.path)):
-        proposals = list(inbox_suggestions(session, t).values())
-        row = _summary(session, t, library)
+    known = load_known(session, tracks)
+    for t in tracks:
+        proposals = list(inbox_suggestions(session, t, known[t.id]).values())
+        row = _summary(session, t, library, known[t.id])
         result.append(
             {
                 **t.model_dump(),
@@ -82,6 +86,9 @@ def inbox_page(request: Request, session: SessionDep, settings: SettingsDep):
     configured = settings.import_dir.is_dir()
     if configured and _due():
         inbox_job.start(settings)  # a scan or write may be running: then the list is shown as is
+    # Jobs running while the list is read: when one finishes before the page is sent, the page
+    # still asks once more, so an import or a check that changed the list shows (polling).
+    checking, writing = inbox_job.running, write_job.running
     show = _view(request.query_params.get("show"))
     rows = _rows(session)
     return templates.TemplateResponse(
@@ -103,6 +110,8 @@ def inbox_page(request: Request, session: SessionDep, settings: SettingsDep):
             "show": show,
             "job": inbox_job,
             "write": write_job,
+            "checking": checking,
+            "writing": writing,
             "busy": _blocked(),
             "error": request.query_params.get("error", ""),
             "deleted": request.query_params.get("deleted", ""),
@@ -173,8 +182,12 @@ def _ordered(session) -> list[InboxTrack]:
 
 
 def _rows(session) -> list["InboxRow"]:
+    """Every inbox track's row, newest first. What is stored about the tracks and the library
+    is read once for all of them (load_known, LibraryIndex), not again for each track."""
+    tracks = _ordered(session)
     library = LibraryIndex.load(session)
-    return [_summary(session, t, library) for t in _ordered(session)]
+    known = load_known(session, tracks)
+    return [_summary(session, t, library, known[t.id]) for t in tracks]
 
 
 def _shown(url: str, show: str) -> str:
@@ -182,10 +195,10 @@ def _shown(url: str, show: str) -> str:
     return url if show == "all" else f"{url}{'&' if '?' in url else '?'}show={show}"
 
 
-def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) -> InboxRow:
-    fields = review(session, track, list(writer.EDITABLE))
+def _summary(session, track: InboxTrack, library: LibraryIndex, known: Known) -> InboxRow:
+    fields = review(session, track, list(writer.EDITABLE), known)
     proposals = [f.suggestion for f in fields if f.origin == "suggested"]
-    is_secret = secret.is_secret(session, track.id, inbox=True)
+    is_secret = known.secret
     missing = still_missing(track, proposals, is_secret)
     # A value the owner typed fills a gap too.
     mine = {f.field for f in fields if f.origin == "you" and f.value}
@@ -193,18 +206,17 @@ def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) ->
     missing = [m for m in missing if labels.get(m) not in mine]
     changes = sum(1 for f in fields if f.origin != "file" and f.value != f.in_file)
     edited = any(f.origin == "you" for f in fields)
-    owner = owner_values(session, track.id)
+    owner = known.mine
     if writer.COVER in owner:  # a new cover chosen, or the cover removed
         changes += 1
         edited = True
         has_cover = owner[writer.COVER] is not None or is_secret
         missing = [m for m in missing if m != "Cover"] + ([] if has_cover else ["Cover"])
-    elif identify.cover_suggestion(session, track):  # a cover found online
+    elif identify.cover_suggestion(session, track, found=known.online):  # a cover found online
         changes += 1
         missing = [m for m in missing if m != "Cover"]
     value = {f.field: f.value for f in fields}
     settings = get_settings()
-    library = library or LibraryIndex.load(session)
     duplicates = [] if track.error else library.matches(
         track, value["title"], value["artist"], settings.import_dir, settings.music_dir
     )  # fmt: skip
@@ -230,7 +242,7 @@ async def inbox_track_save(
     show = _view(form.get("show"))
     # The next track in the chosen tab, worked out before saving (saving may move this track
     # out of the tab, e.g. from "Needs help" to "Ready").
-    _, after = _neighbours(session, track, show)
+    _, after = _neighbours(_tab(_rows(session), track, show)[1], track)
     if form.get("reset"):
         reset_values(session, track.id)
         return RedirectResponse(_shown(f"/inbox/{track.id}", show), status_code=303)
@@ -453,7 +465,7 @@ async def inbox_delete_one(
     """Delete one track from its review page, then show the next one."""
     track = _inbox_track(session, track_id)
     show = _view((await read_form(request)).get("show"))
-    _, after = _neighbours(session, track, show)
+    _, after = _neighbours(_tab(_rows(session), track, show)[1], track)
     ran, (deleted, errors) = _move_to_trash(session, settings, [track.id])
     if not ran:
         return RedirectResponse(_shown(f"/inbox/{track.id}?error=busy", show), status_code=303)
@@ -530,13 +542,12 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
         for f in fields:
             if f.field in typed:
                 f.value = typed[f.field]
-    tracks = _in_view(session, show)
-    if track.id not in [t.id for t in tracks]:  # no longer in the tab: step through all
-        show, tracks = "all", _ordered(session)
-    before, after = _neighbours(session, track, show)
+    rows = _rows(session)  # built once: the tab's tracks, this track's place and its summary
+    summary = next(r for r in rows if r.track.id == track.id)
+    show, tracks = _tab(rows, track, show)
+    before, after = _neighbours(tracks, track)
     online = identify.review(session, track)
-    is_secret = secret.is_secret(session, track.id, inbox=True)
-    summary = _summary(session, track)
+    is_secret = summary.secret
     return templates.TemplateResponse(
         request,
         "inbox_track.html",
@@ -607,19 +618,19 @@ def _cover_field(session, track: InboxTrack, is_secret: bool = False) -> dict:
     }
 
 
-def _in_view(session, show: str) -> list[InboxTrack]:
-    return [r.track for r in _rows(session) if VIEWS[show][1](r)]
+def _tab(rows: list[InboxRow], track: InboxTrack, show: str) -> tuple[str, list[InboxTrack]]:
+    """The chosen tab and its tracks; tab "all" when this track is no longer in it."""
+    in_tab = [r.track for r in rows if VIEWS[show][1](r)]
+    if track.id not in [t.id for t in in_tab]:
+        return "all", [r.track for r in rows]
+    return show, in_tab
 
 
 def _neighbours(
-    session, track: InboxTrack, show: str = "all"
+    tracks: list[InboxTrack], track: InboxTrack
 ) -> tuple[InboxTrack | None, InboxTrack | None]:
-    """The tracks before and after this one in the chosen tab."""
-    tracks = _in_view(session, show)
-    ids = [t.id for t in tracks]
-    if track.id not in ids:
-        tracks, ids = _ordered(session), [t.id for t in _ordered(session)]
-    i = ids.index(track.id)
+    """The tracks before and after this one in a tab's ``tracks`` (see _tab)."""
+    i = [t.id for t in tracks].index(track.id)
     return (tracks[i - 1] if i > 0 else None, tracks[i + 1] if i + 1 < len(tracks) else None)
 
 
@@ -654,11 +665,14 @@ def inbox_scan_partial(request: Request, settings: SettingsDep):
 
 @router.get("/partials/inbox", response_class=HTMLResponse, include_in_schema=False)
 def inbox_status_partial(request: Request, was_running: bool = False):
-    response = _status(request)
-    if was_running and not inbox_job.running:
-        reload_page(request, response)  # done: show the list
+    done = was_running and not inbox_job.running
+    response = _status(request, nothing_new=done and not inbox_job.changed)
+    if done and inbox_job.changed:
+        reload_page(request, response)  # something new: show the list again
     return response
 
 
-def _status(request: Request):
-    return templates.TemplateResponse(request, "partials/inbox_status.html", {"job": inbox_job})
+def _status(request: Request, nothing_new: bool = False):
+    return templates.TemplateResponse(
+        request, "partials/inbox_status.html", {"job": inbox_job, "nothing_new": nothing_new}
+    )

@@ -1,12 +1,16 @@
 import os
 import re
 import shutil
+from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy import event
 from sqlmodel import Session, select
 
+from app import secret
+from app.db import get_engine
 from app.inbox import missing, scan_inbox
-from app.jobs import inbox_job, scan_job
+from app.jobs import inbox_job, scan_job, write_job
 from app.models import InboxTrack, Track
 from app.scanner import ScanProgress
 from app.tags import read_file
@@ -88,6 +92,88 @@ def test_inbox_page(client, import_dir):
     page = client.get("/inbox").text
     assert "Artist - Title (Extended Mix).mp3" in page and "2 tracks" in page
     assert 'aria-label="2 tracks"' in client.get("/").text  # menu badge
+
+
+@pytest.mark.parametrize(
+    "job, asks", [(inbox_job, "/partials/inbox?was_running=true"), (write_job, "/partials/write")]
+)
+def test_a_job_ending_while_the_list_is_read_still_updates_the_page(
+    client, engine, import_dir, monkeypatch, job, asks
+):
+    """An import (or check) that ends while the page reads the list: the list may be from
+    before it, so the page asks once more and is built again (it didn't, with a fast page)."""
+    from app.changes import WriteProgress
+    from app.routes import inbox as routes
+
+    scan(engine, import_dir)
+    rows = routes._rows
+
+    def read_while_the_job_ends(session):
+        found = rows(session)
+        job.status = "done"
+        return found
+
+    monkeypatch.setattr(routes, "_due", lambda: False)
+    monkeypatch.setattr(routes, "_rows", read_while_the_job_ends)
+    monkeypatch.setattr(job, "status", "running")
+    if job is write_job:
+        monkeypatch.setattr(job, "progress", WriteProgress(action="import"))
+    assert asks in client.get("/inbox").text
+    assert asks not in client.get("/inbox").text  # nothing running while this one was read
+
+
+def test_the_list_is_built_again_only_when_the_check_found_something(client, settings, import_dir):
+    def check() -> dict:
+        assert inbox_job.start(settings)
+        inbox_job.wait(30)
+        done = client.get("/partials/inbox?was_running=true", headers={"HX-Request": "true"})
+        return {"reload": "HX-Refresh" in done.headers, "text": done.text}
+
+    first = check()  # two new tracks
+    assert first["reload"] and "Nothing new" not in first["text"]
+    again = check()  # the same files: no new page, just the note
+    assert not again["reload"] and "Nothing new" in again["text"]
+    os.remove(import_dir / "promo.mp3")
+    assert check()["reload"]  # a track is gone
+
+
+def queries(engine, client, url: str) -> int:
+    """How many times opening ``url`` asks the database."""
+    asked = 0
+
+    def count(*args) -> None:
+        nonlocal asked
+        asked += 1
+
+    event.listen(engine, "before_cursor_execute", count)
+    try:
+        assert client.get(url).status_code == 200
+    finally:
+        event.remove(engine, "before_cursor_execute", count)
+    return asked
+
+
+def test_inbox_pages_ask_the_database_as_often_for_3_tracks_as_for_12(client, settings):
+    """What is stored about the tracks is read for all of them at once (load_known): with
+    a dozen queries per track, a few hundred tracks took seconds."""
+    engine = get_engine(settings.database_url)
+    settings.import_dir.mkdir()
+    asked = []
+    for total in (3, 12):
+        for i in range(total):
+            shutil.copy(FIXTURES / "untagged.mp3", settings.import_dir / f"promo {i}.mp3")
+        assert inbox_job.start(settings)
+        inbox_job.wait(30)
+        ids = [t["id"] for t in client.get("/api/inbox").json()]
+        for track_id in ids:  # each one edited, every other one secret
+            client.post(f"/inbox/{track_id}", data={"artist": f"Someone {track_id}"})
+        with Session(engine) as session:
+            secret.mark(session, ids[::2], inbox=True)
+        inbox_job.finished_at = datetime.now(UTC)  # no inbox check in the background
+        asked.append(
+            {url: queries(engine, client, url) for url in ("/inbox", f"/inbox/{ids[1]}", "/")}
+        )
+    assert asked[0] == asked[1]
 
 
 def test_inbox_page_without_import_folder(client):

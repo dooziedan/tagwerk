@@ -10,10 +10,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import Engine
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app import analysis, genres, identify, secret, writer
-from app.models import InboxTrack, InboxValue, SecretInboxTrack
+from app.models import InboxAnalysis, InboxTrack, InboxValue, OnlineLookup, SecretInboxTrack
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
 from app.tags import FORMATS, read_file
@@ -134,26 +134,91 @@ def owner_values(session: Session, track_id: int) -> dict[str, str | None]:
     return {r.field: r.value for r in rows}
 
 
-def suggestions(session: Session, track: InboxTrack) -> dict[str, Proposal]:
+@dataclass
+class Known:
+    """What Tagwerk has stored about one inbox track, beside the track itself."""
+
+    mine: dict[str, str | None]  # the owner's values (owner_values)
+    online: list[identify.Found]  # what the online sources found (identify.results)
+    analysed: InboxAnalysis | None  # BPM and key from the audio (None: not analysed yet)
+    secret: bool
+    genre_map: genres.GenreMap
+
+
+def load_known(session: Session, tracks: list[InboxTrack]) -> dict[int, Known]:
+    """What is stored about these inbox tracks, by track ID.
+
+    Read in a few queries for all of them: the inbox list, Home and the track pages used to
+    ask the database about a dozen times per track, which took seconds with a few hundred
+    tracks. Without the "why this match" texts of the online answers: only the online box
+    on a track's page shows them (identify.review).
+    """
+    ids = [t.id for t in tracks]
+    genre_map = genres.active(session)
+    mine: dict[int, dict[str, str | None]] = {}
+    for value in _rows_for(session, InboxValue, ids):
+        mine.setdefault(value.track_id, {})[value.field] = value.value
+    answers: dict[int, list[OnlineLookup]] = {}
+    for row in _rows_for(session, OnlineLookup, ids):
+        answers.setdefault(row.track_id, []).append(row)
+    analysed = {row.track_id: row for row in _rows_for(session, InboxAnalysis, ids)}
+    hidden = secret.secret_ids(session, ids, inbox=True)
+    return {
+        i: Known(
+            mine.get(i, {}),
+            identify.found_in(answers.get(i, []), genre_map, explain_them=False),
+            analysed.get(i),
+            i in hidden,
+            genre_map,
+        )
+        for i in ids
+    }
+
+
+def _rows_for(session: Session, table, track_ids: list[int]) -> list:
+    """The rows of a per-track table (owner's values, online answers, analyses) for these
+    tracks."""
+    found = []
+    for start in range(0, len(track_ids), 500):  # SQLite limits the number of parameters
+        part = track_ids[start : start + 500]
+        found.extend(session.exec(select(table).where(col(table.track_id).in_(part))))
+    return found
+
+
+def suggestions(
+    session: Session, track: InboxTrack, known: Known | None = None
+) -> dict[str, Proposal]:
     """Tagwerk's suggestions per field: from the file and filename first, then from online
     sources for fields still empty (app/identify.py). BPM and key from the audio replace
-    both: they were decided together with them (app/analysis.py)."""
-    local = {p.field: p for p in propose(track, genres.active(session))}
-    online = identify.suggestions(session, track, taken=set(local))
+    both: they were decided together with them (app/analysis.py).
+
+    ``known``: already loaded with load_known() (many tracks at once); else read here."""
+    if known is None:
+        known = load_known(session, [track])[track.id]
+    local = {p.field: p for p in propose(track, known.genre_map)}
+    online = identify.suggestions(
+        session, track, taken=set(local), found=known.online, genre_map=known.genre_map
+    )
     found = local | {p.field: p for p in online}
-    mine = owner_values(session, track.id)
+    mine = known.mine
     genre = (
         mine["genre"]
         if "genre" in mine
         else (found["genre"].value if "genre" in found else track.genre)
     )
-    return found | {p.field: p for p in analysis.proposals(session, track, genre)}
+    decision = analysis.decide_with(track, genre, known.online, known.analysed)
+    return found | {p.field: p for p in analysis.proposals(track, decision)}
 
 
-def review(session: Session, track: InboxTrack, order: list[str]) -> list[ReviewField]:
-    """Every editable field: the owner's value, else Tagwerk's suggestion, else the file's."""
-    suggestions_ = suggestions(session, track)
-    mine = owner_values(session, track.id)
+def review(
+    session: Session, track: InboxTrack, order: list[str], known: Known | None = None
+) -> list[ReviewField]:
+    """Every editable field: the owner's value, else Tagwerk's suggestion, else the file's.
+    ``known``: as for suggestions()."""
+    if known is None:
+        known = load_known(session, [track])[track.id]
+    suggestions_ = suggestions(session, track, known)
+    mine = known.mine
     result = []
     for name in order:
         in_file = writer.current_value(track, name)

@@ -1,10 +1,11 @@
-{# Progress of an apply/undo job. Polls itself while running, reloads the page when done. #}
+{# Progress of an apply/undo job. Polls itself while running, reloads the page when done.
+   ``polling``: the page read its data while the job ran: ask once more even if it just ended. #}
 {% from "macros.html" import toast %}
 {% set p = job.progress %}
 {# ``actions``: the jobs this page started (e.g. ["apply"] on Changes); others show elsewhere. #}
 {% if actions is not defined or p.action in actions %}
 {% set verb = {"undo": "Undoing", "import": "Importing", "folder": "Moving", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting to AIFF", "upgrade": "Replacing"}.get(p.action, "Writing") %}
-{% if job.running %}
+{% if job.running or polling | default(false) %}
 {# A clear status card at the top: what is happening, how far, which file. #}
 {% set heading = {"apply": "Writing your changes", "undo": "Undoing", "import": "Importing into the library", "folder": "Moving tracks", "final": "Marking as final", "unfinal": "Removing the final mark", "convert": "Converting to AIFF", "upgrade": "Replacing with better copies"}.get(p.action, verb) %}
 <article id="write" class="job-card" role="status" hx-get="/partials/write?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">

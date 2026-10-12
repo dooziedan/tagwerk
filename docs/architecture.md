@@ -49,7 +49,7 @@ Files are never modified directly from a form or a lookup:
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Key notation, effects, import and final-track choices, stored in the `appsetting` table | 0.3 |
 | `app/navidrome.py` | Asks Navidrome to rescan after a write (Subsonic `startScan`, salted-token login, standard library only) | 0.7 |
-| `app/inbox.py` | Keeps the `inboxtrack` table in sync with the import folder; the owner's values per track (`inboxvalue`) and the review of each field | 0.7 |
+| `app/inbox.py` | Keeps the `inboxtrack` table in sync with the import folder; the owner's values per track (`inboxvalue`) and the review of each field. Pages read what is stored about all inbox tracks at once (`load_known`, [ADR 0038](decisions/0038-fast-inbox.md)) | 0.7 |
 | `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
 | `app/genres.py` | The genre map: spelling variants and subgenre → main genre | 0.7 |
 | `app/genre_merge.py` | Genre spellings page: genres written in several ways, merged into one spelling as pending changes | 0.17 |
@@ -87,7 +87,7 @@ Files are never modified directly from a form or a lookup:
 
 ## Runtime
 
-- One process: `uvicorn` serving FastAPI. No external services.
+- One process: `uvicorn` serving FastAPI. No external services. Keep it to one worker: job state (what runs, its progress, the queues) lives in that process's memory, so a second worker could run two imports or writes at once.
 - Database: SQLite at `/config/tagwerk.db` in WAL mode, so pages can read during a scan.
 - Data model so far: one `track` row per audio file (artists and albums are derived from it), plus `rawtag` (every tag field of every file, as stored), `pendingchange`, `changeset`/`changeentry` (applied changes with undo snapshots), `appsetting` for preferences and `notification`/`notificationstate` (what Tagwerk did while the owner was away, and what its checks remember).
 - `track.scan_version` records which tag-reader version read a row. Raising `SCAN_VERSION` in `app/scanner.py` makes the next scan re-read older rows once.

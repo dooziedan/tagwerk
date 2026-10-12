@@ -1,6 +1,7 @@
-{# Inbox check button and progress. While a check runs, it polls itself every second. #}
+{# Inbox check button and progress. While a check runs, it polls itself every second.
+   ``polling``: the page read its list while a check ran: ask once more even if it just ended. #}
 {% set p = job.progress %}
-{% if job.running %}
+{% if job.running or polling | default(false) %}
 <div id="inbox-scan" class="scan" hx-get="/partials/inbox?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
   <progress {% if p.total %}value="{{ p.processed }}" max="{{ p.total }}"{% endif %}></progress>
   <small>{% if p.total %}Checking… {{ p.processed | number }} / {{ p.total | number }} files{% else %}Looking for new tracks…{% endif %}</small>
@@ -8,6 +9,7 @@
 {% else %}
 <div id="inbox-scan" class="scan">
   <button class="outline secondary small" hx-post="/partials/inbox" hx-target="#inbox-scan" hx-swap="outerHTML">Check again</button>
-  {% if job.status == "failed" %}<small>❌ {{ job.error }}</small>{% endif %}
+  {% if job.status == "failed" %}<small>❌ {{ job.error }}</small>
+  {% elif nothing_new %}<small class="muted">Nothing new</small>{% endif %}
 </div>
 {% endif %}
