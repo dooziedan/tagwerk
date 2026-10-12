@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.23, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks, secret tracks for edits and bootlegs, and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library and an onboarding tour; see the [roadmap](docs/roadmap.md).
+> **Status: v0.24, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks, secret tracks for edits and bootlegs, and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library and an onboarding tour; see the [roadmap](docs/roadmap.md).
 
 ![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
 
@@ -45,7 +45,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Convert to AIFF:** lossless tracks (FLAC, WAV, ALAC) with all tags and covers; the originals are kept.
 
 **New music**
-- **Import inbox:** new music waits in its own folder. Tagwerk suggests tags from the filename, online sources and the audio, and tidies existing ones (spacing, "feat.", genre spelling, `(club remix)` → `(Club Remix)`). You check each track, then import: tags are written and the file moves into the library by genre, **with its filename unchanged**. Undo moves it back. Duplicates are marked; unwanted files go to a trash you can restore from.
+- **Import inbox:** new music waits in its own folder. Tagwerk suggests tags from the filename, online sources and the audio, and tidies existing ones (spacing, "feat.", genre spelling, `(club remix)` → `(Club Remix)`). You check each track, then import: tags are written and the file moves into the library by genre, **with its filename unchanged**. Undo moves it back. Duplicates are marked; unwanted files go to a trash you can restore from. A file that sounds clearly better than your library copy (lossless instead of MP3, 320 instead of 192 kbps) is marked **Better sound**: **Replace** gives it your library copy's tags, folder and name, and moves the old file to the library trash (or let Tagwerk do that on its own).
 - **Automatic mode** (optional): complete tracks Tagwerk is sure about are imported without asking.
 - **Secret tracks** for your edits and bootlegs: put them into the import folder's `Secret` folder (or switch them to Secret on their page), and Tagwerk never looks them up online, where it would only find the original release. They're complete without a cover.
 - **Navidrome rescan** after every change, so new tags and tracks show up there right away (optional).

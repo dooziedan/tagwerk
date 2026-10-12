@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-12
+
 ### Added
 - **Better copies replace the library copy.** When a new file in the inbox sounds clearly better than the same track in your library (lossless instead of MP3, 320 instead of 192 kbps, 24 instead of 16 bit), the Inbox marks it **Better sound** (badge and tab). Its page compares both copies and has **Replace library copy**:
   - the new file gets your library copy's tags and cover; fields the library copy doesn't have keep the new file's values;
