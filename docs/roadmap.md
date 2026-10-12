@@ -116,7 +116,7 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   label, catalog number, date, length, Discogs link). The owner checks and submits it on
   MusicBrainz with their own account; the next lookup then finds the IDs. Not for private
   edits: MusicBrainz is for released music.
-- **Advanced tags on the edit page** ✅
+- **Advanced tags on the edit page** ✅ v0.25.0
   ([issue #40](https://github.com/dooziedan/tagwerk/issues/40),
   [ADR 0039](decisions/0039-advanced-tags.md)). A switch on a track's edit page shows every tag
   field in the file, with what each one feeds, to change, add or remove, through pending changes
@@ -161,6 +161,8 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.21 | Notifications: a bell with what Tagwerk did while you were away, chosen in Settings → Notifications. | [0035](decisions/0035-notifications.md) |
 | 0.22 | Secret tracks: edits and bootlegs never looked up online and complete without a cover; the import folder's Secret folder. | [0036](decisions/0036-secret-tracks.md) |
 | 0.23 | ReplayGain fixed from a track's page: the From the audio box says what's wrong, with one button; Measure loudness for one track. | [0029](decisions/0029-loudness-and-replaygain-check.md) |
+| 0.24 | Better copies from the inbox replace their library copy (by hand or automatically); copies found with the artists in any order; a fast Inbox. | [0037](decisions/0037-better-copies.md), [0038](decisions/0038-fast-inbox.md) |
+| 0.25 | Advanced tags: every tag field of a file (RIFF INFO too) changed, added or removed on the edit page, with review and undo. | [0039](decisions/0039-advanced-tags.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.

@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-13
+
 ### Added
 - **Advanced tags on the edit page.** A new switch on a track's edit page shows every tag field in the file, exactly as stored, the ones Tagwerk doesn't use too (`TXXX:EnergyLevel`, `COMM:Songs-DB_Custom1`, `encoder`, Serato or Traktor data, a WAV's RIFF INFO …). You can:
   - change any text field, give it several values (**+ value**) or remove it (tick **Remove**);
