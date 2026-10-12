@@ -116,14 +116,13 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   label, catalog number, date, length, Discogs link). The owner checks and submits it on
   MusicBrainz with their own account; the next lookup then finds the IDs. Not for private
   edits: MusicBrainz is for released music.
-- **Advanced tags on the edit page**
-  ([issue #40](https://github.com/dooziedan/tagwerk/issues/40)). A switch on a track's edit page that shows every tag field
-  in the file (the raw fields the track page lists, with what each one feeds) and lets the owner
-  change, add or remove them, through pending changes with review, apply and undo like every
-  other edit. Binary fields (pictures, private data) can be removed but not typed into; a field
-  that feeds a Tagwerk field (e.g. `TBPM` → BPM) says so, so the two never fight. Needs a raw
-  field path in the writer for every format, with snapshots for exact undo
-  ([ADR 0009](decisions/0009-writing-tags.md)).
+- **Advanced tags on the edit page** ✅
+  ([issue #40](https://github.com/dooziedan/tagwerk/issues/40),
+  [ADR 0039](decisions/0039-advanced-tags.md)). A switch on a track's edit page shows every tag
+  field in the file, with what each one feeds, to change, add or remove, through pending changes
+  with review, apply and undo like every other edit (RIFF INFO of WAV files too). Pictures and
+  private data can only be removed; when a field that feeds a Tagwerk field (`TBPM` → BPM) and
+  that field both change, the normal field wins.
 - **Even loudness on the decks: change the sound itself**. CDJs and XDJs don't read ReplayGain.
   Apply the measured gain ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)) to the
   audio of lossless files (AIFF, WAV, FLAC: exact, no quality loss), keeping originals and undo

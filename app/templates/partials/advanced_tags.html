@@ -1,0 +1,85 @@
+{# Advanced tags on a track's edit page (ADR 0039): every tag field of the file, behind a
+   switch. The switch is a plain checkbox right before the section's body, so CSS alone
+   shows and hides it (.adv-toggle:checked ~ .adv-body). Every value of a field is sent under
+   the field's change name ("raw:id3:TXXX:fBPM"); app/advanced.py reads the form. #}
+<section class="edit-section advanced-tags" aria-label="Advanced tags">
+  <input type="checkbox" role="switch" id="adv-switch" name="advanced" class="adv-toggle" {% if advanced_open %}checked{% endif %}>
+  <label for="adv-switch" class="adv-switch"><strong>Advanced tags</strong> <small>every tag field in the file, exactly as stored</small></label>
+  <div class="adv-body">
+  {% if not advanced %}
+    <p class="notice" role="note">The file can't be read right now{% if unreadable %} (<code>{{ unreadable }}</code>){% endif %}, so its tag fields can't be shown.</p>
+  {% else %}
+    <p class="muted adv-intro"><small>Change, add or remove any field: it becomes a pending change, like the fields above. A field with a <span class="badge">label</span> feeds that field above; if you change both, the field above wins. Fields that don't hold text (pictures, private data) can only be removed.</small></p>
+    {% for title, rows in advanced.groups %}
+    <h3 class="adv-group">{{ title }} <small>{{ rows | length | plural('field') }}</small></h3>
+    {% for r in rows %}
+    <div class="edit-row adv-row{% if errors[r.field] %} has-error{% endif %}">
+      <div class="edit-label adv-name">
+        <code>{{ r.name }}</code>{% if not r.exists %} <span class="badge">new</span>{% elif r.pending %} <span class="badge">pending</span>{% endif %}
+        {% if r.used_as %}<br><span class="badge" title="Feeds {{ r.used_as }} above">{{ r.used_as }}</span>{% endif %}
+      </div>
+      <div class="edit-input">
+        {% if r.text %}
+        <div class="adv-values">
+          {% for v in r.values %}
+          {% if "\n" in v or v | length > 90 %}
+          <textarea name="{{ r.field }}" rows="{{ [v.count('\n') + 1 + v | length // 80, 8] | min }}" aria-label="{{ r.name }}"{% if errors[r.field] %} aria-invalid="true"{% endif %}>
+{{ v }}</textarea>
+          {% else %}
+          <input name="{{ r.field }}" value="{{ v }}" aria-label="{{ r.name }}{% if r.values | length > 1 %} ({{ loop.index }}){% endif %}" autocomplete="off"{% if errors[r.field] %} aria-invalid="true"{% endif %}>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="adv-binary"><code>{{ r.shown or "(not text)" }}</code></p>
+        {% endif %}
+        {% if errors[r.field] %}<small class="form-error">{{ errors[r.field] }}</small>
+        {% elif r.normal_pending %}<small class="muted">{{ r.used_as }} above has a pending change: it wins over this field.</small>{% endif %}
+        <div class="adv-tools">
+          <label><input type="checkbox" name="raw_remove" value="{{ r.field }}"{% if r.removing %} checked{% endif %} aria-label="{{ "Don't add" if not r.exists else "Remove" }} {{ r.name }}"> {{ "Don't add" if not r.exists else "Remove" }}</label>
+          {% if r.text and not r.single %}<button type="button" class="link-button" onclick="twAddValue(this)" aria-label="Add a value to {{ r.name }}">+ value</button>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endfor %}
+
+    <div class="adv-new">
+      <h3 class="adv-group">Add a field</h3>
+      {% for system, name, value in (advanced.new or [("", "", "")]) %}
+      <div class="adv-new-row{% if errors.raw_new_row == loop.index0 | string %} has-error{% endif %}">
+        {% if advanced.systems | length > 1 %}
+        <select name="raw_new_system" aria-label="Tag system">{% for key, label in advanced.systems %}<option value="{{ key }}"{% if key == system %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        {% else %}<input type="hidden" name="raw_new_system" value="{{ advanced.systems[0][0] }}">{% endif %}
+        <input name="raw_new_name" value="{{ name }}" placeholder="Name, e.g. MOOD" aria-label="Name of the new field" autocomplete="off">
+        <input name="raw_new_value" value="{{ value }}" placeholder="Value" aria-label="Value of the new field" autocomplete="off">
+      </div>
+      {% endfor %}
+      {% if errors.raw_new %}<small class="form-error" role="alert">{{ errors.raw_new }}</small>{% endif %}
+      <p class="muted"><small>{% for key, label in advanced.systems %}{{ name_hints[key] }}{% if not loop.last %}<br>{% endif %}{% endfor %}</small></p>
+      <button type="button" class="link-button" onclick="twAddField(this)">+ another field</button>
+    </div>
+  {% endif %}
+  </div>
+</section>
+<script>
+  // "+ value": one more input for a field that holds several values.
+  window.twAddValue = (button) => {
+    const list = button.closest(".edit-input").querySelector(".adv-values");
+    const last = list.lastElementChild;
+    const input = document.createElement("input");
+    input.name = last.name;
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", last.getAttribute("aria-label").replace(/ \(\d+\)$/, ""));
+    list.append(input);
+    input.focus();
+  };
+  // "+ another field": one more empty row to add a field.
+  window.twAddField = (button) => {
+    const rows = button.closest(".adv-new").querySelectorAll(".adv-new-row");
+    const copy = rows[rows.length - 1].cloneNode(true);
+    copy.querySelectorAll("input:not([type=hidden])").forEach((input) => { input.value = ""; });
+    rows[rows.length - 1].after(copy);
+    copy.querySelector("input[name=raw_new_name]").focus();
+  };
+</script>

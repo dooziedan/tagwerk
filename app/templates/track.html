@@ -155,7 +155,7 @@
 
 
 <article>
-  <header><strong>All tag fields</strong> <small class="muted">exactly as stored in the file</small></header>
+  <header class="card-head"><span><strong>All tag fields</strong> <small class="muted">exactly as stored in the file</small></span>{% if not final and not t.error %}<a href="/tracks/{{ t.id }}/edit?{{ {'advanced': 1, 'back': back} | urlencode }}" class="small-link">Edit them →</a>{% endif %}</header>
   {% if raw %}
   <div class="overflow-auto">
   <table class="striped raw-table">

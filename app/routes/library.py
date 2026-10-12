@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlmodel import select
 
-from app import duplicates, ids, preferences
+from app import advanced, duplicates, ids, preferences, writer
 from app.config import SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep
@@ -53,6 +53,32 @@ def track_api(track_id: int, session: SessionDep) -> dict:
         **track.model_dump(),
         "secret": is_secret(session, track_id),
         "raw": [r.model_dump(exclude={"id", "track_id"}) for r in raw],
+    }
+
+
+@router.get("/api/tracks/{track_id}/fields", tags=["library"])
+def track_fields_api(track_id: int, session: SessionDep, settings: SettingsDep) -> dict:
+    """Every tag field of the track's file, read now, with all values in full (Advanced tags,
+    ADR 0039). ``field`` is the name to change it with (POST /api/changes, ``raw``); ``values``
+    is null for fields that don't hold text: they can only be removed."""
+    track = _get_track(session, track_id)
+    try:
+        tags = advanced.read(settings.music_dir / track.path)
+    except Exception as exc:
+        raise HTTPException(409, f"Can't read the file: {exc}") from None
+    return {
+        "systems": tags.systems,
+        "id3_version": tags.id3_version,
+        "fields": [
+            {
+                "field": writer.raw_field(f.system, f.name),
+                "system": f.system,
+                "name": f.name,
+                "values": f.values,
+                "used_as": used_as(f.system, f.name),
+            }
+            for f in tags.fields
+        ],
     }
 
 

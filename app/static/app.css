@@ -1523,6 +1523,34 @@ article table thead th, table.kv thead th { background: none; }
 .edit-section { margin: 1.75rem 0 0; padding: 0; border: 0; }
 .edit-section legend { padding: 0; margin-bottom: 0.75rem; }
 
+/* Edit page: Advanced tags (ADR 0039). The switch shows the body with CSS alone (a checkbox
+   right before it), so it works before any script has run. */
+.advanced-tags { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--tw-line-soft); }
+.advanced-tags .adv-toggle { margin: 0 0.55rem 0 0; vertical-align: middle; }
+.advanced-tags .adv-switch { display: inline; margin: 0; color: var(--tw-ink); cursor: pointer; }
+.advanced-tags .adv-switch small { color: var(--tw-ink-2); font-weight: 400; margin-left: 0.25rem; }
+.adv-toggle:not(:checked) ~ .adv-body { display: none; }
+.adv-body { margin-top: 1rem; }
+.adv-intro { margin-bottom: 0.5rem; }
+.adv-group { margin: 1.5rem 0 0.75rem; font-size: 1rem; color: var(--tw-ink); }
+.adv-group small { margin-left: 0.4rem; color: var(--tw-ink-3); font-size: 0.8rem; font-weight: 400; }
+.adv-name { font-weight: 400; line-height: 1.6; overflow-wrap: anywhere; }
+.adv-name code { padding: 0.1rem 0.4rem; font-size: 0.8rem; background: var(--tw-line-soft); color: var(--tw-indigo-200); }
+.adv-values { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.25rem; }
+.edit-form .adv-values input, .edit-form .adv-values textarea { margin: 0; }
+.adv-values textarea { resize: vertical; }
+.adv-binary { margin: 0.6rem 0 0.25rem; }
+.adv-binary code { background: none; padding: 0; color: var(--tw-ink-2); font-size: 0.8rem; overflow-wrap: anywhere; }
+.adv-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin-bottom: 0.6rem; font-size: 0.85rem; }
+.adv-tools label { margin: 0; color: var(--tw-ink-2); }
+.adv-tools input[type="checkbox"] { margin-right: 0.35rem; }
+.adv-tools .link-button, .adv-new .link-button { width: auto; margin: 0; }
+.adv-new-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 0.5rem; margin-bottom: 0.5rem; }
+.adv-new-row select { grid-column: 1 / -1; }
+.adv-new-row > * { margin: 0; }
+@media (max-width: 576px) { .adv-new-row { grid-template-columns: 1fr; } }
+.has-error textarea { border-color: var(--pico-del-color); }
+
 /* ReplayGain page: tracks whose gain is missing or off */
 .diff.replaygain th[scope="row"] { width: 45%; font-weight: 400; }
 .diff.replaygain td.num, .diff.replaygain td:last-child { white-space: nowrap; }

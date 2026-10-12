@@ -34,7 +34,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Tag fields page:** every tag field in your files (including ones Tagwerk ignores, like beaTunes or Serato data), how many files use it, and the most common values. Private data of other programs (e.g. Traktor's waveform and cue points) can be removed.
 
 **Tagging**
-- **Edit tags** of one track or many at once, in all 7 formats, including ReplayGain (track and album gain and peak).
+- **Edit tags** of one track or many at once, in all 7 formats, including ReplayGain (track and album gain and peak). **Advanced tags** on a track's edit page change, add or remove any field in the file (`TXXX:MOOD`, `encoder`, a WAV's RIFF INFO …), with the same review and undo.
 - **ReplayGain checked against the audio:** every track's loudness is measured (EBU R128), its ReplayGain tag compared with it (missing, wrong, or old ReplayGain 1 values about 4 dB too loud), and the fixes offered for review, so Navidrome plays every track at the same level: many tracks at once on the ReplayGain page, or one track right on its page.
 - **BPM and key from the audio**, made for bass-heavy music like drum & bass: an exact tempo, half/double time settled by genre, filename and online sources, keys tuned for sub-bass. Empty fields get filled, tags that differ get flagged. Uses all CPU cores you give the container.
 - **Online identification:** MusicBrainz, AcoustID (by the sound), Discogs, Beatport, Deezer and iTunes fill empty fields and covers; a value is *sure* when two sources agree. Club versions longer than the streaming edit are recognised and checked against Beatport and Discogs.

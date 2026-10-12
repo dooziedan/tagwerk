@@ -2,22 +2,24 @@
 
 ``app.tags`` reads the fields Tagwerk understands into one common format. This module
 records *all* fields, including ones Tagwerk doesn't use (e.g. beaTunes or Serato data),
-so you can see what your files really contain.
+so you can see what your files really contain. ``fields()`` reads them in full, with every
+value, for Advanced tags on the edit page (ADR 0039).
 """
 
 from dataclasses import dataclass
 
 from mutagen._vorbis import VCommentDict
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3
-from mutagen.mp4 import MP4FreeForm, MP4Tags
+from mutagen.id3 import ID3, USLT, TextFrame, UrlFrame, UrlFrameU
+from mutagen.mp4 import AtomDataType, MP4FreeForm, MP4Tags
 
 BINARY = "<binary data>"
 UNREADABLE = "<unreadable>"
 MAX_VALUE = 120  # characters stored per value; lyrics and long comments are shortened
-MAX_NAME = 100  # characters per field name (a name is never data, but see _id3_name)
+MAX_NAME = 100  # characters per field name (a name is never data, but see id3_name)
 
 SYSTEMS = {"id3": "ID3", "vorbis": "Vorbis", "mp4": "MP4", "riff-info": "RIFF INFO"}
+FLAC_PICTURES = "(FLAC picture block)"  # FLAC keeps pictures in blocks of their own, not as tags
 
 
 @dataclass(frozen=True)
@@ -44,7 +46,7 @@ def _collect(audio, riff_info: dict[bytes, str] | None) -> list[RawField]:
     tags = audio.tags
     if isinstance(tags, ID3):
         fields += [
-            RawField("id3", _id3_name(frame), _safe(_id3_value, frame)) for frame in tags.values()
+            RawField("id3", id3_name(frame), _safe(_id3_value, frame)) for frame in tags.values()
         ]
     elif isinstance(tags, VCommentDict):
         for key in tags.keys():  # noqa: SIM118 (VCommentDict iterates differently)
@@ -55,7 +57,7 @@ def _collect(audio, riff_info: dict[bytes, str] | None) -> list[RawField]:
             RawField("mp4", key, _safe(_mp4_value, key, values)) for key, values in tags.items()
         ]
     if isinstance(audio, FLAC) and audio.pictures:
-        fields.append(RawField("vorbis", "(FLAC picture block)", BINARY))
+        fields.append(RawField("vorbis", FLAC_PICTURES, BINARY))
     for chunk_id, value in (riff_info or {}).items():
         fields.append(RawField("riff-info", chunk_id.decode("ascii", "replace"), _clean(value)))
     return fields
@@ -68,7 +70,7 @@ def _safe(func, *args) -> str:
         return UNREADABLE
 
 
-def _id3_name(frame) -> str:
+def id3_name(frame) -> str:
     """The field's name, e.g. "TXXX:fBPM". mutagen's names for private frames (PRIV) and
     links (LINK) contain all their binary data: Traktor stores its whole analysis in
     PRIV:TRAKTOR4, so every file got its own field with a name of many kilobytes. Those are
@@ -124,6 +126,98 @@ def _join(values) -> str:
 def _clean(value: str) -> str:
     value = " ".join(value.replace("\x00", " ").split())
     return value if len(value) <= MAX_VALUE else value[: MAX_VALUE - 1] + "…"
+
+
+# --- every field in full, for Advanced tags -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TagField:
+    """One tag field with all its values in full (Advanced tags on the edit page)."""
+
+    system: str
+    name: str  # as in RawField, e.g. "TXXX:fBPM"
+    # Every value as stored. None: the field doesn't hold text (a picture, private data, a
+    # number …), so it can only be removed.
+    values: list[str] | None
+    shown: str  # the value as the track page shows it (shortened)
+
+
+def fields(audio, riff_info: dict[bytes, str] | None = None) -> list[TagField]:
+    """All tag fields of a file, with every value in full. Never raises, like collect()."""
+    try:
+        return _fields(audio, riff_info)
+    except Exception:  # pragma: no cover - safety net; individual fields are guarded below
+        return []
+
+
+def _fields(audio, riff_info: dict[bytes, str] | None) -> list[TagField]:
+    result: list[TagField] = []
+    tags = audio.tags
+    if isinstance(tags, ID3):
+        frames: dict[str, list] = {}
+        for frame in tags.values():
+            frames.setdefault(id3_name(frame), []).append(frame)
+        for name, same in frames.items():
+            # Several frames under one name (e.g. two PRIV of one program): only removable.
+            values = _safe_values(id3_texts, same[0]) if len(same) == 1 else None
+            result.append(TagField("id3", name, values, _safe(_id3_value, same[0])))
+    elif isinstance(tags, VCommentDict):
+        for key in tags.keys():  # noqa: SIM118 (VCommentDict iterates differently)
+            if key.lower() == "metadata_block_picture":
+                result.append(TagField("vorbis", key, None, BINARY))
+            else:
+                values = _safe_values(list, tags[key])
+                result.append(TagField("vorbis", key, values, _safe(_join, tags[key])))
+    elif isinstance(tags, MP4Tags):
+        for key, values in tags.items():
+            texts = _safe_values(mp4_texts, values)
+            result.append(TagField("mp4", key, texts, _safe(_mp4_value, key, values)))
+    if isinstance(audio, FLAC) and audio.pictures:
+        result.append(TagField("vorbis", FLAC_PICTURES, None, BINARY))
+    for chunk_id, value in (riff_info or {}).items():
+        name = chunk_id.decode("ascii", "replace")
+        result.append(TagField("riff-info", name, [value], _clean(value)))
+    return result
+
+
+def _safe_values(func, *args) -> list[str] | None:
+    """Values that can't be read as text count as not text (only removable)."""
+    try:
+        return func(*args)
+    except Exception:
+        return None
+
+
+def id3_texts(frame) -> list[str] | None:
+    """A frame's texts, if it holds text: text frames (incl. TXXX, COMM), lyrics (USLT) and
+    links (W***, WXXX). Links whose name contains the link itself (WCOM, WOAR) are left out:
+    changing them would change their name."""
+    if isinstance(frame, TextFrame):
+        return [str(t) for t in frame.text]
+    if isinstance(frame, USLT):
+        return [frame.text]
+    if isinstance(frame, UrlFrame) and not isinstance(frame, UrlFrameU):
+        return [frame.url]
+    return None
+
+
+def mp4_texts(values) -> list[str] | None:
+    """An MP4 field's texts: text atoms (©nam …) and freeform fields stored as UTF-8 text.
+    Numbers, pairs (trkn), flags (cpil) and pictures (covr) aren't text."""
+    if not isinstance(values, list):
+        return None
+    texts = []
+    for value in values:
+        if isinstance(value, MP4FreeForm):
+            if value.dataformat not in (AtomDataType.UTF8, AtomDataType.IMPLICIT):
+                return None
+            texts.append(bytes(value).decode("utf-8"))  # raises for binary data
+        elif isinstance(value, str):
+            texts.append(value)
+        else:
+            return None
+    return texts
 
 
 # --- which raw fields feed which Tagwerk field ----------------------------------------------

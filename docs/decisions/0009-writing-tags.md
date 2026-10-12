@@ -22,3 +22,7 @@ v0.6 is the first version that changes music files. A tag writer can damage a li
 ## Addendum: cover art
 
 Cover art is the change field `cover`. Its value is the id (SHA-256) of an image in `/config/images`, or empty to remove the cover. Replacing removes every picture embedded in the file and writes one front cover (ID3 `APIC`, FLAC picture block, OGG/Opus `METADATA_BLOCK_PICTURE`, MP4 `covr`). Only JPEG and PNG are accepted, because every player and DJ program shows them. The old pictures are stored in `/config/images` too, and the snapshot refers to them by id, so the database stays small. Image files next to the tracks (`cover.jpg`) are never touched. Images are not cleaned up yet; a later version can delete those no change refers to any more.
+
+## Addendum: Advanced tags
+
+Since [ADR 0039](0039-advanced-tags.md) any field can be changed by its raw name (`raw:id3:TXXX:MOOD`), with the same snapshot and exact undo. A WAV's RIFF INFO chunk is no longer always left untouched: only Advanced tags write it, when the owner changes one of its fields; normal edits still go to the ID3 tag.
