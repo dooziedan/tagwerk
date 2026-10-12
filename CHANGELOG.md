@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-10-12
+
 ### Fixed
 - The artist name on a track page now leads to that artist's tracks. It used to go by the album artist, so after an online lookup corrected *CRYSTAL CLEAR* to *Crystal Clear*, the link still opened the old *CRYSTAL CLEAR* (the album artist hadn't changed). The track list has a new `artist` filter for this; the album link still goes by album artist.
 
