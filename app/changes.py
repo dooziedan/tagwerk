@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Engine, and_, exists, not_, or_
 from sqlmodel import Session, col, delete, func, select
 
-from app import duplicates, writer
+from app import advanced, duplicates, writer
 from app.images import ImageStore
 from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, RawTag, Track
 from app.rawtags import BINARY
@@ -72,6 +72,7 @@ def stage(
         return 0, errors
 
     count = 0
+    staged: set[tuple[int, str]] = set()
     for track in session.exec(select(Track).where(col(Track.id).in_(track_ids), _NOT_FINAL)):
         for name, new in normalized.items():
             if not writer.supports(track.format, name):
@@ -97,9 +98,114 @@ def stage(
                         track_id=track.id, field=name, old_value=old, new_value=new, source=source
                     )
                 )
+            staged.add((track.id, name))
             count += 1
+    _drop_raw_fed(session, staged)
     session.commit()
     return count, {}
+
+
+def _drop_raw_fed(session: Session, staged: set[tuple[int, str]]) -> None:
+    """The normal field wins (ADR 0039): pending Advanced tags changes of a field that feeds
+    one just staged (TBPM for BPM) go. ``staged``: (track id, field) pairs."""
+    if not staged:
+        return
+    query = select(PendingChange).where(
+        col(PendingChange.track_id).in_({track_id for track_id, _ in staged}),
+        col(PendingChange.field).startswith(writer.RAW),
+    )
+    for change in session.exec(query):
+        if (change.track_id, writer.feeds(change.field)) in staged:
+            session.delete(change)
+
+
+def stage_raw(
+    session: Session,
+    track: Track,
+    tags: advanced.FileTags,
+    values: dict[str, list[str] | None],
+    source: str = "you",
+) -> tuple[int, dict[str, str]]:
+    """Save Advanced tags edits of one track as pending changes (ADR 0039).
+
+    ``tags``: the file's fields now (app.advanced.read). ``values`` maps change fields
+    ("raw:id3:TXXX:fBPM") to their texts; None removes the field. Fields that aren't text
+    (pictures, private data) can only be removed. Returns (number of pending changes, errors per
+    field); with any error nothing is saved. Like stage(): a value equal to the file's removes
+    the pending change, a final track is skipped, and a field that feeds a normal field with a
+    pending change is left out: the normal field wins.
+    """
+    if session.exec(select(Track.id).where(Track.id == track.id, _NOT_FINAL)).first() is None:
+        return 0, {}
+    planned, unchanged, errors = _plan_raw(tags, values)
+    if errors:
+        return 0, errors
+
+    pending = {
+        c.field: c
+        for c in session.exec(select(PendingChange).where(PendingChange.track_id == track.id))
+    }
+    for name in unchanged:
+        if name in pending:
+            session.delete(pending[name])
+    count = 0
+    for name, old, new in planned:
+        if writer.feeds(name) in pending:
+            continue  # the normal field has a pending change: it wins
+        existing = pending.get(name)
+        if existing:
+            if existing.new_value != new:
+                existing.source = source
+            existing.new_value = new
+            existing.created_at = datetime.now(UTC)
+        else:
+            session.add(
+                PendingChange(
+                    track_id=track.id, field=name, old_value=old, new_value=new, source=source
+                )
+            )
+        count += 1
+    session.commit()
+    return count, {}
+
+
+def check_raw(tags: advanced.FileTags, values: dict[str, list[str] | None]) -> dict[str, str]:
+    """The errors stage_raw() would find, without saving anything (for a form that saves
+    normal fields too: all or nothing)."""
+    return _plan_raw(tags, values)[2]
+
+
+def _plan_raw(tags: advanced.FileTags, values: dict[str, list[str] | None]):
+    """Check Advanced tags edits against the file. Returns (planned, unchanged, errors):
+    planned (field, old value, new value) changes, the fields left as they are in the file."""
+    found = tags.by_field()
+    planned: list[tuple[str, str | None, str | None]] = []  # field, old value, new value
+    unchanged: list[str] = []  # as in the file: a pending change for them goes
+    errors: dict[str, str] = {}
+    for name, new in values.items():
+        system, raw_name = writer.raw_parts(name)
+        field = found.get(name)
+        try:
+            if not name.startswith(writer.RAW) or system not in tags.systems:
+                raise ValueError("This file can't hold that kind of tag")
+            if field is None and writer.new_raw_field(system, raw_name, tags.id3v23) != name:
+                raise ValueError(f"{raw_name} isn't a name Tagwerk can add")
+            if field is not None and field.values is None:  # a picture, private data …
+                if new is not None:
+                    raise ValueError("This field doesn't hold text: it can only be removed")
+                planned.append((name, writer.raw_value([field.shown]), None))
+                continue
+            current = field.values if field is not None else None
+            if new is not None and new != current:
+                new = writer.normalize_raw(name, new)
+        except ValueError as exc:
+            errors[name] = str(exc)
+            continue
+        if new == current:
+            unchanged.append(name)
+        else:
+            planned.append((name, writer.raw_value(current), writer.raw_value(new)))
+    return planned, unchanged, errors
 
 
 def stage_private_removal(session: Session, owner: str) -> int:
@@ -156,6 +262,7 @@ def stage_cover(
                     source=source,
                 )
             )
+        _drop_raw_fed(session, {(track.id, writer.COVER)})
         count += 1
     session.commit()
     return count
@@ -261,7 +368,8 @@ def _trash_item(session: Session, music_dir: Path, progress: WriteProgress, item
 
 def _write_items(session: Session, music_dir: Path, progress, images, items) -> None:
     """Write the tag changes of these tracks, as one change set."""
-    fields = sorted({c.field for item in items for c in item.changes}, key=writer.label_order)
+    found = {c.field for item in items for c in item.changes}
+    fields = sorted(found, key=lambda f: (writer.label_order(f), f))  # advanced tags by name
     labels = [writer.label(f) for f in fields]
     changeset = ChangeSet(tracks=len(items), fields=", ".join(labels))
     session.add(changeset)
@@ -292,6 +400,8 @@ def _write_items(session: Session, music_dir: Path, progress, images, items) -> 
             entry.mtime_after = refreshed.mtime
             raw = {r.name for r in session.exec(select(RawTag).where(RawTag.track_id == track.id))}
             mismatch = _verify(refreshed, values, snapshot["system"], raw)
+            if any(name.startswith(writer.RAW) for name in values):
+                mismatch = "; ".join(filter(None, [mismatch, _verify_raw(path, values)]))
             if mismatch:
                 entry.error = "written, but reads back differently: " + mismatch
             for change in item.changes:
@@ -320,6 +430,8 @@ def _verify(track: Track, values: dict[str, str | None], system: str, raw: set[s
     """Compare what the file now says with what was written (``raw``: its raw field names)."""
     problems = []
     for name, expected in values.items():
+        if name.startswith(writer.RAW):
+            continue  # Advanced tags: _verify_raw()
         if name.startswith(writer.PRIVATE):
             if f"PRIV:{name.removeprefix(writer.PRIVATE)}" in raw:
                 problems.append(f"{writer.label(name)} is still there")
@@ -333,6 +445,25 @@ def _verify(track: Track, values: dict[str, str | None], system: str, raw: set[s
         actual = writer.current_value(track, name)
         if actual != expected:
             problems.append(f"{writer.label(name)} is {actual!r}, expected {expected!r}")
+    return "; ".join(problems)
+
+
+def _verify_raw(path: Path, values: dict[str, str | None]) -> str:
+    """Compare the Advanced tags fields the file now has with what was written."""
+    now = advanced.read(path).by_field()
+    problems = []
+    for name, expected in values.items():
+        if not name.startswith(writer.RAW):
+            continue
+        found = now.get(name)
+        if expected is None:
+            if found is not None:
+                problems.append(f"{writer.label(name)} is still there")
+            continue
+        wanted, actual = writer.raw_values(expected), found.values if found else None
+        # ID3v2.3 keeps several values as one, joined with "/"
+        if actual != wanted and not (name.startswith("raw:id3:") and actual == ["/".join(wanted)]):
+            problems.append(f"{writer.label(name)} is {actual!r}, expected {wanted!r}")
     return "; ".join(problems)
 
 

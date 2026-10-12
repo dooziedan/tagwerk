@@ -17,22 +17,30 @@ Field values are strings in the app's common format: "3/12" for track numbers,
 **Cover art** is the field "cover". Its value is the id of an image in the ImageStore
 (app/images.py), or None to remove all embedded pictures. Pictures are big, so the snapshot
 keeps the old ones in the ImageStore too and refers to them by id.
+
+**Advanced tags** (ADR 0039) change any field by its raw name, e.g. "raw:id3:TXXX:fBPM"; see
+RAW below. They are written before the normal fields, so a normal field always wins.
 """
 
 import base64
+import binascii
+import json
 import re
+import struct
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 
 import mutagen
+from mutagen._riff import RiffFile
 from mutagen._vorbis import VCommentDict
 from mutagen.flac import Picture
-from mutagen.id3 import ID3, Frames
+from mutagen.id3 import ID3, USLT, Frames, TextFrame, UrlFrame, UrlFrameU
 from mutagen.mp4 import MP4Cover, MP4FreeForm, MP4Tags
 
 from app.images import ImageStore, image_info
 from app.keys import display, to_camelot
+from app.rawtags import FLAC_PICTURES, SYSTEMS, id3_name, id3_texts, mp4_texts, used_as
 from app.tags import DISCOGS_TRACK_RE, MBID_RE, is_comment_frame
 
 # Editable fields: name -> label. Order is the default form order.
@@ -87,6 +95,12 @@ PRIVATE = "private:"
 # Not a tag: a copy on the Duplicates page queued for the library trash (ADR 0027). Moved by
 # app/duplicates.py when the pending changes are applied, never written by this module.
 TRASH = "trash"
+# Advanced tags (ADR 0039): any field of a file by its raw name, as the track page lists it
+# (app/rawtags.py): "raw:id3:TXXX:fBPM", "raw:vorbis:mood", "raw:riff-info:ISFT". The value is
+# a JSON list of texts (a field can hold several), or None to remove the field. Fields that
+# don't hold text (pictures, private data) can only be removed.
+RAW = "raw:"
+RIFF_INFO = RAW + "riff-info:"  # a WAV file's RIFF INFO chunk, written apart from its ID3 tag
 
 
 TRAKTOR = PRIVATE + "TRAKTOR4"  # Traktor's waveform, beat grid and cue points
@@ -110,13 +124,17 @@ def label(field: str) -> str:
     """A change's field as shown on the pages."""
     if field.startswith(PRIVATE):
         return f"Private data ({field.removeprefix(PRIVATE)})"
+    if field.startswith(RAW):
+        system, name = raw_parts(field)
+        return f"{name} ({SYSTEMS.get(system, system)})"
     if field == TRASH:
         return "Move to trash"
     return LABELS[field]
 
 
 def label_order(field: str) -> int:
-    """Where a field goes when changes are listed: form order, private data last."""
+    """Where a field goes when changes are listed: form order, private data and advanced
+    tags last."""
     order = list(LABELS)
     return order.index(field) if field in LABELS else len(order)
 
@@ -226,6 +244,148 @@ def _split(value: str | None) -> list[str]:
     return [p.strip() for p in (value or "").split(";") if p.strip()]
 
 
+# --- Advanced tags: raw fields ----------------------------------------------------------------
+
+# MP4 atoms that hold text (as mutagen reads and writes them); other names a DJ types become
+# iTunes freeform fields ("MOOD" -> "----:com.apple.iTunes:MOOD"), like Picard writes them.
+_MP4_TEXT_ATOMS = {
+    "\xa9nam", "\xa9ART", "\xa9alb", "aART", "\xa9wrt", "\xa9day", "\xa9cmt", "\xa9grp",
+    "\xa9gen", "\xa9lyr", "\xa9too", "desc", "purd", "catg", "keyw", "cprt", "soal", "soaa",
+    "soar", "sonm", "soco", "sosn", "tvsh", "purl", "egid",
+}  # fmt: skip
+# MP4 atoms holding numbers, pairs, flags or pictures: never typed in.
+_MP4_NOT_TEXT = {
+    "trkn", "disk", "gnre", "tmpo", "cpil", "pgap", "pcst", "rtng", "stik", "hdvd", "shwm",
+    "covr", "plID", "cnID", "geID", "atID", "sfID", "cmID", "akID", "tvsn", "tves", "\xa9mvi",
+    "\xa9mvc",
+}  # fmt: skip
+# ID3 dates (ID3 timestamps): 2021, 2021-05, 2021-05-14 or 2021-05-14T20:30(:15)
+_ID3_TIMESTAMPS = {"TDEN", "TDOR", "TDRC", "TDRL", "TDTG"}
+_TIMESTAMP = re.compile(r"\d{4}(-\d{2}(-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?)?)?")
+# ID3v2.4 frames ID3v2.3 doesn't have: saving a v2.3 tag leaves them out (mutagen).
+_ID3_V24_ONLY = {"TDEN", "TDRL", "TDTG", "TMOO", "TPRO", "TSOA", "TSOP", "TSOT", "TSST"}
+# used_as() names fields like the track page; the writer's own names differ for two of them.
+_FEEDS = {**{text: name for name, text in LABELS.items()}, "Track number": "track",
+          "Disc number": "disc"}  # fmt: skip
+
+
+def raw_field(system: str, name: str) -> str:
+    """The change field for a raw tag field: ("id3", "TXXX:fBPM") -> "raw:id3:TXXX:fBPM"."""
+    return f"{RAW}{system}:{name}"
+
+
+def raw_parts(field: str) -> tuple[str, str]:
+    """("id3", "TXXX:fBPM") for "raw:id3:TXXX:fBPM"."""
+    system, _, name = field.removeprefix(RAW).partition(":")
+    return system, name
+
+
+def raw_values(value: str | None) -> list[str] | None:
+    """A raw change's value as a list of texts (None: remove the field)."""
+    return json.loads(value) if value is not None else None
+
+
+def raw_value(values: list[str] | None) -> str | None:
+    """The stored form of a raw change's texts: a JSON list, None for no values."""
+    return json.dumps(values, ensure_ascii=False) if values else None
+
+
+def feeds(field: str) -> str | None:
+    """The normal field a raw field feeds, e.g. "bpm" for "raw:id3:TBPM". When both change, the
+    normal field wins (ADR 0039)."""
+    return _FEEDS.get(used_as(*raw_parts(field)) or "")
+
+
+def holds_one_value(system: str, name: str) -> bool:
+    """RIFF INFO fields, ID3 lyrics (USLT) and ID3 links (W…) hold one text each."""
+    return system == "riff-info" or (system == "id3" and name.startswith(("USLT", "W")))
+
+
+def new_raw_field(system: str, typed: str, id3v23: bool = False) -> str:
+    """The change field for a field the owner adds, from the name typed. "MOOD" becomes
+    "raw:id3:TXXX:MOOD" (MP3), "raw:vorbis:mood" (FLAC) or "raw:mp4:----:com.apple.iTunes:MOOD"
+    (M4A). ``id3v23``: the file has an ID3v2.3 tag, which can't hold some newer frames.
+
+    Raises ValueError with a readable message for names that can't hold text.
+    """
+    name = typed.strip()
+    if not name:
+        raise ValueError("Type the field's name, e.g. MOOD")
+    if system == "id3":
+        name = _new_id3_name(name, id3v23)
+    elif system == "vorbis":
+        if not all(" " <= c <= "}" and c != "=" for c in name):
+            raise ValueError("A Vorbis name has plain letters, digits and spaces, e.g. MOOD")
+        name = name.lower()  # Vorbis names ignore case; Tagwerk lists and writes them in lower case
+        if name == "metadata_block_picture":
+            raise ValueError("Pictures can't be typed in: use Cover art above")
+    elif system == "mp4":
+        if name in _MP4_NOT_TEXT:
+            raise ValueError(f"{name} doesn't hold text, so it can't be typed in")
+        if not name.startswith("----:") and name not in _MP4_TEXT_ATOMS:
+            name = _FF + name
+        if name.startswith("----:"):
+            _, mean, key = (name.split(":", 2) + ["", ""])[:3]
+            if not mean or not key:
+                raise ValueError("A freeform name looks like ----:com.apple.iTunes:MOOD")
+        try:
+            name.encode("latin-1")
+        except UnicodeEncodeError:
+            raise ValueError("MP4 names can't hold that character") from None
+    elif system == "riff-info":
+        name = name.upper()
+        if not re.fullmatch(r"[A-Z][A-Z0-9]{3}", name):
+            raise ValueError("A RIFF INFO name has four letters, e.g. ISFT")
+    else:
+        raise ValueError(f"Unknown tag system: {system}")
+    return raw_field(system, name)
+
+
+def _new_id3_name(name: str, v23: bool) -> str:
+    """An ID3 name: a frame like TSRC stays itself, "TXXX:MOOD" and "COMM:DJ notes" get their
+    parts, any other name becomes a TXXX field of its own ("MOOD" -> "TXXX:MOOD")."""
+    frame_id, colon, rest = name.partition(":")
+    frame_id = frame_id.upper()
+    if frame_id in ("COMM", "USLT"):  # name and language: "COMM:DJ notes:eng"
+        desc, lang = rest, "eng"
+        if re.search(r":[A-Za-z]{3}$", rest):
+            desc, lang = rest[:-4], rest[-3:].lower()
+        return f"{frame_id}:{desc}:{lang}"
+    if frame_id in ("TXXX", "WXXX"):
+        if frame_id == "TXXX" and not rest:
+            raise ValueError("Type a name after TXXX:, e.g. TXXX:MOOD")
+        return f"{frame_id}:{rest}"
+    if colon:
+        raise ValueError("Only TXXX, WXXX, COMM and USLT have a name after the colon")
+    cls = Frames.get(frame_id)
+    if cls is None:
+        return f"TXXX:{name}"  # a field of its own
+    if not issubclass(cls, (TextFrame, UrlFrame)) or issubclass(cls, UrlFrameU):
+        raise ValueError(f"{frame_id} doesn't hold text, so it can't be typed in")
+    if v23 and frame_id in _ID3_V24_ONLY:
+        raise ValueError(f"{frame_id} needs ID3v2.4 and this file has ID3v2.3: try TXXX:{name}")
+    return frame_id
+
+
+def normalize_raw(field: str, values: list[str]) -> list[str] | None:
+    """Clean the texts typed for a raw field: line breaks as "\\n", spaces around them and
+    empty ones gone. Returns None (remove the field) when nothing is left.
+
+    Raises ValueError for values the field can't hold.
+    """
+    system, name = raw_parts(field)
+    cleaned = [v.replace("\r\n", "\n").strip() for v in values]
+    cleaned = [v for v in cleaned if v]
+    if not cleaned:
+        return None
+    if len(cleaned) > 1 and holds_one_value(system, name):
+        raise ValueError("This field holds one value")
+    dates = system == "id3" and name in _ID3_TIMESTAMPS
+    if dates and not all(_TIMESTAMP.fullmatch(v) for v in cleaned):
+        raise ValueError("A date looks like 2021, 2021-05-14 or 2021-05-14T20:30")
+    return cleaned
+
+
 # --- Public API -----------------------------------------------------------------------------
 
 
@@ -244,19 +404,35 @@ def write(path: Path, changes: dict[str, str | None], images: ImageStore | None 
         raise WriteError("only ID3 tags (MP3, WAV, AIFF) have private data")
     if _is_opus(audio) and any(changes.get(f) is not None for f in _PEAKS):
         raise WriteError("Opus files have no ReplayGain peak fields")
-    snapshot = handler.write(audio, changes, images)
-    return {"system": handler.system, "fields": sorted(changes), **snapshot}
+    riff = {f: v for f, v in changes.items() if f.startswith(RIFF_INFO)}
+    if riff and type(audio).__name__ != "WAVE":
+        raise WriteError("only WAV files have RIFF INFO")
+    for field in changes:
+        system = raw_parts(field)[0]
+        if field.startswith(RAW) and field not in riff and system != handler.system:
+            theirs = SYSTEMS.get(system, system)
+            raise WriteError(f"this file's tags are {SYSTEMS[handler.system]}, not {theirs}")
+    # Advanced tags first: when a normal field changes too, it is written last and wins.
+    tag_changes = {f: v for f, v in changes.items() if f.startswith(RAW) and f not in riff}
+    tag_changes |= {f: v for f, v in changes.items() if not f.startswith(RAW)}
+    snapshot = handler.write(audio, tag_changes, images) if tag_changes else {}
+    if riff:
+        snapshot["riff_info"] = _RiffInfo.write(path, riff)
+    return {"system": handler.system, "fields": sorted(tag_changes), **snapshot}
 
 
 def undo(path: Path, snapshot: dict, images: ImageStore | None = None) -> None:
     """Restore the values captured by write()."""
-    audio = mutagen.File(path)
-    if audio is None:
-        raise WriteError("not a recognized audio file")
-    handler = _handler(audio)
-    if handler.system != snapshot["system"]:
-        raise WriteError("the file's tag format changed since the change was applied")
-    handler.undo(audio, snapshot, images)
+    if snapshot["fields"]:
+        audio = mutagen.File(path)
+        if audio is None:
+            raise WriteError("not a recognized audio file")
+        handler = _handler(audio)
+        if handler.system != snapshot["system"]:
+            raise WriteError("the file's tag format changed since the change was applied")
+        handler.undo(audio, snapshot, images)
+    if "riff_info" in snapshot:
+        _RiffInfo.undo(path, snapshot["riff_info"])
 
 
 def tag_converted(path: Path, frames: list) -> None:
@@ -291,6 +467,11 @@ def _picture(data: bytes) -> Picture:
     picture.depth = 24
     picture.data = data
     return picture
+
+
+def tag_system(audio) -> str:
+    """The tag system a file opened with mutagen has, or gets when it has no tags yet."""
+    return _handler(audio).system
 
 
 def _handler(audio):
@@ -372,6 +553,9 @@ def _id3_group(field: str) -> Callable:
     if field.startswith(PRIVATE):
         owner = field.removeprefix(PRIVATE)
         return lambda f: f.FrameID == "PRIV" and f.owner == owner
+    if field.startswith(RAW):
+        name = raw_parts(field)[1]
+        return lambda f: id3_name(f) == name  # named as on the track page (app/rawtags.py)
     return _ID3_GROUPS[field]
 
 
@@ -397,6 +581,9 @@ class _ID3:
 
     @staticmethod
     def _set(tags, field: str, value: str | None, images: ImageStore | None = None) -> None:
+        if field.startswith(RAW):
+            _ID3._set_raw(tags, raw_parts(field)[1], raw_values(value))
+            return
         group = _id3_group(field)
         existing = [f for f in tags.values() if group(f)]
         lang = next((f.lang for f in existing if field == "comment"), "eng")
@@ -432,6 +619,29 @@ class _ID3:
             tags.add(frames[frame_id](encoding=3, text=text))
 
     @staticmethod
+    def _set_raw(tags, name: str, values: list[str] | None) -> None:
+        """Change one frame in place, so its name, language and kind stay as they are; a new
+        one is made from its name ("TXXX:MOOD", "COMM:DJ notes:eng", "TSRC")."""
+        existing = [f for f in tags.values() if id3_name(f) == name]
+        if values is None:
+            for f in existing:
+                del tags[f.HashKey]
+            return
+        if len(existing) > 1 or (existing and not _id3_holds_text(existing[0])):
+            raise WriteError(f"{name} doesn't hold text: it can only be removed")
+        frame = existing[0] if existing else _new_id3_frame(name)
+        if isinstance(frame, UrlFrame):
+            frame.url = values[0]
+        elif isinstance(frame, USLT):
+            frame.text = values[0]
+        else:
+            frame.text = values
+        if hasattr(frame, "encoding"):
+            frame.encoding = 3  # UTF-8 (UTF-16 in ID3v2.3), so any character fits
+        if not existing:
+            tags.add(frame)
+
+    @staticmethod
     def undo(audio, snapshot: dict, images: ImageStore | None) -> None:
         tags = audio.tags
         if tags is None:
@@ -445,6 +655,25 @@ class _ID3:
             audio.delete()  # the file had no ID3 tags before: remove the empty block again
         else:
             audio.save(v2_version=snapshot["version"])
+
+
+def _id3_holds_text(frame) -> bool:
+    """Text frames (incl. TXXX, COMM), lyrics (USLT) and links, as app/rawtags.py reads them."""
+    return id3_texts(frame) is not None
+
+
+def _new_id3_frame(name: str):
+    """An empty frame for a name checked by new_raw_field()."""
+    frame_id, _, rest = name.partition(":")
+    if frame_id in ("COMM", "USLT"):
+        desc, _, lang = rest.rpartition(":")
+        return Frames[frame_id](encoding=3, desc=desc, lang=lang)
+    if frame_id in ("TXXX", "WXXX"):
+        return Frames[frame_id](encoding=3, desc=rest)
+    frame = Frames[frame_id]()
+    if not _id3_holds_text(frame):
+        raise WriteError(f"{frame_id} doesn't hold text")
+    return frame
 
 
 def _frame_to_json(frame, images: ImageStore | None = None) -> dict:
@@ -519,8 +748,10 @@ _VORBIS_NUMBERS = {
 
 
 def _vorbis_keys(field: str, opus: bool = False) -> list[str]:
-    if field == COVER:
-        return []  # handled by _Vorbis._write_cover / _undo_cover
+    if field == COVER or field == RAW + "vorbis:" + FLAC_PICTURES:
+        return []  # pictures: handled by _Vorbis._write_cover / _undo_cover / _set_raw
+    if field.startswith(RAW):
+        return [raw_parts(field)[1].lower()]
     if field in _VORBIS_NUMBERS:
         number, total = _VORBIS_NUMBERS[field]
         return number + total
@@ -545,14 +776,16 @@ class _Vorbis:
         opus = _is_opus(audio)
         present = {k.lower() for k in tags.keys()}  # noqa: SIM118
         wanted = {key for field in changes for key in _vorbis_keys(field, opus)}
-        before: dict[str, list[str]] = {}  # names as the file spells them, for an exact undo
+        before: dict[str, list] = {}  # names as the file spells them, for an exact undo
         for key, value in tags:  # (tags.keys() would give them in lower case)
             if key.lower() in wanted:
-                before.setdefault(key, []).append(value)
+                before.setdefault(key, []).append(_vorbis_to_json(key, value, images))
         snapshot: dict = {"values": before}
         for field, value in changes.items():
             if field == COVER:
                 snapshot["cover"] = _Vorbis._write_cover(audio, value, images)
+            elif field.startswith(RAW):
+                _Vorbis._set_raw(audio, raw_parts(field)[1], raw_values(value), snapshot, images)
             elif field in _VORBIS_NUMBERS:
                 _Vorbis._set_number(tags, present, field, value)
             else:
@@ -606,6 +839,25 @@ class _Vorbis:
             ]
 
     @staticmethod
+    def _set_raw(audio, name: str, values: list[str] | None, snapshot: dict, images) -> None:
+        """Advanced tags: one comment by its name, spelt as the file spells it (Vorbis names
+        ignore case). FLAC's picture blocks can only be removed."""
+        tags = audio.tags
+        if name == FLAC_PICTURES:
+            if values is not None:
+                raise WriteError("pictures can only be removed here: use Cover art")
+            snapshot["flac_pictures"] = [_to_json(p.write(), images) for p in audio.pictures]
+            audio.clear_pictures()
+            return
+        if values is not None and name.lower() == "metadata_block_picture":
+            raise WriteError("pictures can only be removed here: use Cover art")
+        spelling = next((k for k, _ in tags if k.lower() == name.lower()), name)
+        if name in tags:
+            del tags[name]
+        if values is not None:
+            tags[spelling] = values
+
+    @staticmethod
     def _set_number(tags, present: set[str], field: str, value: str | None) -> None:
         number_keys, total_keys = _VORBIS_NUMBERS[field]
         number_key = next((k for k in number_keys if k in present), number_keys[0])
@@ -629,10 +881,34 @@ class _Vorbis:
                 if key in present:
                     del tags[key]
         for key, values in snapshot["values"].items():
-            tags[key] = values
+            tags[key] = [_vorbis_from_json(v, images) for v in values]
         if "cover" in snapshot:
             _Vorbis._undo_cover(audio, snapshot["cover"], images)
+        if "flac_pictures" in snapshot:  # removed with Advanced tags
+            audio.clear_pictures()
+            for data in snapshot["flac_pictures"]:
+                audio.add_picture(Picture(_from_json(data, images)))
         audio.save()
+
+
+def _vorbis_to_json(key: str, value: str, images: ImageStore | None):
+    """A comment's value for the snapshot. Pictures (METADATA_BLOCK_PICTURE, only removed with
+    Advanced tags) go to the image store, so the snapshot stays small."""
+    if key.lower() != "metadata_block_picture" or images is None:
+        return value
+    try:
+        data = base64.b64decode(value, validate=True)
+    except (binascii.Error, ValueError):
+        return value
+    if base64.b64encode(data).decode() != value:
+        return value  # not written the usual way: kept as it is, for an exact undo
+    return {"picture": images.put(data)}
+
+
+def _vorbis_from_json(value, images: ImageStore | None) -> str:
+    if isinstance(value, dict) and "picture" in value:
+        return base64.b64encode(images.get(value["picture"])).decode()
+    return value
 
 
 # --- MP4 atoms (M4A) ------------------------------------------------------------------------
@@ -673,6 +949,14 @@ def _mp4_existing(tags, keys: list[str]) -> list[str]:
     return [k for k in tags if k.lower() in wanted]
 
 
+def _mp4_present(tags, field: str) -> list[str]:
+    """A field's keys in the file. A raw field is exactly its own key."""
+    if field.startswith(RAW):
+        name = raw_parts(field)[1]
+        return [name] if name in tags else []
+    return _mp4_existing(tags, _MP4_KEYS[field])
+
+
 class _MP4:
     system = "mp4"
 
@@ -683,9 +967,13 @@ class _MP4:
         tags = audio.tags
         before = {}
         for field in changes:
-            for key in _mp4_existing(tags, _MP4_KEYS[field]):
-                before[key] = [_mp4_value_to_json(v, images) for v in tags[key]]
+            for key in _mp4_present(tags, field):
+                values = tags[key] if isinstance(tags[key], list) else [tags[key]]
+                before[key] = [_mp4_value_to_json(v, images) for v in values]
         for field, value in changes.items():
+            if field.startswith(RAW):
+                _MP4._set_raw(tags, raw_parts(field)[1], raw_values(value))
+                continue
             existing = _mp4_existing(tags, _MP4_KEYS[field])
             target = existing[0] if existing else _MP4_KEYS[field][0]
             for key in existing:
@@ -711,14 +999,41 @@ class _MP4:
         return {"values": before}
 
     @staticmethod
+    def _set_raw(tags, name: str, values: list[str] | None) -> None:
+        """Advanced tags: text atoms (©nam …) and freeform fields (----:mean:name, as UTF-8)."""
+        if values is not None and name in tags and _mp4_not_text(tags[name]):
+            raise WriteError(f"{name} doesn't hold text: it can only be removed")
+        if name in tags:
+            del tags[name]
+        if values is None:
+            return
+        if name.startswith("----:"):
+            tags[name] = [MP4FreeForm(v.encode("utf-8")) for v in values]
+        else:
+            tags[name] = values
+
+    @staticmethod
     def undo(audio, snapshot: dict, images: ImageStore | None) -> None:
         tags = audio.tags
         for field in snapshot["fields"]:
-            for key in _mp4_existing(tags, _MP4_KEYS[field]):
+            for key in _mp4_present(tags, field):
                 del tags[key]
         for key, values in snapshot["values"].items():
-            tags[key] = [_mp4_value_from_json(v, images) for v in values]
+            restored = [_mp4_value_from_json(v, images) for v in values]
+            single = key in _MP4_FLAGS and len(restored) == 1  # cpil = True, not [True]
+            tags[key] = restored[0] if single else restored
         audio.save()
+
+
+_MP4_FLAGS = {"cpil", "pgap", "pcst"}  # mutagen keeps these as one True/False, not a list
+
+
+def _mp4_not_text(values) -> bool:
+    """Numbers, pairs, flags, pictures and binary data: only removable with Advanced tags."""
+    try:
+        return mp4_texts(values) is None
+    except UnicodeDecodeError:
+        return True
 
 
 def _mp4_value_to_json(value, images: ImageStore | None = None):
@@ -739,3 +1054,76 @@ def _mp4_value_from_json(value, images: ImageStore | None = None):
     if isinstance(value, dict) and "tuple" in value:
         return tuple(value["tuple"])
     return value
+
+
+# --- RIFF INFO (WAV) --------------------------------------------------------------------------
+
+
+class _RiffInfo:
+    """A WAV file's RIFF INFO chunk (``LIST``/``INFO``): a few text fields such as INAM (title)
+    or ISFT (software). Only Advanced tags change it; normal edits go to the ID3 tag (ADR 0009).
+    The snapshot is the whole chunk as it was, so undo puts back the exact bytes."""
+
+    @staticmethod
+    def write(path: Path, changes: dict[str, str | None]) -> dict:
+        with path.open("r+b") as f:
+            riff = RiffFile(f)
+            chunk = _info_chunk(riff)
+            before = chunk.read() if chunk else None
+            items = _info_items(before or b"INFO")
+            for field, value in changes.items():
+                name = raw_parts(field)[1].encode("ascii")
+                values = raw_values(value)
+                at = next((i for i, (n, _) in enumerate(items) if n == name), len(items))
+                items = [item for item in items if item[0] != name]
+                if values is not None:  # a text ends with a zero byte, like other taggers do
+                    items.insert(at, (name, values[0].encode("utf-8") + b"\0"))
+            # With every field removed, the empty chunk stays in its place: undo is then exact.
+            _replace_info(f, riff, chunk, b"INFO" + b"".join(_info_item(n, v) for n, v in items))
+        return {"chunk": base64.b64encode(before).decode() if before is not None else None}
+
+    @staticmethod
+    def undo(path: Path, snapshot: dict) -> None:
+        before = snapshot["chunk"]
+        with path.open("r+b") as f:
+            riff = RiffFile(f)
+            data = base64.b64decode(before) if before else None
+            _replace_info(f, riff, _info_chunk(riff), data)
+
+
+def _info_chunk(riff):
+    """The LIST chunk holding INFO, or None."""
+    return next(
+        (c for c in riff.root.subchunks() if c.id == "LIST" and getattr(c, "name", "") == "INFO"),
+        None,
+    )
+
+
+def _info_items(data: bytes) -> list[tuple[bytes, bytes]]:
+    """The fields in an INFO chunk's data ("INFO" + fields), each with its bytes as stored."""
+    items, pos = [], 4
+    while pos + 8 <= len(data):
+        name, size = struct.unpack("<4sI", data[pos : pos + 8])
+        items.append((name, data[pos + 8 : pos + 8 + size]))
+        pos += 8 + size + (size & 1)
+    return items
+
+
+def _info_item(name: bytes, value: bytes) -> bytes:
+    return struct.pack("<4sI", name, len(value)) + value + b"\0" * (len(value) & 1)
+
+
+def _replace_info(f, riff, chunk, data: bytes | None) -> None:
+    """Put ``data`` into the INFO chunk: resize it, add it at the end, or remove it (None)."""
+    if data is None:
+        if chunk is not None:
+            chunk.delete()
+    elif chunk is None:
+        # Added as a plain chunk, then named LIST: mutagen would read a new LIST chunk's
+        # first bytes before they are written.
+        added = riff.root.insert_chunk("JUNK", data)
+        f.seek(added.offset)
+        f.write(b"LIST")
+    else:
+        chunk.resize(len(data))
+        chunk.write(data)

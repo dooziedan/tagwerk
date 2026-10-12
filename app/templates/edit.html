@@ -53,6 +53,7 @@
     {% for name, label in replaygain %}{{ field_row(name, label) }}{% endfor %}
     {% if opus %}<small class="muted">{% if many %}{{ opus | plural('Opus file') }} among them: Opus{% else %}Opus{% endif %} keeps only the gains (in its own R128 fields), no peaks{% if many %}; peaks are skipped there{% endif %}.</small>{% endif %}
   </fieldset>
+  {% if not many %}{% include "partials/advanced_tags.html" %}{% endif %}
   <div class="edit-actions">
     <button type="submit">Save as pending change</button>
     <small class="muted">An empty field removes that tag{% if many %} (only where “Change” is ticked){% endif %}. Nothing is written yet.</small>

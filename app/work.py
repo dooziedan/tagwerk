@@ -24,6 +24,7 @@ from app.secret import secret_ids
 # Rows of the "per field" table that stand for several fields.
 IDS_ROW = "MusicBrainz & Discogs IDs"
 PRIVATE_ROW = "Private data of other programs"
+RAW_ROW = "Advanced tags"  # any other tag field, changed by its raw name (ADR 0039)
 ACTIVITY_MONTHS = 24  # months in the activity chart
 HISTORY = "/changes/history"
 
@@ -98,6 +99,8 @@ def _row(name: str) -> str:
         return IDS_ROW
     if name.startswith(writer.PRIVATE):
         return PRIVATE_ROW
+    if name.startswith(writer.RAW):
+        return RAW_ROW
     return writer.label(name)
 
 
@@ -168,7 +171,7 @@ def work_stats(session: Session) -> WorkStats:
             before[track_id]  # counts for set-ready even without tag changes
 
     order = [writer.label(f) for f in writer.LABELS if f not in writer.IDS]
-    order += [IDS_ROW, PRIVATE_ROW]
+    order += [IDS_ROW, PRIVATE_ROW, RAW_ROW]
     stats.fields = sorted(per_field.values(), key=lambda w: order.index(w.label))
     total_known = sum(sources.values())
     stats.sources = [

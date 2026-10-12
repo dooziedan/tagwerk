@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-13
+
+### Added
+- **Advanced tags on the edit page.** A new switch on a track's edit page shows every tag field in the file, exactly as stored, the ones Tagwerk doesn't use too (`TXXX:EnergyLevel`, `COMM:Songs-DB_Custom1`, `encoder`, Serato or Traktor data, a WAV's RIFF INFO …). You can:
+  - change any text field, give it several values (**+ value**) or remove it (tick **Remove**);
+  - add a field of your own under **Add a field**: `MOOD` becomes `TXXX:MOOD` in an MP3, `mood` in a FLAC and `----:com.apple.iTunes:MOOD` in an M4A; known names like `TSRC` or `COMM:notes` stay as they are;
+  - remove pictures and private data such as `PRIV:TRAKTOR4` (they can't be typed into).
+
+  Like every edit, these wait on the **Changes** page, are written by **Apply** (old values saved first) and can be undone in the **History**. A field that feeds one of Tagwerk's fields says so (`TBPM` shows *BPM*); if you change both, the field above wins. Final tracks stay locked. The track page's **All tag fields** card has a link straight to them.
+- The API has `GET /api/tracks/{id}/fields` (every field in full, with the name to change it by), and `POST /api/changes` takes `raw` for these fields.
+- Statistics → Tagwerk's work counts them in a row *Advanced tags*.
+
 ## [0.24.2] - 2026-10-12
 
 ### Changed

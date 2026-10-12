@@ -57,3 +57,4 @@ What gets easier, what gets harder.
 | [0036](0036-secret-tracks.md) | Secret tracks: edits and bootlegs, never looked up online, complete without a cover | Accepted |
 | [0037](0037-better-copies.md) | Better copies: an inbox file that sounds better replaces its library copy (tags, folder and name stay; the old file goes to the library trash) | Accepted |
 | [0038](0038-fast-inbox.md) | A fast Inbox: what is stored about the tracks is read once, background checks only do what's needed | Accepted |
+| [0039](0039-advanced-tags.md) | Advanced tags: every tag field (RIFF INFO too), changed through review → apply → undo; the normal field wins | Accepted |

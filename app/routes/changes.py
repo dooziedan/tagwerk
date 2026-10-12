@@ -12,14 +12,14 @@ from pydantic import BaseModel
 from sqlmodel import Session, col, select
 from starlette.datastructures import FormData, UploadFile
 
-from app import changes, final, folders, genres, preferences, writer
+from app import advanced, changes, final, folders, genres, preferences, writer
 from app.config import Settings, SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
 from app.images import MAX_SIZE, ImageError, image_info
 from app.jobs import busy, image_store, write_job
 from app.library import TrackFilter
-from app.models import ChangeSet, Track
+from app.models import ChangeSet, PendingChange, Track
 from app.navigation import back_url, reload_page, with_saved_note
 from app.templating import templates
 
@@ -52,7 +52,10 @@ HINTS = {
 
 class StageRequest(BaseModel):
     track_ids: list[int]
-    values: dict[str, str | None]
+    values: dict[str, str | None] = {}
+    # Advanced tags (ADR 0039): raw fields ("raw:id3:TXXX:MOOD") and their texts; None removes
+    # the field. See GET /api/tracks/{track_id}/fields for a file's fields and their names.
+    raw: dict[str, list[str] | None] = {}
 
 
 class ApplyRequest(BaseModel):
@@ -73,11 +76,24 @@ def pending_api(session: SessionDep) -> list[dict]:
 
 
 @router.post("/api/changes", tags=["changes"])
-def stage_api(body: StageRequest, session: SessionDep) -> dict:
-    """Save edits as pending changes. Nothing is written to files yet."""
+def stage_api(body: StageRequest, session: SessionDep, settings: SettingsDep) -> dict:
+    """Save edits as pending changes. Nothing is written to files yet. ``raw`` (Advanced tags)
+    is checked against each file: a track whose file can't take it is reported by its id."""
+    tracks = list(session.exec(select(Track).where(col(Track.id).in_(body.track_ids))))
+    tags = {}
+    for track in tracks if body.raw else []:
+        try:
+            tags[track.id] = advanced.read(settings.music_dir / track.path)
+        except Exception as exc:
+            raise HTTPException(422, {str(track.id): f"can't read the file: {exc}"}) from None
+        errors = changes.check_raw(tags[track.id], body.raw)
+        if errors:
+            raise HTTPException(422, {str(track.id): errors})
     count, errors = changes.stage(session, body.track_ids, body.values)
     if errors:
         raise HTTPException(422, errors)
+    for track in tracks if body.raw else []:
+        count += changes.stage_raw(session, track, tags[track.id], body.raw)[0]
     return {"pending": count}
 
 
@@ -155,20 +171,27 @@ def keep_unsorted_api(body: FolderRequest, session: SessionDep) -> dict:
 
 
 @router.get("/tracks/{track_id}/edit", response_class=HTMLResponse, include_in_schema=False)
-def edit_track_form(request: Request, track_id: int, session: SessionDep):
+def edit_track_form(request: Request, track_id: int, session: SessionDep, settings: SettingsDep):
     track = _track(session, track_id)
     if final.final_ids(session, [track.id]):  # locked: the track page explains how to unlock
         return RedirectResponse(f"/tracks/{track.id}?locked=1", status_code=303)
     prefs = preferences.load(session)
     values = {f: writer.current_value(track, f) or "" for f in FORM_FIELDS}
-    pending = {
-        c.field: c for p in changes.pending(session) if p.track.id == track_id for c in p.changes
-    }
+    pending = _pending_of(session, track.id)
     for name, change in pending.items():
         if name in FORM_FIELDS:
             values[name] = change.new_value or ""
     back = back_url(request, request.query_params.get("back"), fallback="/tracks")
-    return _edit_page(request, prefs, [track], values, {}, pending=pending, back=back)
+    tags, unreadable = _file_tags(settings, track)
+    adv = advanced.section(tags, pending) if tags else None
+    # Advanced tags open when asked for (the track page's "All tag fields") or when some wait.
+    adv_open = request.query_params.get("advanced") == "1" or any(
+        name.startswith(writer.RAW) for name in pending
+    )
+    return _edit_page(
+        request, prefs, [track], values, {}, pending=pending, back=back,
+        adv=adv, advanced_open=adv_open, unreadable=unreadable,
+    )  # fmt: skip
 
 
 @router.post("/tracks/{track_id}/edit", include_in_schema=False)
@@ -178,16 +201,46 @@ async def edit_track(request: Request, track_id: int, session: SessionDep, setti
     # Only the fields in the form: one it doesn't show (an Opus file's peaks) stays as it is.
     values = {f: str(form.get(f, "")) for f in FORM_FIELDS if f in form}
     cover, errors = await cover_choice(form, settings)
+    # Advanced tags count only while switched on: switched off, they stay as they are.
+    adv_open = form.get("advanced") == "on"
+    tags, unreadable = _file_tags(settings, track)
+    use_raw = tags is not None and adv_open
+    raw, discard = {}, []
+    if use_raw:
+        rows = advanced.section(tags, _pending_of(session, track.id)).rows
+        raw, discard, raw_errors = advanced.from_form(form, rows, tags)
+        errors |= raw_errors | changes.check_raw(tags, raw)
     if not errors:
         count, errors = changes.stage(session, [track.id], values)
     if errors:
         prefs = preferences.load(session)
         back = back_url(request, form.get("back"), fallback="/tracks")
-        return _edit_page(request, prefs, [track], values, errors, back=back, status_code=422)
+        pending = _pending_of(session, track.id)
+        adv = advanced.section(tags, pending, form if use_raw else None) if tags else None
+        return _edit_page(
+            request, prefs, [track], values, errors, pending=pending, back=back,
+            status_code=422, adv=adv, advanced_open=adv_open, unreadable=unreadable,
+        )  # fmt: skip
+    if use_raw:
+        changes.discard(session, discard)
+        count += changes.stage_raw(session, track, tags, raw)[0]
     if cover is not KEEP_COVER:
         count += changes.stage_cover(session, [track.id], cover)
     back = back_url(request, form.get("back"), fallback="/tracks")
     return RedirectResponse(with_saved_note(back, count), status_code=303)
+
+
+def _pending_of(session: Session, track_id: int) -> dict[str, PendingChange]:
+    query = select(PendingChange).where(PendingChange.track_id == track_id)
+    return {c.field: c for c in session.exec(query)}
+
+
+def _file_tags(settings: Settings, track: Track) -> tuple[advanced.FileTags | None, str]:
+    """Every tag field of the track's file for Advanced tags, or why it can't be read."""
+    try:
+        return advanced.read(settings.music_dir / track.path), ""
+    except Exception as exc:
+        return None, str(exc) or type(exc).__name__
 
 
 @router.get("/tracks/edit", response_class=HTMLResponse, include_in_schema=False)
@@ -286,6 +339,9 @@ def _edit_page(
     back="/tracks",
     status_code=200,
     locked=0,
+    adv=None,
+    advanced_open=False,
+    unreadable="",
 ):
     many = len(tracks) > 1
     shared = {}
@@ -318,6 +374,10 @@ def _edit_page(
             "checked": checked or set(),
             "with_cover": sum(1 for t in tracks if t.has_cover),
             "locked": locked,  # final tracks among them: skipped when saving
+            "advanced": adv,  # Advanced tags (one track): app.advanced.Section
+            "name_hints": advanced.NAME_HINTS,
+            "advanced_open": advanced_open,
+            "unreadable": unreadable,  # why the file's tag fields can't be shown
             "back": back,  # after saving, the user returns here
             # "← Back" without saving: the track page (keeping where it was opened from),
             # or the list for several tracks.

@@ -42,9 +42,10 @@ Files are never modified directly from a form or a lookup:
 | `app/routes/` | Pages and API, one module per feature (`system`, `home` (Home and Statistics), `scan`, `settings`, `fields`, `library`, `changes`, `inbox`, `genres`, `mix_names`, …) | 0.2 |
 | `app/templating.py` | Jinja2 setup and display filters (sizes, durations) | 0.2 |
 | `app/charts.py` | SVG geometry for charts (Camelot wheel) | 0.3 |
-| `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field | 0.4 |
+| `app/rawtags.py` | Collects every raw tag field of a file; knows which raw names feed which Tagwerk field, and which fields hold text (Advanced tags) | 0.4 |
 | `app/fields.py` | Statistics for the Tag fields page | 0.4 |
-| `app/writer.py` | **The only code that writes music files**: writes edited fields per format, captures snapshots, undoes ([ADR 0009](decisions/0009-writing-tags.md)) | 0.6 |
+| `app/writer.py` | **The only code that writes music files**: writes edited fields per format, captures snapshots, undoes ([ADR 0009](decisions/0009-writing-tags.md)); any field by its raw name for Advanced tags, incl. a WAV's RIFF INFO chunk ([ADR 0039](decisions/0039-advanced-tags.md)) | 0.6 |
+| `app/advanced.py` | Advanced tags on the edit page: every field of the file in full (`rawtags.fields`), the page's rows and what a sent form asks for; staged by `changes.stage_raw`, where the normal field wins ([ADR 0039](decisions/0039-advanced-tags.md)) | 0.25 |
 | `app/changes.py` | Pending changes, apply and undo (run as jobs) | 0.6 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Key notation, effects, import and final-track choices, stored in the `appsetting` table | 0.3 |

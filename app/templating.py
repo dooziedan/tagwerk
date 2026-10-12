@@ -181,6 +181,14 @@ def id_link_groups(found: dict[str, str]) -> list:
     return link_groups(found)
 
 
+def change_value(field: str, value: str | None) -> str | None:
+    """A change's value as the Changes and History pages show it. Advanced tags keep their
+    texts as a JSON list (app/writer.py, RAW): shown joined with "; ", like several artists."""
+    if value is None or not field.startswith(writer.RAW):
+        return value
+    return "; ".join(writer.raw_values(value))
+
+
 def recent(when: datetime | None, seconds: float) -> bool:
     """True if ``when`` was less than ``seconds`` ago (e.g. "show the last result a while")."""
     if when is None:
@@ -205,7 +213,8 @@ templates.env.globals.update(
     key_code=to_camelot,  # key_code("Am") -> "8A"  # key_label("8A", "musical") -> "Am"
     page_url=page_url,
     static_version=static_version,
-    field_label=writer.label,  # "Cover art", "Private data (TRAKTOR4)"
+    field_label=writer.label,  # "Cover art", "Private data (TRAKTOR4)", "TXXX:MOOD (ID3)"
+    change_value=change_value,
     id_fields=list(writer.IDS),  # MusicBrainz and Discogs ID fields
     id_links=id_links,
     id_link_groups=id_link_groups,

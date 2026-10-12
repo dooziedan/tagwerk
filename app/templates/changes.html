@@ -108,9 +108,9 @@
         <td class="arrow" aria-hidden="true">→</td>
         <td class="new"><ins>Library trash</ins><br><small class="muted">Restorable on the Duplicates page until you empty the trash; its other changes aren't written.</small></td>
         {% else %}
-        <td class="old">{% if c.old_value is none %}<span class="muted">(empty)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/tracks/{{ item.track.id }}/cover?v={{ item.track.mtime }}" alt="Current cover art">{% elif c.field in id_fields %}<del>{{ id_value(c.field, c.old_value) }}</del>{% else %}<del>{{ c.old_value }}</del>{% endif %}</td>
+        <td class="old">{% if c.old_value is none %}<span class="muted">(empty)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/tracks/{{ item.track.id }}/cover?v={{ item.track.mtime }}" alt="Current cover art">{% elif c.field in id_fields %}<del>{{ id_value(c.field, c.old_value) }}</del>{% else %}<del>{{ change_value(c.field, c.old_value) }}</del>{% endif %}</td>
         <td class="arrow" aria-hidden="true">→</td>
-        <td class="new">{% if c.new_value is none %}<span class="muted">(removed)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/images/{{ c.new_value }}" alt="New cover art">{% elif c.field in id_fields %}<ins>{{ id_value(c.field, c.new_value) }}</ins>{% else %}<ins>{{ c.new_value }}</ins>{% endif %}</td>
+        <td class="new">{% if c.new_value is none %}<span class="muted">(removed)</span>{% elif c.field == "cover" %}<img class="diff-cover" src="/images/{{ c.new_value }}" alt="New cover art">{% elif c.field in id_fields %}<ins>{{ id_value(c.field, c.new_value) }}</ins>{% else %}<ins>{{ change_value(c.field, c.new_value) }}</ins>{% endif %}</td>
         {% endif %}
         <td class="num">
           <form method="post" action="/changes/{{ c.id }}/discard"><button class="outline secondary small" aria-label="Discard this change" {% if busy %}disabled{% endif %}>Discard</button></form>
