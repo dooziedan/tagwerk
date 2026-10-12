@@ -75,6 +75,7 @@ class WorkStats:
     tags_tracks: int = 0  # tracks whose tags Tagwerk wrote
     imported: int = 0
     converted: int = 0
+    upgraded: int = 0  # library files replaced with a better-sounding copy
     final: int = 0
     folders: int = 0  # genre folders created
     fields: list[FieldWork] = field(default_factory=list)
@@ -87,6 +88,7 @@ class WorkStats:
     tags_url: str = TrackFilter(flag="tagwerk_tags").url()
     imported_url: str = TrackFilter(flag="tagwerk_imported").url()
     converted_url: str = TrackFilter(flag="tagwerk_converted").url()
+    upgraded_url: str = TrackFilter(flag="tagwerk_upgraded").url()
     final_url: str = TrackFilter(flag="final").url()
     history_url: str = HISTORY
 
@@ -142,7 +144,7 @@ def work_stats(session: Session) -> WorkStats:
         if changeset.kind == "folder" and json.loads(changeset.details or "{}").get("created"):
             folders.add(changeset.id)
         if changeset.kind not in ("edit", "import"):
-            continue  # moved, converted or marked final: no tag values
+            continue  # moved, converted, replaced or marked final: no new tag values
 
         changes = json.loads(entry_changes)
         known = json.loads(entry_sources or "{}")
@@ -179,6 +181,7 @@ def work_stats(session: Session) -> WorkStats:
     stats.tags_tracks = count(session, FLAGS["tagwerk_tags"][1])
     stats.imported = count(session, FLAGS["tagwerk_imported"][1])
     stats.converted = count(session, FLAGS["tagwerk_converted"][1])
+    stats.upgraded = count(session, FLAGS["tagwerk_upgraded"][1])
     stats.final = count(session, FLAGS["final"][1])
     stats.ready_library, stats.ready_imported = _set_ready(session, before, imported_ids)
     return stats

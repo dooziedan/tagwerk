@@ -22,6 +22,14 @@ def find_cover(path: Path) -> tuple[bytes, str] | None:
     return embedded or _sidecar(path)
 
 
+def embedded_cover(path: Path) -> tuple[bytes, str] | None:
+    """(image bytes, MIME type) of the cover inside the file only, or None. Never raises."""
+    try:
+        return _embedded(path)
+    except Exception:
+        return None
+
+
 def _embedded(path: Path) -> tuple[bytes, str] | None:
     audio = mutagen.File(path)
     if audio is None:

@@ -19,8 +19,9 @@
     <p class="track-sub">{{ summary.artist or "Unknown artist" }}</p>
     <p class="muted"><small>{{ t.format | upper }}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <code>{{ t.path }}</code></small></p>
     {% if not t.error %}<p class="track-actions">{{ play_button(t, "/inbox/" ~ t.id, "Play") }}</p>{% endif %}
-    {% if summary.missing %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}
-    {% if not t.error %}<p class="muted"><small>On import goes to <code>{{ plan.destination }}</code>{% if plan.new_genre %}: {{ plan.new_genre }} has no folder yet. After the import, the Changes page proposes one for you to review.{% endif %}</small></p>{% endif %}
+    {% if summary.missing and not better %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}
+    {% if better %}<p class="muted"><small>Replacing puts it at <code>{{ better.destination }}</code>, with your library copy's tags.</small></p>
+    {% elif not t.error %}<p class="muted"><small>On import goes to <code>{{ plan.destination }}</code>{% if plan.new_genre %}: {{ plan.new_genre }} has no folder yet. After the import, the Changes page proposes one for you to review.{% endif %}</small></p>{% endif %}
     {{ secret_switch("/inbox/" ~ t.id ~ "/secret", secret, {"show": show if show != "all" else ""}) }}
   </div>
 </div>
@@ -50,7 +51,56 @@
 </div>
 {% endif %}
 
-{% if summary.duplicates %}
+{% if better %}{% set b = better.upgrade %}{% set c = b.library %}
+<article class="duplicate-box better-box">
+  <p><strong>Sounds better than your library copy</strong>: {{ b.reason }}. Replace the library copy with this file?</p>
+  <table>
+    <thead><tr><th scope="col">Copy</th><th scope="col">Sound</th></tr></thead>
+    <tbody>
+      <tr class="better-row">
+        <td><strong>This file</strong> <small class="muted">(inbox)</small><br><small><code>{{ t.path }}</code></small></td>
+        <td><strong>{{ t | quality }}</strong><br><small class="muted">{{ t.duration | mmss }} · {{ t.size | filesize }}</small></td>
+      </tr>
+      <tr>
+        <td><a href="/tracks/{{ c.id }}">Library</a> <small class="muted">· {{ b.match }}</small><br><small><code>{{ c.path }}</code></small></td>
+        <td>{{ c | quality }}<br><small class="muted">{{ c.duration | mmss }} · {{ c.size | filesize }}</small></td>
+      </tr>
+    </tbody>
+  </table>
+  <ul class="notes">
+    <li>The new file becomes <code>{{ better.destination }}</code>: your library copy's folder and name.</li>
+    <li>It gets your library copy's tags{% if better.cover %} and cover{% endif %}; fields the library copy doesn't have keep this file's values. Its added date, final mark and history stay.</li>
+    <li>The old file goes to the <a href="/duplicates#trash">library trash</a> until you empty it. The History can undo the replacement.</li>
+  </ul>
+  {% if better.changes %}
+  <details>
+    <summary>Tags written into this file ({{ better.changes | length }})</summary>
+    <table class="diff"><tbody>
+      {% for name, new in better.changes.items() %}{% set old = better.old.get(name) %}
+      <tr>
+        <th scope="row">{{ field_label(name) }}</th>
+        <td class="old">{% if old is none %}<span class="muted">(empty)</span>{% elif name == "cover" %}<span class="muted">(this file's cover)</span>{% else %}<del>{{ old }}</del>{% endif %}</td>
+        <td class="arrow" aria-hidden="true">→</td>
+        <td class="new">{% if new is none %}<span class="muted">(removed)</span>{% elif name == "cover" %}<img class="diff-cover" src="/images/{{ new }}" alt="New cover art">{% else %}<ins>{{ new }}</ins>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody></table>
+  </details>
+  {% endif %}
+  {% if better.problems %}<p class="form-error">Can't replace it yet: {{ better.problems | join(", ") }}.</p>{% endif %}
+  <div class="apply-actions">
+    <form method="post" action="/inbox/{{ t.id }}/upgrade" data-confirm="Replace {{ c.path.rsplit('/', 1)[-1] }} ({{ b.old_quality }}) with this file ({{ b.new_quality }})? The old file goes to the library trash." data-confirm-ok="Replace">
+      <input type="hidden" name="show" value="{{ show }}">
+      <button type="submit" {% if busy or better.problems %}disabled{% endif %}>Replace library copy</button>
+    </form>
+    <form method="post" action="/inbox/{{ t.id }}/delete">
+      <input type="hidden" name="show" value="{{ show }}">
+      <button type="submit" class="secondary outline" {% if busy %}disabled{% endif %}>Move this file to the trash</button>
+    </form>
+  </div>
+  <small class="muted">If it's a different version, just import it as usual.</small>
+</article>
+{% elif summary.duplicates %}
 <article class="duplicate-box">
   <p><strong>Already in your library?</strong> This looks like {{ "a track" if summary.duplicates | length == 1 else summary.duplicates | length ~ " tracks" }} you already have.</p>
   <table>
@@ -58,14 +108,14 @@
     <tbody>
       <tr>
         <td><strong>This file</strong> <small class="muted">(inbox)</small><br><small><code>{{ t.path }}</code></small></td>
-        <td>{{ t.format | upper }}{% if t.bitrate %} · {{ (t.bitrate / 1000) | round | int }} kbps{% endif %}</td>
+        <td>{{ t | quality }}</td>
         <td>{{ t.duration | mmss }}</td>
         <td class="num">{{ t.size | filesize }}</td>
       </tr>
       {% for m in summary.duplicates %}{% set c = m.track %}
       <tr>
         <td><a href="/tracks/{{ c.id }}">Library</a> <small class="muted">· {{ m.reason }}</small><br><small><code>{{ c.path }}</code></small></td>
-        <td>{{ c.format | upper }}{% if c.bitrate %} · {{ (c.bitrate / 1000) | round | int }} kbps{% endif %}</td>
+        <td>{{ c | quality }}</td>
         <td>{{ c.duration | mmss }}</td>
         <td class="num">{{ c.size | filesize }}</td>
       </tr>

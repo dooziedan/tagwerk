@@ -31,8 +31,12 @@
   <p class="muted">Put new tracks (downloads, record pools, promos) into your import folder. They show up here.</p>
 </article>
 {% else %}
-{% if write.running or (write.status in ("done", "failed") and write.progress.action == "import") %}
-{% with job = write, actions = ["import"] %}{% include "partials/write_status.html" %}{% endwith %}
+{% if write.running or (write.status in ("done", "failed") and write.progress.action in ("import", "upgrade")) %}
+{% with job = write, actions = ["import", "upgrade"] %}{% include "partials/write_status.html" %}{% endwith %}
+{% endif %}
+{% set replaced = job.auto_upgrade %}
+{% if replaced and replaced.written %}
+<p class="notice">🤖 Tagwerk replaced {{ replaced.written | plural('library track') }} with better-sounding copies automatically; the old files are in the <a href="/duplicates#trash">library trash</a>. <a href="/changes/history/{{ replaced.changeset_id }}">Details and undo</a> · <a href="/settings#import">Change this</a></p>
 {% endif %}
 {% set auto = job.auto_import %}
 {% if auto and auto.written %}
@@ -72,8 +76,10 @@
       </div></td>
       <td class="inbox-status">
         {% if r.secret %}<span class="status status-secret" title="An edit or bootleg: never looked up online, no cover needed">Secret</span>{% endif %}
-        {% if r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}
+        {% if r.better %}<span class="status status-better" title="Sounds better than {{ r.better.library.path }}: {{ r.better.new_quality }} instead of {{ r.better.old_quality }}">Better sound</span>
+        {% elif r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}
         {% if t.error %}<span class="status status-warn" title="{{ t.error }}">Unreadable</span>
+        {% elif r.better %}{# its tags come from the library copy: nothing missing #}
         {% else %}
           {% if r.changes %}<span class="status">{{ r.changes }} change{{ "s" if r.changes != 1 }}</span>{% endif %}
           {% if r.edited %}<span class="status status-you">edited</span>{% endif %}
@@ -90,6 +96,8 @@
   <div class="container action-bar-inner">
     <strong id="inbox-count"></strong>
     <button type="submit" form="inbox-import" id="inbox-import-button" {% if busy %}disabled{% endif %}>Import</button>
+    <button type="submit" form="inbox-import" formaction="/inbox/upgrade" id="inbox-upgrade-button"{% if show != "better" %} hidden{% endif %}
+            data-confirm="Replace the library copies with the ticked files? Each new file gets its library copy's tags, folder and name; the old files go to the library trash." data-confirm-ok="Replace" {% if busy %}disabled{% endif %}>Replace library copies</button>
     <button type="submit" form="inbox-import" formaction="/inbox/delete" class="outline secondary" id="inbox-delete-button"
             data-confirm="Move the ticked files to the trash?" data-confirm-ok="Move to trash" {% if busy %}disabled{% endif %}>Move to trash</button>
     <button type="submit" form="inbox-import" formaction="/inbox/secret" name="secret" value="1" class="outline secondary" id="inbox-secret-button"{% if show == "secret" %} hidden{% endif %}
@@ -118,6 +126,7 @@
     document.getElementById("inbox-show").value = view;
     document.getElementById("inbox-secret-button").hidden = view === "secret";
     document.getElementById("inbox-unsecret-button").hidden = view !== "secret";
+    document.getElementById("inbox-upgrade-button").hidden = view !== "better";
     history.replaceState(history.state, "", "/inbox" + query);
     inboxSelection();
   }));

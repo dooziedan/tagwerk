@@ -14,6 +14,11 @@
     </label>
   </div>
   <label class="traktor-choice">
+    <input type="checkbox" name="replace_automatically" role="switch" {% if prefs.replace_automatically %}checked{% endif %}>
+    Replace library tracks with better-sounding copies automatically
+    <small class="muted">When a new file is clearly better than the same track in your library (lossless instead of MP3, 320 instead of 192 kbps), it takes the old file's place: with your library tags, folder and name, and the final mark. Without this, the Inbox marks such files <em>Better sound</em> and you press Replace. Either way the old file goes to the library trash, and the History can undo it.</small>
+  </label>
+  <label class="traktor-choice">
     <input type="checkbox" name="remove_traktor_on_import" role="switch" {% if prefs.remove_traktor_on_import %}checked{% endif %}>
     Remove Traktor data on import
     <small class="muted">Traktor keeps its waveform, beat grid and cue points in MP3, WAV and AIFF files (<code>PRIV:TRAKTOR4</code>). If you don't use Traktor, Tagwerk removes it while importing; undoing the import puts it back.</small>

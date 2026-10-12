@@ -55,3 +55,4 @@ What gets easier, what gets harder.
 | [0034](0034-longer-versions.md) | Longer versions: Beatport, Discogs tracklists, and recognising club mixes | Accepted |
 | [0035](0035-notifications.md) | Notifications: what Tagwerk did while you were away; few, chosen by the owner, read and cleared only by the owner | Accepted |
 | [0036](0036-secret-tracks.md) | Secret tracks: edits and bootlegs, never looked up online, complete without a cover | Accepted |
+| [0037](0037-better-copies.md) | Better copies: an inbox file that sounds better replaces its library copy (tags, folder and name stay; the old file goes to the library trash) | Accepted |

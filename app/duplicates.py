@@ -29,6 +29,7 @@ from sqlmodel import Session, col, select
 
 from app import trash, writer
 from app.models import DuplicateTrack, FinalTrack, InboxTrack, NotDuplicate, PendingChange, Track
+from app.tags import LOSSLESS_FORMATS
 
 # Two versions of a track whose lengths differ more than this are different edits.
 LENGTH_TOLERANCE = 3  # seconds
@@ -253,12 +254,43 @@ def show_again(session: Session) -> int:
     return len(pairs)
 
 
-# --- Which copy to keep ----------------------------------------------------------------------
-# Tagwerk suggests keeping the copy with the best sound: lossless before lossy, then the higher
-# sample rate, bit depth and bitrate. Its tags may be the poorer ones, so the page compares them
-# with the other copies, and the owner takes over what's missing or better (pending changes).
+# --- How a copy sounds ------------------------------------------------------------------------
+# Shared by the Duplicates page and the inbox's better copies (app/upgrade.py). Works for library
+# and inbox tracks alike: both have format, sample rate, bit depth and bitrate.
 
-LOSSLESS = {"flac", "wav", "aiff"}
+
+def is_lossless(track: Track | InboxTrack) -> bool:
+    """FLAC, WAV or AIFF: the same rule as Statistics and the track list. (An .m4a can hold
+    ALAC, but its bit depth doesn't tell: AAC files report 16 bit too.)"""
+    return track.format in LOSSLESS_FORMATS
+
+
+def sound(track: Track | InboxTrack) -> tuple:
+    """For comparing audio quality: bigger is better. Lossless before lossy; lossless files by
+    bit depth, then sample rate; lossy ones by bitrate (their sample rate says little)."""
+    if is_lossless(track):
+        return (1, track.bits_per_sample or 0, track.sample_rate or 0)
+    return (0, track.bitrate or 0)
+
+
+def quality(track: Track | InboxTrack) -> str:
+    """The audio in words: "FLAC · 44.1 kHz · 16 bit", "MP3 · 320 kbps"."""
+    parts = [track.format.upper()]
+    if is_lossless(track):
+        if track.sample_rate:
+            parts.append(f"{track.sample_rate / 1000:g} kHz")
+        if track.bits_per_sample:
+            parts.append(f"{track.bits_per_sample} bit")
+    elif track.bitrate:
+        parts.append(f"{round(track.bitrate / 1000)} kbps")
+    return " · ".join(parts)
+
+
+# --- Which copy to keep ----------------------------------------------------------------------
+# Tagwerk suggests keeping the copy with the best sound (sound() above). Its tags may be the
+# poorer ones, so the page compares them with the other copies, and the owner takes over what's
+# missing or better (pending changes).
+
 # Compared side by side and counted for "most tags": the edit form's fields, then the cover.
 COMPARED = list(writer.EDITABLE)
 
@@ -280,29 +312,12 @@ class Copy:
         return filled + int(self.track.has_cover)
 
     @property
-    def lossless(self) -> bool:
-        t = self.track
-        return t.format in LOSSLESS or (t.format == "m4a" and (t.bits_per_sample or 0) > 0)
-
-    @property
     def sound(self) -> tuple:
-        """For comparing audio quality: bigger is better."""
-        t = self.track
-        return (self.lossless, t.sample_rate or 0, t.bits_per_sample or 0, t.bitrate or 0)
+        return sound(self.track)
 
     @property
     def quality(self) -> str:
-        """The audio in words: "FLAC · 44.1 kHz · 16 bit", "MP3 · 320 kbps"."""
-        t = self.track
-        parts = [t.format.upper()]
-        if self.lossless:
-            if t.sample_rate:
-                parts.append(f"{t.sample_rate / 1000:g} kHz")
-            if t.bits_per_sample:
-                parts.append(f"{t.bits_per_sample} bit")
-        elif t.bitrate:
-            parts.append(f"{round(t.bitrate / 1000)} kbps")
-        return " · ".join(parts)
+        return quality(self.track)
 
 
 @dataclass

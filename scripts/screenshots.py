@@ -35,9 +35,10 @@ def first_track_id(base: str, query: str = "") -> int | None:
     return tracks[0]["id"] if tracks else None
 
 
-def first_inbox_id(base: str) -> int | None:
+def first_inbox_id(base: str, better: bool = False) -> int | None:
+    """The first readable inbox track; ``better``: the first that is a better copy."""
     with urllib.request.urlopen(f"{base}/api/inbox") as r:
-        tracks = [t for t in json.load(r) if not t["error"]]
+        tracks = [t for t in json.load(r) if not t["error"] and (t["better_copy"] or not better)]
     return tracks[0]["id"] if tracks else None
 
 
@@ -75,6 +76,8 @@ def main(base: str, out: Path) -> int:
     inbox = first_inbox_id(base)
     if inbox:
         pages["inbox-track"] = f"/inbox/{inbox}"
+    if better := first_inbox_id(base, better=True):
+        pages["inbox-better"] = f"/inbox/{better}"
 
     errors: list[str] = []
     count = 0

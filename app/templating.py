@@ -1,6 +1,7 @@
 """Jinja2 setup shared by all page routes, including formatting filters for templates."""
 
 import hashlib
+import json
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
@@ -10,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from app import __version__, secret, writer
 from app.charts import camelot_colour, key_wheel
+from app.duplicates import quality
 from app.keys import NOTATIONS, display, to_camelot
 from app.notifications import KINDS
 from app.percent import percent, shown
@@ -221,4 +223,6 @@ templates.env.filters.update(
     isoutc=isoutc,
     mmss=mmss,
     bpm=bpm,
+    quality=quality,
+    fromjson=lambda text: json.loads(text or "{}"),  # "FLAC · 44.1 kHz · 16 bit", "MP3 · 320 kbps"
 )

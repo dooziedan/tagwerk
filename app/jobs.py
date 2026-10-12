@@ -7,6 +7,7 @@ overlap. State lives in memory: after a container restart there is no running jo
 database keeps the results.
 """
 
+import json
 import logging
 import threading
 import time
@@ -31,6 +32,7 @@ from app import (
     reminders,
     secret,
     trash,
+    upgrade,
 )
 from app.changes import WriteProgress, apply_pending, undo_changeset
 from app.config import Settings
@@ -171,6 +173,7 @@ class InboxJob(Job):
     def __init__(self) -> None:
         super().__init__("inbox", progress=ScanProgress())
         self.auto_import: WriteProgress | None = None  # the last automatic import, if any
+        self.auto_upgrade: WriteProgress | None = None  # the last automatic replacing, if any
 
     def start(self, settings: Settings) -> bool:
         progress = ScanProgress()
@@ -181,11 +184,33 @@ class InboxJob(Job):
             engine = get_engine(settings.database_url)
             scan_inbox(engine, settings.import_dir, progress)
             trash.purge(settings.import_dir)  # deleted more than 30 days ago
+            self._auto_upgrade(settings, engine)
             self._auto_import(settings, engine)
             identify_job.start(settings)  # new tracks are looked up online, beside other jobs
             analysis_job.start(settings)  # and their BPM and key measured from the audio
 
         return self._start(work, progress)
+
+    def _auto_upgrade(self, settings: Settings, engine) -> None:
+        """Automatic replacing (Settings → Import): better copies replace their library copy."""
+        with Session(engine) as session:
+            if not preferences.load(session).replace_automatically:
+                return
+            now = time.time()
+            ids = [
+                u.inbox.id
+                for u in upgrade.upgrades(session, settings)
+                if upgrade.ready_for_auto_upgrade(session, u, settings, now)
+            ]
+        if not ids:
+            return
+        progress = WriteProgress(action="upgrade")
+        upgrade.replace(engine, settings, ids, progress, image_store(settings))
+        after_library_change(engine, settings)
+        self.auto_upgrade = progress
+        log.info("Replaced %d library tracks with better copies automatically", progress.written)
+        report_auto_upgrade(engine, progress)
+        navidrome.rescan_after_write(settings, progress.written)
 
     def _auto_import(self, settings: Settings, engine) -> None:
         with Session(engine) as session:
@@ -241,6 +266,38 @@ def report_auto_import(engine, progress: WriteProgress) -> bool:
     )
 
 
+def report_auto_upgrade(engine, progress: WriteProgress) -> bool:
+    """Automatic replacing: one notification for the library tracks replaced on their own."""
+    if not progress.written:
+        return False
+    with Session(engine) as session:
+        replaced = select(ChangeEntry.path, ChangeEntry.details).where(
+            ChangeEntry.changeset_id == progress.changeset_id, ChangeEntry.error.is_(None)
+        )
+        rows = list(session.exec(replaced))
+    lines = []
+    for path, details in rows[:10]:
+        sound = json.loads(details or "{}")
+        lines.append(f"• {path.rsplit('/', 1)[-1]}: {sound.get('old')} → {sound.get('new')}")
+    if len(rows) > 10:
+        lines.append(f"… and {len(rows) - 10:,} more")
+    names = "\n".join(lines)
+    if progress.failed:
+        names += f"\n{notifications.many(progress.failed, 'file')} couldn't replace their copy; "
+        names += "they stay in the inbox."
+    return notifications.notify(
+        "auto_upgrade",
+        "done",
+        f"Inbox: {notifications.many(progress.written, 'library track')} replaced by better copies",
+        "Inbox files that sound better took the place of their library copy (automatic "
+        f"replacing), with its tags, folder and name:\n{names}\nThe old files are in the library "
+        "trash; the History can undo it.",
+        "Inbox check",
+        f"/changes/history/{progress.changeset_id}",
+        engine,
+    )
+
+
 class WriteJob(Job):
     """Applies pending changes, imports inbox tracks, or undoes an applied change set."""
 
@@ -290,6 +347,19 @@ class WriteJob(Job):
             import_tracks(
                 engine, settings.import_dir, settings.music_dir, track_ids, progress, images
             )
+            after_library_change(engine, settings)
+            navidrome.rescan_after_write(settings, progress.written)
+
+        return self._start(work, progress)
+
+    def upgrade(self, settings: Settings, track_ids: list[int]) -> bool:
+        """Replace library copies with better inbox files (see app/upgrade.py)."""
+        progress = WriteProgress(action="upgrade")
+        engine = get_engine(settings.database_url)
+        images = image_store(settings)
+
+        def work() -> None:
+            upgrade.replace(engine, settings, track_ids, progress, images)
             after_library_change(engine, settings)
             navidrome.rescan_after_write(settings, progress.written)
 

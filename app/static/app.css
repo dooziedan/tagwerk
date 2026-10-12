@@ -296,6 +296,8 @@ nav a[aria-current="page"]:not(.brand), nav details.dropdown > summary.current {
 .final-actions [role="button"] { margin: 0; }
 .status-dup { color: var(--pico-del-color); border-color: var(--pico-del-color); font-weight: 600; }
 .duplicate-box { border-left: 4px solid var(--pico-del-color); }
+.duplicate-box.better-box { border-left-color: var(--tw-ok); }
+.better-box .better-row td:first-child strong { color: var(--tw-ok); }
 .duplicate-box table { margin-bottom: 0.75rem; font-size: 0.9rem; }
 .duplicate-box td, .duplicate-box th { overflow-wrap: anywhere; }
 .trash-list { margin-top: 2rem; }
@@ -762,7 +764,7 @@ a.wheel-seg, a.wheel-seg:hover, a.wheel-seg text { text-decoration: none; }
   background: var(--tw-gold); color: var(--tw-ink-dark); box-shadow: 0 0 10px rgba(245, 197, 66, 0.45); font-variant-numeric: tabular-nums; }
 .status { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.08rem 0.6rem; border-radius: 999px; font-size: 0.76rem; font-weight: 600; letter-spacing: 0.01em;
   border: 1px solid var(--tw-line); color: var(--tw-ink-2); background: rgba(129, 140, 248, 0.06); white-space: nowrap; }
-.status-sure { color: var(--tw-ok); border-color: rgba(110, 231, 183, 0.35); background: var(--tw-ok-soft); }
+.status-sure, .status-better { color: var(--tw-ok); border-color: rgba(110, 231, 183, 0.35); background: var(--tw-ok-soft); }
 .status-help, .status-check { color: var(--tw-check); border-color: rgba(253, 186, 116, 0.35); background: var(--tw-check-soft); }
 .status-warn, .status-dup { color: var(--tw-warn); border-color: rgba(251, 113, 133, 0.38); background: var(--tw-warn-soft); }
 .status-you { color: var(--tw-indigo-200); border-color: var(--tw-line-strong); background: rgba(129, 140, 248, 0.12); }

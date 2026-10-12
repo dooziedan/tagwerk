@@ -55,6 +55,7 @@ def test_settings_api(client):
         "kept_unsorted": [],
         "automation": "ask",
         "remove_traktor_on_import": False,
+        "replace_automatically": False,
         "genre_map": "",
         "online_sources": ["acoustid", "musicbrainz", "discogs", "beatport", "deezer", "itunes"],
         "rename_on_final": False,
@@ -66,6 +67,7 @@ def test_settings_api(client):
             "navidrome": True,
             "online": True,
             "auto_import": False,
+            "auto_upgrade": False,
             "long_jobs": False,
         },
         "hidden_hints": [],  # messages hidden with "Don't show again"

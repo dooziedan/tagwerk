@@ -66,6 +66,7 @@ def apply_choices(prefs: Preferences, step: str, form) -> tuple[Preferences, dic
             prefs,
             automation=form.get("automation", prefs.automation),
             remove_traktor_on_import=form.get("remove_traktor_on_import") == "on",
+            replace_automatically=form.get("replace_automatically") == "on",
         )
     elif step == "final":
         pattern = str(form.get("filename_pattern", prefs.filename_pattern)).strip()

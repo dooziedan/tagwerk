@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from app import identify, preferences, secret, trash, writer
+from app import identify, preferences, secret, trash, upgrade, writer
 from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
@@ -63,6 +63,7 @@ def inbox_api(session: SessionDep) -> list[dict]:
                     {"track_id": m.track.id, "path": m.track.path, "reason": m.reason}
                     for m in row.duplicates
                 ],
+                "better_copy": _better_json(row.better),
             }
         )
     return result
@@ -127,6 +128,7 @@ class InboxRow:
     missing: list[str]
     duplicates: list[Match]  # likely copies already in the library
     secret: bool = False  # an edit or bootleg: never looked up online, no cover needed
+    better: upgrade.Upgrade | None = None  # sounds better than its library copy (ADR 0037)
 
     @property
     def ready(self) -> bool:
@@ -136,15 +138,17 @@ class InboxRow:
 # Tabs above the list. A track can be in several (e.g. edited and still needing help).
 VIEWS = {
     "all": ("All", lambda r: True),
-    "help": ("Needs help", lambda r: bool(r.missing) and not r.track.error),
+    # A better copy takes its library copy's tags: it needs nothing (ADR 0037).
+    "help": ("Needs help", lambda r: bool(r.missing) and not r.track.error and not r.better),
     "edited": ("Edited", lambda r: r.edited),
     "ready": ("Ready", lambda r: r.ready),
     "duplicates": ("In library", lambda r: bool(r.duplicates)),
+    "better": ("Better sound", lambda r: r.better is not None),
     "secret": ("Secret", lambda r: r.secret),
     "unreadable": ("Unreadable", lambda r: bool(r.track.error)),
 }
 # Tabs shown only when they have tracks (or are the one chosen).
-OPTIONAL_VIEWS = ("secret", "unreadable")
+OPTIONAL_VIEWS = ("better", "secret", "unreadable")
 
 
 def counts(session) -> dict:
@@ -204,9 +208,11 @@ def _summary(session, track: InboxTrack, library: LibraryIndex | None = None) ->
     duplicates = [] if track.error else library.matches(
         track, value["title"], value["artist"], settings.import_dir, settings.music_dir
     )  # fmt: skip
+    better = upgrade.find(track, duplicates)
     return InboxRow(
-        track, value["title"], value["artist"], changes, edited, missing, duplicates, is_secret
-    )
+        track, value["title"], value["artist"], changes, edited, missing, duplicates, is_secret,
+        better,
+    )  # fmt: skip
 
 
 @router.get("/inbox/{track_id:int}", response_class=HTMLResponse, include_in_schema=False)
@@ -261,6 +267,57 @@ def inbox_import_api(track_ids: list[int], settings: SettingsDep) -> dict:
     if not write_job.import_tracks(settings, track_ids):
         raise HTTPException(409, "Another scan or write is running")
     return {"status": "running"}
+
+
+# --- Better copies: replacing the library copy (app/upgrade.py, ADR 0037) ---------------------
+
+
+def _better_json(better: upgrade.Upgrade | None) -> dict | None:
+    if better is None:
+        return None
+    return {
+        "track_id": better.library.id,
+        "path": better.library.path,
+        "destination": better.destination,
+        "why": better.reason,
+        "library_quality": better.old_quality,
+        "inbox_quality": better.new_quality,
+    }
+
+
+@router.post("/api/inbox/upgrade", status_code=202, tags=["inbox"])
+def inbox_upgrade_api(track_ids: list[int], settings: SettingsDep) -> dict:
+    """Better copies: these inbox files replace the library copy they sound better than. The
+    library copy's tags, folder and name stay; the old file goes to the library trash.
+
+    Runs in the background; progress at GET /api/changes/job.
+    """
+    inbox_job.wait(30)
+    if not write_job.upgrade(settings, track_ids):
+        raise HTTPException(409, "Another scan or write is running")
+    return {"status": "running"}
+
+
+@router.post("/inbox/upgrade", include_in_schema=False)
+async def inbox_upgrade(request: Request, settings: SettingsDep):
+    """Replace with the ticked tracks (on the Better sound tab)."""
+    form = await read_form(request)
+    ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    return _start_upgrade(ids, settings, _view(form.get("show")))
+
+
+@router.post("/inbox/{track_id:int}/upgrade", include_in_schema=False)
+async def inbox_upgrade_one(request: Request, track_id: int, settings: SettingsDep):
+    form = await read_form(request)
+    return _start_upgrade([track_id], settings, _view(form.get("show")))
+
+
+def _start_upgrade(ids: list[int], settings, show: str) -> RedirectResponse:
+    if ids:
+        inbox_job.wait(30)
+        if not write_job.upgrade(settings, ids):
+            return RedirectResponse(_shown("/inbox?error=busy", show), status_code=303)
+    return RedirectResponse(_shown("/inbox", show), status_code=303)
 
 
 def _blocked() -> bool:
@@ -479,6 +536,7 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
     before, after = _neighbours(session, track, show)
     online = identify.review(session, track)
     is_secret = secret.is_secret(session, track.id, inbox=True)
+    summary = _summary(session, track)
     return templates.TemplateResponse(
         request,
         "inbox_track.html",
@@ -492,7 +550,10 @@ def _review_page(request, session, track, errors, typed=None, show="all", status
             "after": after,
             "position": next(i for i, t in enumerate(tracks, 1) if t.id == track.id),
             "total": len(tracks),
-            "summary": _summary(session, track),
+            "summary": summary,
+            "better": upgrade.plan(session, summary.better, get_settings())
+            if summary.better
+            else None,
             "plan": plan(session, track, get_settings().music_dir),
             "cover": _cover_field(session, track, is_secret),
             "secret": is_secret,
