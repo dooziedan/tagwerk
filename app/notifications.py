@@ -72,6 +72,12 @@ TOPICS = {
         "Inbox tracks imported on their own (automatic mode), with a link to the History.",
         False,
     ),
+    "auto_upgrade": Topic(
+        "Better copies replaced",
+        "Library tracks replaced on their own by better-sounding inbox files (automatic "
+        "replacing), with a link to the History.",
+        False,
+    ),
     "long_jobs": Topic(
         "Long jobs finished",
         "Audio analysis or online lookups you started for many tracks.",

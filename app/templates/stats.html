@@ -217,6 +217,7 @@
     <a class="kpi-link" href="{{ work.tags_url }}"><article class="kpi" title="Tracks in the library whose tags Tagwerk wrote"><span class="kpi-value">{{ work.tags_tracks | number }}</span><span class="kpi-label">Tracks improved</span></article></a>
     <a class="kpi-link" href="{{ work.imported_url }}"><article class="kpi"><span class="kpi-value">{{ work.imported | number }}</span><span class="kpi-label">Imported</span></article></a>
     {% if work.converted %}<a class="kpi-link" href="{{ work.converted_url }}"><article class="kpi"><span class="kpi-value">{{ work.converted | number }}</span><span class="kpi-label">Converted to AIFF</span></article></a>{% endif %}
+    {% if work.upgraded %}<a class="kpi-link" href="{{ work.upgraded_url }}"><article class="kpi" title="Library tracks whose file was replaced by a better-sounding copy from the inbox"><span class="kpi-value">{{ work.upgraded | number }}</span><span class="kpi-label">Better copies</span></article></a>{% endif %}
     {% if work.final %}<a class="kpi-link" href="{{ work.final_url }}"><article class="kpi"><span class="kpi-value">{{ work.final | number }}</span><span class="kpi-label">Marked final</span></article></a>{% endif %}
     {% if work.folders %}<a class="kpi-link" href="{{ work.history_url }}"><article class="kpi"><span class="kpi-value">{{ work.folders | number }}</span><span class="kpi-label">Genre folders created</span></article></a>{% endif %}
   </section>
@@ -263,7 +264,7 @@
   </div>
 
   <article>
-    <header><strong>Activity</strong> <small class="muted">files changed per month: tags written, imported, moved, converted or marked final</small></header>
+    <header><strong>Activity</strong> <small class="muted">files changed per month: tags written, imported, moved, converted, replaced or marked final</small></header>
     {% set most = work.activity | map(attribute="count") | max %}
     <div class="columns" role="list">
       {% for m in work.activity %}

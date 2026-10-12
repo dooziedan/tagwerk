@@ -110,7 +110,8 @@ class ChangeSet(SQLModel, table=True):
     fields: str = ""  # e.g. "BPM, Key"
     undone_at: datetime | None = None
     kind: str = Field(default="edit", sa_column_kwargs={"server_default": "edit"})  # edit, import,
-    # folder (a new genre folder, see app/folders.py)
+    # folder (a new genre folder, see app/folders.py), final, convert, upgrade (a better copy
+    # replaced a library file, app/upgrade.py)
     # JSON, what else undo has to know. Folder changes: {"folder", "created", "added_genre"}.
     details: str | None = None
 
@@ -136,6 +137,9 @@ class ChangeEntry(SQLModel, table=True):
     # Where the file was before it moved; undo moves it back. Imports: in the inbox (relative
     # to IMPORT_DIR). Folder changes: in the library (relative to MUSIC_DIR).
     moved_from: str | None = None
+    # JSON, what else undo has to know. Better copies (app/upgrade.py): {"replaced": the old
+    # file's library path, "trash": its library trash entry, "old"/"new": the sound in words}.
+    details: str | None = None
 
 
 class AppSetting(SQLModel, table=True):
@@ -162,6 +166,7 @@ class InboxTrack(SQLModel, table=True):
     duration: float | None = None
     bitrate: int | None = None
     sample_rate: int | None = None
+    bits_per_sample: int | None = None
 
     # Tags as found in the file (same meaning as on Track)
     tag_format: str | None = None

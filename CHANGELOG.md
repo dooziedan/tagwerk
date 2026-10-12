@@ -5,6 +5,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-12
+
+### Added
+- **Better copies replace the library copy.** When a new file in the inbox sounds clearly better than the same track in your library (lossless instead of MP3, 320 instead of 192 kbps, 24 instead of 16 bit), the Inbox marks it **Better sound** (badge and tab). Its page compares both copies and has **Replace library copy**:
+  - the new file gets your library copy's tags and cover; fields the library copy doesn't have keep the new file's values;
+  - it takes the old file's folder and name, with its own extension (`Artist - Title.mp3` → `Artist - Title.flac`);
+  - the track stays the same track: added date, history and final mark stay;
+  - the old file goes to the library trash (Duplicates page) until you empty it, and the History can undo the whole replacement.
+
+  Tick several on the **Better sound** tab to replace them at once. The same track counts as better only when the sound is clearly better: a 300 kbps VBR file doesn't replace a 320 kbps one, and an MP3 never replaces a lossless file.
+- **Replace automatically**, a new switch in Settings → Import (off by default): the regular inbox check replaces library copies with better ones on its own, for files that are fully downloaded and clearly the same track. A notification topic *Better copies replaced* (off by default) tells you which.
+- Statistics → Tagwerk's work counts **Better copies**, with the list of tracks.
+- The API has `POST /api/inbox/upgrade`; `GET /api/inbox` tells each track's `better_copy`.
+
+### Fixed
+- The Duplicates page ranked AAC files (`.m4a`) as lossless, above a 320 kbps MP3, and compared MP3s by sample rate before bitrate. Lossy copies are now compared by bitrate, and only FLAC, WAV and AIFF count as lossless (as in Statistics).
+- The inbox's duplicate box shows the full quality of both copies (sample rate and bit depth for lossless files).
+
 ## [0.23.1] - 2026-10-12
 
 ### Fixed

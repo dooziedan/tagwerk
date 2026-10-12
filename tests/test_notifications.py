@@ -30,6 +30,7 @@ def test_a_fresh_install_has_only_the_topics_that_need_you_switched_on(engine):
         "navidrome": True,
         "online": True,
         "auto_import": False,
+        "auto_upgrade": False,
         "long_jobs": False,
     }
     assert set(chosen) == set(TOPICS)

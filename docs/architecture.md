@@ -55,6 +55,7 @@ Files are never modified directly from a form or a lookup:
 | `app/genre_merge.py` | Genre spellings page: genres written in several ways, merged into one spelling as pending changes | 0.17 |
 | `app/mix_names.py` | Mix names page: titles with "(club remix)" written as "(Club Remix)" (the inbox's clean-up rule), staged as pending changes ([ADR 0026](decisions/0026-mix-names.md)) | 0.17.1 |
 | `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back | 0.7 |
+| `app/upgrade.py` | Better copies: inbox files that sound clearly better than their library copy (lossless over lossy, higher resolution, ≥ 1.2× bitrate) replace it, with its tags, folder and name (new extension); the old file goes to the library trash; undo; automatic when switched on ([ADR 0037](decisions/0037-better-copies.md)) | 0.24 |
 | `app/convert.py` | Converting lossless tracks to AIFF with ffmpeg (ffprobe decides what is lossless): check, convert, verify, move the original to `/originals`; undo ([ADR 0013](decisions/0013-convert-to-aiff.md)) | 0.7 |
 | `app/tagcopy.py` | Translates all tags and pictures of a FLAC, WAV or ALAC file into ID3 frames (Picard's mapping) for the AIFF | 0.7 |
 | `app/final.py` | Final tracks: what's ready, mark/unmark (lock), renaming by the filename pattern after Navidrome has scanned ([ADR 0012](decisions/0012-final-tracks.md)) | 0.7 |

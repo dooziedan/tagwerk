@@ -71,6 +71,9 @@ class Preferences:
     automation: str = "ask"
     # Remove Traktor's private data (PRIV:TRAKTOR4) from files while importing (ADR 0016).
     remove_traktor_on_import: bool = False
+    # Inbox files that sound clearly better than their library copy replace it on their own
+    # (the old file goes to the library trash, ADR 0037). Off: the owner presses Replace.
+    replace_automatically: bool = False
     # The genre map (app/genres.py) as plain text; empty: the built-in one.
     genre_map: str = ""
 
@@ -127,7 +130,7 @@ def _validated(prefs: Preferences) -> Preferences:
         prefs.effects = default.effects
     if prefs.time_zone not in time_zones():
         prefs.time_zone = default.time_zone
-    for flag in ("setup_done", "rename_on_final"):
+    for flag in ("setup_done", "rename_on_final", "replace_automatically"):
         setattr(prefs, flag, bool(getattr(prefs, flag)))
     if prefs.folder_layout not in LAYOUTS:
         prefs.folder_layout = default.folder_layout

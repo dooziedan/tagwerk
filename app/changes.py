@@ -45,6 +45,7 @@ SOURCES = {
     "mix-names": "Mix names capitalised",
     "copy": "From another copy",
     "duplicates": "Duplicates page",
+    "library": "From the library copy",  # a better copy took over its tags (app/upgrade.py)
 }
 
 
@@ -348,9 +349,10 @@ def undo_changeset(
 
     A file that changed again after the change was applied is skipped, so newer edits
     (from Tagwerk or another tool) are never overwritten. Imported files also move back
-    into the inbox; files moved into a new genre folder go back to _Unsorted.
+    into the inbox; files moved into a new genre folder go back to _Unsorted; a better copy goes
+    back into the inbox and the file it replaced comes back from the library trash.
     """
-    from app import convert, final, folders  # these import app.changes themselves
+    from app import convert, final, folders, upgrade  # these import app.changes themselves
     from app.config import get_settings
     from app.importer import move_back
 
@@ -374,10 +376,14 @@ def undo_changeset(
                         "the file changed after this change was applied; not undone, "
                         "so newer edits aren't lost"
                     )
+                if entry.moved_from and changeset.kind == "upgrade":
+                    upgrade.check_undo(entry, settings)  # before the tags change back
                 if entry.snapshot:
                     writer.undo(path, json.loads(entry.snapshot), images)
                 if entry.moved_from and changeset.kind == "convert":
                     convert.undo(session, entry, settings)
+                elif entry.moved_from and changeset.kind == "upgrade":
+                    upgrade.undo(session, entry, settings)
                 elif entry.moved_from and changeset.kind == "final":
                     final.undo(session, entry, settings)
                 elif entry.moved_from and changeset.kind == "folder":

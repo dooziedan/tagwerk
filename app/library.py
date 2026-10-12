@@ -196,6 +196,7 @@ FLAGS: dict[str, tuple[str, ColumnElement[bool]]] = {
     ),
     "tagwerk_imported": ("Imported through the inbox", by_tagwerk("import")),
     "tagwerk_converted": ("Converted to AIFF by Tagwerk", by_tagwerk("convert")),
+    "tagwerk_upgraded": ("Replaced with a better copy by Tagwerk", by_tagwerk("upgrade")),
     "final_changed": ("Final, changed outside Tagwerk", CHANGED_OUTSIDE),
     # Worked out after scans and writes (app/duplicates.py, ADR 0022)
     "duplicate": (
