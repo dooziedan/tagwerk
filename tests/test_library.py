@@ -245,3 +245,22 @@ def test_percentages_never_round_to_100_or_0_while_not_exact(part, whole, digits
     from app.percent import percent
 
     assert percent(part, whole, digits) == expected
+
+
+def test_track_page_artist_link_finds_the_track_artist(client, engine):
+    """The artist name links to tracks by that artist, even when the album artist is written
+    differently (an online lookup corrected "CRYSTAL CLEAR" but not the album artist)."""
+    from app.models import Track
+
+    client.post("/api/scan")
+    scan_job.wait(timeout=30)
+    track_id = client.get("/api/tracks", params={"q": "tagged.mp3"}).json()["tracks"][0]["id"]
+    with Session(engine) as session:
+        row = session.get(Track, track_id)
+        row.artist, row.albumartist = "Crystal Clear", "CRYSTAL CLEAR"
+        session.commit()
+    page = client.get(f"/tracks/{track_id}").text
+    assert '<a href="/tracks?artist=Crystal+Clear">Crystal Clear</a>' in page
+    found = find(engine, artist="Crystal Clear")
+    assert [t.id for t in found.tracks] == [track_id]
+    assert not find(engine, artist="CRYSTAL CLEAR").tracks

@@ -238,6 +238,7 @@ class TrackFilter:
     genre: str = ""
     decade: int | None = None  # e.g. 1990
     folder: str = ""  # path prefix, e.g. "House/Album"
+    artist: str = ""  # track artist, exact
     albumartist: str = ""  # album artist (or artist when none), exact
     album: str = ""  # exact
     field: str = ""  # raw tag field "system:name", e.g. "id3:TXXX:fBPM"
@@ -285,6 +286,8 @@ class TrackFilter:
             c.append(and_(Track.year >= self.decade, Track.year <= self.decade + 9))
         if self.folder:
             c.append(Track.path.startswith(self.folder.rstrip("/") + "/", autoescape=True))
+        if self.artist:
+            c.append(Track.artist == self.artist)
         if self.albumartist:
             c.append(ALBUM_ARTIST == self.albumartist)
         if self.album:
@@ -329,6 +332,7 @@ class TrackFilter:
             "genre": lambda v: f"Genre: {v}",
             "decade": lambda v: f"{v}s",
             "folder": lambda v: f"Folder: {v}",
+            "artist": lambda v: f"Artist: {v}",
             "albumartist": lambda v: f"Artist: {v}",
             "album": lambda v: f"Album: {v}",
             "field": lambda v: f"Field: {v.split(':', 1)[-1]}",
