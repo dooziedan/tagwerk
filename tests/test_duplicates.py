@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 
 from app import changes, duplicates, trash
 from app.changes import WriteProgress
-from app.duplicates import LibraryIndex, main_artist, normalized
+from app.duplicates import LibraryIndex, artist_names, main_artist, normalized, title_key
 from app.inbox import save_values, scan_inbox
 from app.models import InboxTrack, Track
 from app.scanner import ScanProgress, scan_library
@@ -33,6 +33,26 @@ def test_spelling_is_evened_out(a, b):
 
 def test_the_mix_name_counts():
     assert normalized("Losing It (Extended Mix)") != normalized("Losing It (Jus Ron Edit)")
+
+
+def test_original_mix_is_the_plain_version():
+    assert (
+        title_key("Backin (Original Mix)") == title_key("BACKIN") == title_key("Backin [Original]")
+    )
+    assert title_key("Backin (Extended Mix)") != title_key("Backin")
+
+
+def test_artists_match_in_any_order():
+    assert artist_names("Creatures, Crystal Clear") == artist_names("CRYSTAL CLEAR; CREATURES")
+    assert artist_names("Fisher ft. Kita Alexander") == {"fisher", "kita alexander"}
+
+
+def test_a_copy_with_artists_in_another_order_and_original_mix_is_found(engine, settings, library):
+    track_id = add_to_inbox(engine, library, "untagged.mp3", "download.mp3")
+    found = dict(
+        matches(engine, settings, track_id, "SILENT TRACK (Original Mix)", "Artist Two, Artist One")
+    )
+    assert found[LIBRARY_COPY] == "same artist and title"
 
 
 def test_only_the_first_artist_counts():
@@ -108,18 +128,25 @@ def test_the_same_artist_and_title_is_found(engine, settings, library):
     assert found[LIBRARY_COPY] == "same artist and title"
 
 
-def test_other_mixes_and_lengths_are_not_duplicates(engine, settings, library):
+def test_the_length_decides_between_versions(engine, settings, library):
     track_id = add_to_inbox(engine, library, "untagged.mp3", "download.mp3")
 
     def by_name(title):
         found = matches(engine, settings, track_id, title, "Artist One")
         return [path for path, reason in found if reason == "same artist and title"]
 
-    assert by_name("Silent Track (Extended Mix)") == []
+    # Version words are used loosely by stores: with the same length it's the same track.
+    assert LIBRARY_COPY in by_name("Silent Track (Extended Mix)")
+    assert by_name("Silent Track (Jus Ron Edit)") == []  # another artist's edit
     with Session(engine) as session:
         session.get(InboxTrack, track_id).duration = 300  # same name, much longer: another edit
         session.commit()
     assert by_name("Silent Track") == []
+    with Session(engine) as session:
+        session.get(InboxTrack, track_id).duration = None  # unknown: only the very same title
+        session.commit()
+    assert LIBRARY_COPY in by_name("Silent Track (Original Mix)")
+    assert by_name("Silent Track (Extended Mix)") == []
 
 
 # --- Trash -------------------------------------------------------------------------------------
@@ -235,14 +262,16 @@ def test_library_links_follow_the_inbox_rules(tmp_path):
     tracks = [
         _library_track(1),
         _library_track(2, artist="FISHER & Kita Alexander", duration=301.5),  # same track
-        _library_track(3, duration=180.0),  # radio edit: a different length
-        _library_track(4, title="Losing It (Extended Mix)"),  # another mix
+        _library_track(3, title="Losing It (Radio Edit)", duration=180.0),  # another version
+        _library_track(4, title="Losing It (Jus Ron Edit)"),  # another artist's edit
+        _library_track(7, title="Losing It (Extended Mix)", duration=299.0),  # the same length
         _library_track(5, title="Other", artist="Someone", mbid="ABC"),
         _library_track(6, title="Different", artist="Else", mbid="abc"),  # ID copied onto an EP
     ]
     links = duplicates.library_links(tracks, tmp_path, apart=set())
-    assert links == [(1, 2, "name")]
-    assert duplicates.library_links(tracks, tmp_path, apart={(1, 2)}) == []
+    assert sorted(links) == [(1, 2, "name"), (1, 7, "name"), (2, 7, "name")]
+    apart = {(1, 2), (1, 7), (2, 7)}
+    assert duplicates.library_links(tracks, tmp_path, apart=apart) == []
 
 
 def test_a_trusted_musicbrainz_id_links_tracks_without_names(tmp_path):
