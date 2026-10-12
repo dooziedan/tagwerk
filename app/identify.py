@@ -90,13 +90,25 @@ def enabled(settings: Settings, prefs: preferences.Preferences) -> list[Source]:
 # --- Asking ---------------------------------------------------------------------------------
 
 
-def query_for(session: Session, track: InboxTrack, import_dir: Path) -> Query:
-    """What Tagwerk knows before asking: the owner's value, else the file's, else the filename."""
-    mine = {
-        r.field: r.value
-        for r in session.exec(select(InboxValue).where(InboxValue.track_id == track.id))
-    }
-    suggested = {p.field: p.value for p in propose(track, genres.active(session))}
+def query_for(
+    session: Session,
+    track: InboxTrack,
+    import_dir: Path,
+    mine: dict[str, str | None] | None = None,
+    genre_map: genres.GenreMap | None = None,
+) -> Query:
+    """What Tagwerk knows before asking: the owner's value, else the file's, else the filename.
+
+    ``mine`` (the owner's values) and ``genre_map``: already loaded, when many tracks are
+    checked at once (needing_lookup)."""
+    if mine is None:
+        mine = {
+            r.field: r.value
+            for r in session.exec(select(InboxValue).where(InboxValue.track_id == track.id))
+        }
+    if genre_map is None:
+        genre_map = genres.active(session)
+    suggested = {p.field: p.value for p in propose(track, genre_map)}
 
     def value(name: str) -> str | None:
         if name in mine:
@@ -180,6 +192,36 @@ def lookup(
         if library:
             stage_sure(session, track)
         return asked
+
+
+def needing_lookup(session: Session, settings: Settings) -> list[int]:
+    """Inbox tracks the inbox check has to look up: lookup() would ask a source (one has no
+    fresh answer for what Tagwerk would ask now) or download the best match's cover.
+
+    Decided for the whole inbox in a few queries. Asking lookup() about every track, only to
+    find most of them done, took about ten queries per track on every inbox check, while the
+    owner was waiting for the Inbox page. Secret and unreadable tracks are left out.
+    """
+    sources = enabled(settings, preferences.load(session))
+    tracks = list(session.exec(select(InboxTrack).where(InboxTrack.error.is_(None))))
+    hidden = secret.secret_ids(session, [t.id for t in tracks], inbox=True)
+    genre_map = genres.active(session)
+    mine: dict[int, dict[str, str | None]] = {}
+    for value in session.exec(select(InboxValue)):
+        mine.setdefault(value.track_id, {})[value.field] = value.value
+    stored: dict[int, dict[str, OnlineLookup]] = {}
+    for row in session.exec(select(OnlineLookup)):
+        stored.setdefault(row.track_id, {})[row.source] = row
+    needed = []
+    for track in tracks:
+        if track.id in hidden:
+            continue
+        rows = stored.get(track.id, {})
+        query = query_for(session, track, settings.import_dir, mine.get(track.id, {}), genre_map)
+        ask = any(s.name not in rows or not _fresh(rows[s.name], query) for s in sources)
+        if ask or (not track.has_cover and _cover_to_fetch(list(rows.values()))):
+            needed.append(track.id)
+    return needed
 
 
 # A source that stops working is reported once (notifications, ADR 0035): a refused key at
@@ -306,16 +348,7 @@ def _discogs_track(tracks: list[tuple[str, str, float | None]], query: Query) ->
 
 def _fetch_cover(session: Session, track, images: ImageStore, table) -> None:
     """Download the cover of the best matching candidate that has one (once)."""
-    rows = list(session.exec(select(table).where(table.track_id == track.id)))
-    best: tuple[Candidate, OnlineLookup, list[dict]] | None = None
-    for row in rows:
-        stored = json.loads(row.candidates)
-        if stored and any(c.get("cover_image") for c in stored):
-            return  # already downloaded
-        if stored:
-            top = Candidate.from_dict(stored[0])
-            if top.cover_url and top.score >= MATCH and (best is None or top.score > best[0].score):
-                best = (top, row, stored)
+    best = _cover_to_fetch(list(session.exec(select(table).where(table.track_id == track.id))))
     if best is None:
         return
     candidate, row, stored = best
@@ -327,6 +360,21 @@ def _fetch_cover(session: Session, track, images: ImageStore, table) -> None:
     row.candidates = json.dumps(stored)
     session.add(row)
     session.commit()
+
+
+def _cover_to_fetch(rows: list) -> tuple[Candidate, OnlineLookup, list[dict]] | None:
+    """Whose cover to download, from a track's stored answers: the best matching candidate
+    with a cover address. None when a cover is already downloaded or none is offered."""
+    best: tuple[Candidate, OnlineLookup, list[dict]] | None = None
+    for row in rows:
+        stored = json.loads(row.candidates)
+        if stored and any(c.get("cover_image") for c in stored):
+            return None  # already downloaded
+        if stored:
+            top = Candidate.from_dict(stored[0])
+            if top.cover_url and top.score >= MATCH and (best is None or top.score > best[0].score):
+                best = (top, row, stored)
+    return best
 
 
 def download_image(url: str) -> bytes:
@@ -481,17 +529,25 @@ def results(session: Session, track_id: int, library: bool = False) -> list[Foun
     genre. The stored answer keeps the source's spelling: a changed map applies right away.
     """
     table = _table(library)
-    rows = {r.source: r for r in session.exec(select(table).where(table.track_id == track_id))}
-    genre_map = genres.active(session)
+    rows = list(session.exec(select(table).where(table.track_id == track_id)))
+    return found_in(rows, genres.active(session))
+
+
+def found_in(rows: list, genre_map: genres.GenreMap, explain_them: bool = True) -> list[Found]:
+    """results() from one track's stored answers, already read (the inbox list reads them for
+    all tracks in one query). ``explain_them`` False: without the "why this match" texts,
+    which only the track pages show."""
+    by_source = {r.source: r for r in rows}
     found = []
     for cls in SOURCES:
-        row = rows.get(cls.name)
+        row = by_source.get(cls.name)
         if row:
             candidates = [Candidate.from_dict(c) for c in json.loads(row.candidates)]
             artist, title, duration = json.loads(row.query)  # what was asked (Query.key)
             asked = Query(artist, title, duration or None)
             for candidate in candidates:
-                candidate.why = explain(candidate, asked)
+                if explain_them:
+                    candidate.why = explain(candidate, asked)
                 if candidate.values.get("genre"):
                     candidate.values["genre"] = genre_map.match(candidate.values["genre"])
             found.append(
@@ -561,12 +617,23 @@ def compare(candidate: Candidate, track, genre_map) -> list[Compared]:
     return out
 
 
-def suggestions(session: Session, track, taken: set[str], library: bool = False) -> list[Proposal]:
-    """Online suggestions for fields the file leaves empty and nothing else fills (``taken``)."""
-    best = [f.best for f in results(session, track.id, library) if f.best]
+def suggestions(
+    session: Session,
+    track,
+    taken: set[str],
+    library: bool = False,
+    found: list[Found] | None = None,
+    genre_map: genres.GenreMap | None = None,
+) -> list[Proposal]:
+    """Online suggestions for fields the file leaves empty and nothing else fills (``taken``).
+    ``found`` and ``genre_map``: already loaded (the inbox list); else read here."""
+    if found is None:
+        found = results(session, track.id, library)
+    best = [f.best for f in found if f.best]
     if not best:
         return []
-    genre_map = genres.active(session)
+    if genre_map is None:
+        genre_map = genres.active(session)
     proposals = []
     for name in FIELDS:
         if name in taken or writer.current_value(track, name):
@@ -758,12 +825,16 @@ class CoverSuggestion:
     reason: str
 
 
-def cover_suggestion(session: Session, track, library: bool = False) -> CoverSuggestion | None:
+def cover_suggestion(
+    session: Session, track, library: bool = False, found: list[Found] | None = None
+) -> CoverSuggestion | None:
     """The downloaded online cover for a track without one, and whether it's sure: two
-    sources found the track, or AcoustID recognised the audio clearly."""
+    sources found the track, or AcoustID recognised the audio clearly. ``found``: the
+    track's results(), already loaded (the inbox list)."""
     if track.has_cover:
         return None
-    found = results(session, track.id, library)
+    if found is None:
+        found = results(session, track.id, library)
     matched = [f.best for f in found if f.best]
     for f in found:
         best = f.best

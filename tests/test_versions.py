@@ -263,7 +263,8 @@ def test_track_page_says_longer_version(long_web, client, engine, settings, trac
 def test_beatports_key_is_a_hint_for_the_audio(long_web, engine, settings, track):
     identify.lookup(engine, settings, track, library=True)
     with Session(engine) as session:
-        bpm_hints, key_hints = analysis.hints(session, session.get(Track, track), library=True)
+        online = identify.results(session, track, library=True)
+        bpm_hints, key_hints = analysis.hints(session.get(Track, track), online)
     assert (124.0, "Beatport") in bpm_hints and ("8A", "Beatport") in key_hints
 
 

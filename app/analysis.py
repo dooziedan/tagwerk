@@ -364,12 +364,9 @@ def _decide_key(result: Decision, row, alternatives, hints) -> None:
     result.key, result.key_sure = chosen, sure
 
 
-def hints(session: Session, track, library: bool, online: bool = True) -> tuple[list, list]:
-    """BPM and key hints for a track: filename, online sources, and the tag itself.
-
-    ``online`` False: the track was never looked up, so don't ask the database (refresh_all).
-    """
-    from app import identify  # identify -> changes -> ... imports would go in a circle
+def hints(track, online: list) -> tuple[list, list]:
+    """BPM and key hints for a track: filename, online sources (``online``: what they found,
+    app.identify.results), and the tag itself."""
     from app.proposals import parse_filename
 
     bpm_hints: list[tuple[float, str]] = []
@@ -379,7 +376,7 @@ def hints(session: Session, track, library: bool, online: bool = True) -> tuple[
         bpm_hints.append((float(name.bpm), "The filename"))
     if name.key and (code := to_camelot(name.key)):
         key_hints.append((code, "The filename"))
-    for found in identify.results(session, track.id, library) if online else []:
+    for found in online:
         best = found.best
         if best and best.values.get("bpm"):
             bpm_hints.append((float(best.values["bpm"]), found.label))
@@ -395,10 +392,23 @@ def hints(session: Session, track, library: bool, online: bool = True) -> tuple[
 def decide_for(
     session: Session, track, library: bool, genre: str | None = None, online: bool = True
 ) -> Decision:
-    """The decision for one track (``genre``: the review page's genre for inbox tracks)."""
-    bpm_hints, key_hints = hints(session, track, library, online)
+    """The decision for one track (``genre``: the review page's genre for inbox tracks).
+
+    ``online`` False: the track was never looked up, so don't ask the database (refresh_all).
+    """
+    from app import identify  # identify -> changes -> ... imports would go in a circle
+
+    found = identify.results(session, track.id, library) if online else []
+    return decide_with(track, genre, found, result(session, track.id, library))
+
+
+def decide_with(track, genre: str | None, online: list, row) -> Decision:
+    """decide_for() with what is already loaded: what the online sources found
+    (app.identify.results) and the stored analysis ``row`` (None: not analysed). The inbox
+    list loads both for all its tracks at once."""
+    bpm_hints, key_hints = hints(track, online)
     genre = genre if genre is not None else track.genre
-    return decide(result(session, track.id, library), genre, bpm_hints, key_hints)
+    return decide(row, genre, bpm_hints, key_hints)
 
 
 def refresh(session: Session, track: Track, online: bool = True) -> Decision | None:
@@ -461,13 +471,12 @@ def stage_sure(session: Session, track: Track) -> int:
     return changes.stage(session, [track.id], values, "audio")[0] if values else 0
 
 
-def proposals(session: Session, track: InboxTrack, genre: str | None) -> list:
-    """Suggestions for an inbox track's empty BPM and key fields (``genre``: the one the
-    review page shows). They replace the filename's and online sources' suggestions, which
-    the decision already took into account."""
+def proposals(track: InboxTrack, found: Decision) -> list:
+    """Suggestions for an inbox track's empty BPM and key fields, from its decision (made
+    with the genre the review page shows). They replace the filename's and online sources'
+    suggestions, which the decision already took into account."""
     from app.proposals import Proposal
 
-    found = decide_for(session, track, library=False, genre=genre)
     result = []
     if found.bpm and not track.bpm:
         reason = "; ".join(["From the audio", *found.bpm_notes])

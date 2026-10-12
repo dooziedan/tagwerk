@@ -42,7 +42,14 @@ from app.images import ImageStore
 from app.importer import import_tracks, ready_for_auto_import
 from app.inbox import scan_inbox
 from app.library import TrackFilter
-from app.models import ChangeEntry, InboxTrack, LibraryLoudness, PendingChange, Track
+from app.models import (
+    ChangeEntry,
+    InboxAnalysis,
+    InboxTrack,
+    LibraryLoudness,
+    PendingChange,
+    Track,
+)
 from app.scanner import EmptyLibraryError, ScanProgress, scan_library
 
 log = logging.getLogger(__name__)
@@ -174,28 +181,36 @@ class InboxJob(Job):
         super().__init__("inbox", progress=ScanProgress())
         self.auto_import: WriteProgress | None = None  # the last automatic import, if any
         self.auto_upgrade: WriteProgress | None = None  # the last automatic replacing, if any
+        # The last check changed what the Inbox shows: only then is the page built again
+        # when the check is done (building it takes a while with hundreds of tracks).
+        self.changed = False
 
     def start(self, settings: Settings) -> bool:
         progress = ScanProgress()
 
         def work() -> None:
+            self.changed = False
             if not settings.import_dir.is_dir():
                 raise FileNotFoundError(f"Import folder not found: {settings.import_dir}")
             engine = get_engine(settings.database_url)
             scan_inbox(engine, settings.import_dir, progress)
-            trash.purge(settings.import_dir)  # deleted more than 30 days ago
-            self._auto_upgrade(settings, engine)
-            self._auto_import(settings, engine)
+            purged = trash.purge(settings.import_dir)  # deleted more than 30 days ago
+            self.changed = bool(progress.added or progress.updated or progress.removed or purged)
+            if self._auto_upgrade(settings, engine):
+                self.changed = True
+            if self._auto_import(settings, engine):
+                self.changed = True
             identify_job.start(settings)  # new tracks are looked up online, beside other jobs
             analysis_job.start(settings)  # and their BPM and key measured from the audio
 
         return self._start(work, progress)
 
-    def _auto_upgrade(self, settings: Settings, engine) -> None:
-        """Automatic replacing (Settings → Import): better copies replace their library copy."""
+    def _auto_upgrade(self, settings: Settings, engine) -> bool:
+        """Automatic replacing (Settings → Import): better copies replace their library copy.
+        Returns True if it tried to replace any."""
         with Session(engine) as session:
             if not preferences.load(session).replace_automatically:
-                return
+                return False
             now = time.time()
             ids = [
                 u.inbox.id
@@ -203,7 +218,7 @@ class InboxJob(Job):
                 if upgrade.ready_for_auto_upgrade(session, u, settings, now)
             ]
         if not ids:
-            return
+            return False
         progress = WriteProgress(action="upgrade")
         upgrade.replace(engine, settings, ids, progress, image_store(settings))
         after_library_change(engine, settings)
@@ -211,11 +226,13 @@ class InboxJob(Job):
         log.info("Replaced %d library tracks with better copies automatically", progress.written)
         report_auto_upgrade(engine, progress)
         navidrome.rescan_after_write(settings, progress.written)
+        return True
 
-    def _auto_import(self, settings: Settings, engine) -> None:
+    def _auto_import(self, settings: Settings, engine) -> bool:
+        """Automatic mode: complete tracks are imported. Returns True if it tried to import any."""
         with Session(engine) as session:
             if preferences.load(session).automation != "auto":
-                return
+                return False
             now = time.time()
             library = LibraryIndex.load(session)
             ids = [
@@ -226,7 +243,7 @@ class InboxJob(Job):
                 )
             ]
         if not ids:
-            return
+            return False
         progress = WriteProgress(action="import")
         import_tracks(
             engine, settings.import_dir, settings.music_dir, ids, progress, image_store(settings)
@@ -236,6 +253,7 @@ class InboxJob(Job):
         log.info("Imported %d complete inbox tracks automatically", progress.written)
         report_auto_import(engine, progress)
         navidrome.rescan_after_write(settings, progress.written)
+        return True
 
 
 def report_auto_import(engine, progress: WriteProgress) -> bool:
@@ -446,8 +464,8 @@ class IdentifyJob:
         out (app/secret.py)."""
         engine = get_engine(settings.database_url)
         with Session(engine) as session:
-            if track_ids is None:
-                track_ids = list(session.exec(select(InboxTrack.id)))
+            if track_ids is None:  # the inbox check: only tracks with something to ask
+                track_ids = identify.needing_lookup(session, settings)
             hidden = secret.secret_ids(session, track_ids, inbox=not library)
         track_ids = [i for i in track_ids if i not in hidden]
         if not track_ids:
@@ -551,13 +569,14 @@ class AnalysisJob:
         ``loudness_only``: library tracks only get the quick loudness pass (app/loudness.py),
         not BPM and key; asking for a full analysis later still does both."""
         engine = get_engine(settings.database_url)
-        if track_ids is None:
+        if track_ids is None:  # the inbox check: all results in one query, not one per track
             with Session(engine) as session:
-                track_ids = [
-                    t.id
-                    for t in session.exec(select(InboxTrack).where(InboxTrack.error.is_(None)))
-                    if not analysis.fresh(analysis.result(session, t.id), t)
-                ]
+                rows = session.exec(
+                    select(InboxTrack, InboxAnalysis)
+                    .join(InboxAnalysis, isouter=True)
+                    .where(InboxTrack.error.is_(None))
+                )
+                track_ids = [t.id for t, row in rows if not analysis.fresh(row, t)]
         with self._lock:
             for track_id in track_ids:
                 key = (library, track_id)

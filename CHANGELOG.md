@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.24.2] - 2026-10-12
+
+### Changed
+- **The Inbox is much faster with many tracks.** With a few hundred tracks, the Inbox took about 3 seconds to open, a track's review page about 3.5 seconds and Home almost 2 seconds. Tagwerk now reads what it knows about all inbox tracks at once instead of asking its database a dozen times per track; on a copy of a 330-track inbox, building the list went from about 1.2 seconds to 0.1 seconds. Nothing on the pages changes.
+- The regular inbox check no longer goes through every track to see whether it needs an online lookup or an audio analysis: it picks the ones that do in one go, so opening the Inbox isn't slowed down by the check it starts.
+- After an inbox check that found nothing new, the Inbox no longer reloads itself: **Check again** comes back with a short "Nothing new".
+
+### Fixed
+- When an import (or an inbox check) finished while the Inbox was loading, the page could keep showing the old list, e.g. *All 330* after importing 3 of 330 tracks, and no "Imported" message. The page now updates once the job is done.
+
 ## [0.24.1] - 2026-10-12
 
 ### Fixed
