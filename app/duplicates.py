@@ -10,10 +10,14 @@ Library files are never deleted by Tagwerk. A track counts as a likely copy when
   IDs happen: some taggers copy one ID onto a whole EP), or
 - it has the **same artist and title** and about the same length.
 
-Titles are compared *with* the mix name: "Losing It (Extended Mix)" and "Losing It (Jus Ron
-Edit)" are different tracks for a DJ. Only spelling is evened out (case, accents, "&"/"and",
-"feat." parts, punctuation), and only the first artist counts ("Fisher & Kita Alexander" is
-"Fisher"). Tags of an imported file change on import, so a re-downloaded copy is usually found
+Titles are compared *with* the remixer: "Losing It (Extended Mix)" and "Losing It (Jus Ron
+Edit)" are different tracks for a DJ. Words that only name a version ("Original Mix", "Extended
+Mix", "Radio Edit", …) don't count: stores use them loosely, so **the length decides** (within
+LENGTH_TOLERANCE: the same track; a radio edit is minutes shorter). Without both lengths, the
+titles must be the same apart from "(Original Mix)". Spelling is evened out (case, accents,
+"&"/"and", "feat." parts, punctuation). Artists match when they share a name, in any order:
+"Creatures, Crystal Clear" is "CRYSTAL CLEAR; CREATURES", and "Fisher & Kita Alexander" is
+"Fisher". Tags of an imported file change on import, so a re-downloaded copy is usually found
 by artist and title, not by its content.
 """
 
@@ -47,6 +51,59 @@ def normalized(text: str | None) -> str:
     return " ".join(text.split())
 
 
+# Stores call the plain version "Original Mix": "Big Up (Original)" is the same as "Big Up".
+ORIGINAL = re.compile(r"\s*[(\[]original(?: mix)?[)\]]\s*$", re.I)
+
+
+# Words at the end of a title that only name a version of the same track (ADR 0034). Stores use
+# them loosely: the long version is the "Original Mix" on Beatport but the "Extended Mix"
+# elsewhere. So the length decides which version a file is, not these words. A remixer's name
+# isn't one of them: "Song (Hush Remix)" and "Song (Dimitri Edit)" stay other tracks.
+VERSION_WORDS = re.compile(
+    r"(?: (?:original|extended|radio|club|single|album|short|mix|edit|version))+$"
+)
+
+
+def title_key(title: str | None) -> str:
+    """A title for comparing exactly: spelling evened out, "(Original Mix)" dropped."""
+    return normalized(ORIGINAL.sub("", title or ""))
+
+
+def base_title(title: str | None) -> str:
+    """A title without its version words: "Losing It (Radio Edit)" -> "losing it". A title that
+    is only such a word ("Radio") stays."""
+    key = title_key(title)
+    return VERSION_WORDS.sub("", key) or key
+
+
+def same_track(a: InboxTrack | Track, a_title: str | None, b: Track) -> bool:
+    """Two tracks with the same artist and base title: the length decides; without both
+    lengths, only the same title (apart from "(Original Mix)") counts."""
+    if a.duration and b.duration:
+        return abs(a.duration - b.duration) <= LENGTH_TOLERANCE
+    return title_key(a_title) == title_key(b.title)
+
+
+def artist_names(artist: str | None) -> set[str]:
+    """Every artist, normalized: "Creatures, Crystal Clear" -> {"creatures", "crystal clear"}."""
+    folded = unicodedata.normalize("NFKD", artist or "").casefold()
+    return {name for part in _ARTIST_SPLIT.split(folded.strip()) if (name := normalized(part))}
+
+
+def _agreed_artists(tracks: list[Track]) -> set[str]:
+    """The artist names all these tracks share (empty when they don't agree)."""
+    names = [artist_names(t.artist) for t in tracks]
+    return set.intersection(*names) if names else set()
+
+
+def _agree(tracks: list[Track]) -> bool:
+    """Do tracks carrying one MusicBrainz ID agree on one track: the same title and a shared
+    artist (or no names at all)? An ID copied onto a whole EP doesn't."""
+    if len({title_key(t.title) for t in tracks}) != 1:
+        return False
+    return bool(_agreed_artists(tracks)) or not any(t.artist for t in tracks)
+
+
 def main_artist(artist: str | None) -> str:
     """The first artist, normalized: "Fisher; Kita Alexander" -> "fisher"."""
     folded = unicodedata.normalize("NFKD", artist or "").casefold()
@@ -78,9 +135,9 @@ class LibraryIndex:
         self.by_mbid: dict[str, list[Track]] = {}
         self.by_size: dict[int, list[Track]] = {}
         for t in tracks:
-            if t.title and t.artist:
-                key = (main_artist(t.artist), normalized(t.title))
-                self.by_name.setdefault(key, []).append(t)
+            if t.title and t.artist:  # under each of its artists
+                for name in artist_names(t.artist):
+                    self.by_name.setdefault((name, base_title(t.title)), []).append(t)
             if t.mb_trackid:
                 self.by_mbid.setdefault(t.mb_trackid.lower(), []).append(t)
             self.by_size.setdefault(t.size, []).append(t)
@@ -107,16 +164,19 @@ class LibraryIndex:
             # when the library tracks carrying it agree on one artist and title, the inbox
             # track's artist (if known) is the same, and the lengths are close.
             same_id = self.by_mbid.get(track.mb_trackid.lower(), [])
-            names = {(main_artist(t.artist), normalized(t.title)) for t in same_id}
-            trusted = len(names) == 1 and (
-                not artist or main_artist(artist) == next(iter(names))[0]
+            trusted = _agree(same_id) and (
+                not artist or bool(artist_names(artist) & _agreed_artists(same_id))
             )
             for t in same_id if trusted else []:
                 if _same_length(track, t):
                     found.setdefault(t.id, Match(t, REASONS["mbid"]))
         if title and artist:
-            for t in self.by_name.get((main_artist(artist), normalized(title)), []):
-                if _same_length(track, t):  # else a different edit (e.g. radio vs extended)
+            same_name = [
+                t for name in artist_names(artist)
+                for t in self.by_name.get((name, base_title(title)), [])
+            ]  # fmt: skip
+            for t in same_name:
+                if same_track(track, title, t):  # else another version (e.g. a radio edit)
                     found.setdefault(t.id, Match(t, REASONS["name"]))
         return sorted(found.values(), key=lambda m: m.track.path)
 
@@ -181,8 +241,7 @@ def library_links(
                     for b in copies[i + 1 :]:
                         link(a, b, "file")
     for same_id in index.by_mbid.values():
-        names = {(main_artist(t.artist), normalized(t.title)) for t in same_id}
-        if len(same_id) > 1 and len(names) == 1:  # an ID only counts when its tracks agree
+        if len(same_id) > 1 and _agree(same_id):  # an ID only counts when its tracks agree
             for i, a in enumerate(same_id):
                 for b in same_id[i + 1 :]:
                     if _same_length(a, b):
@@ -190,7 +249,7 @@ def library_links(
     for same_name in index.by_name.values():
         for i, a in enumerate(same_name):
             for b in same_name[i + 1 :]:
-                if _same_length(a, b):  # else a different edit (e.g. radio vs extended)
+                if same_track(a, a.title, b):  # else another version (e.g. a radio edit)
                     link(a, b, "name")
     return [(a, b, reason) for (a, b), reason in links.items()]
 

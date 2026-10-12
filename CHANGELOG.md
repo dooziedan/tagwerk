@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-10-12
+
+### Fixed
+- **Copies are found when the artists are in another order or the title says "Original Mix".** *Crystal Clear & Creatures – Backin* in the inbox wasn't recognised as *Creatures, Crystal Clear – Backin (Original Mix)* in the library, so its FLAC wasn't offered as a better copy. Artists now match when they share a name, in any order.
+- **The length decides between versions.** Words that only name a version (*Original Mix*, *Extended Mix*, *Radio Edit*, *Club Mix*, …) no longer make two files different tracks: stores use them loosely, so the same length (within 3 seconds) means the same track and a much shorter radio edit stays a different one. A remixer's name (*Jus Ron Edit*, *Hush Remix*) still means another track. When a length is unknown, only the very same title counts. This applies to the inbox's *In library* / *Better sound* and to the Duplicates page.
+
 ## [0.24.0] - 2026-10-12
 
 ### Added

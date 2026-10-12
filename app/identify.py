@@ -38,7 +38,7 @@ from sqlmodel import Session, select
 
 from app import changes, genres, notifications, preferences, secret, writer
 from app.config import Settings
-from app.duplicates import main_artist, normalized
+from app.duplicates import ORIGINAL, VERSION_WORDS, main_artist, normalized
 from app.images import MAX_SIZE, ImageError, ImageStore, image_info
 from app.models import (
     InboxTrack,
@@ -371,8 +371,7 @@ def score(candidate: Candidate, query: Query) -> float:
     return round(names * _length_match(query.duration, candidate.duration), 3)
 
 
-# Stores call the plain version "Original Mix": "Big Up (Original)" is the same as "Big Up".
-_ORIGINAL = re.compile(r"\s*[(\[]original(?: mix)?[)\]]\s*$", re.I)
+_ORIGINAL = ORIGINAL  # "(Original Mix)" is the plain version (app/duplicates.py)
 
 
 def _title_match(wanted: str | None, found: str | None) -> float:
@@ -388,14 +387,7 @@ def _title_match(wanted: str | None, found: str | None) -> float:
     return SequenceMatcher(None, a, b).ratio() * 0.9
 
 
-# Words at the end of a title that only name a version of the same track. Stores use them
-# loosely: the long version is the "Original Mix" on Beatport but the "Extended Mix" elsewhere,
-# and a "Radio Mix" is usually the same as a "Radio Edit". So the length decides which version
-# a file is, not these words. A remixer's name isn't one of them: "Song (Hush Remix)" and
-# "Song (Dimitri Edit)" stay other tracks.
-_VERSION_WORDS = re.compile(
-    r"(?: (?:original|extended|radio|club|single|album|short|mix|edit|version))+$"
-)
+_VERSION_WORDS = VERSION_WORDS  # the length decides the version (app/duplicates.py)
 
 
 def _base(text: str) -> str:
