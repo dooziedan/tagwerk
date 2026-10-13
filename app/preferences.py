@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 from app.db import SessionDep
 from app.keys import NOTATIONS
 from app.models import AppSetting
-from app.notifications import TOPICS
+from app.topics import TOPICS
 
 # The night-sky look (ADR 0021): full effects, or lighter ones for weak devices.
 EFFECTS = {

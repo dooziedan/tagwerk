@@ -6,10 +6,11 @@ import pytest
 from sqlmodel import Session, select
 
 from app import convert, final, preferences, tagcopy
-from app.changes import WriteProgress, undo_changeset
+from app.changes import WriteProgress
 from app.models import ChangeSet, FinalTrack, Track
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg")
 

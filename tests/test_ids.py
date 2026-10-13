@@ -11,6 +11,7 @@ from app.changes import WriteProgress
 from app.models import ChangeEntry, FinalTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 from tests.conftest import FIXTURES
 from tests.test_writer import FORMATS, copy, raw
 
@@ -192,7 +193,7 @@ def test_fix_on_the_track_page_apply_and_undo(client, engine, settings, wrong):
         assert not row.mbid_invalid and row.discogs_releaseid == "25124086"
         assert session.exec(select(ChangeEntry)).one().error is None  # reads back as written
         changeset = session.exec(select(ChangeEntry)).one().changeset_id
-    changes.undo_changeset(engine, settings.music_dir, changeset, WriteProgress(action="undo"))
+    undo_changeset(engine, settings.music_dir, changeset, WriteProgress(action="undo"))
     assert dict(FLAC(path).tags) == before
 
 
@@ -263,7 +264,7 @@ def test_import_fixes_ids_and_undo_puts_them_back(engine, settings, inbox_wrong)
     assert '"mb_albumid": "fix-ids"' in entry.sources
 
     undo = WriteProgress(action="undo")
-    changes.undo_changeset(
+    undo_changeset(
         engine, settings.music_dir, changeset.id, undo, None, settings.import_dir, settings
     )
     tags = FLAC(settings.import_dir / "wrong.flac").tags

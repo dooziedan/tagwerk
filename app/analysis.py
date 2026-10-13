@@ -26,7 +26,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from app import loudness
+from app import changes, identify, loudness
 from app.audio_analysis import ANALYSIS_VERSION
 from app.config import Settings
 from app.keys import display, to_camelot
@@ -38,6 +38,7 @@ from app.models import (
     PendingChange,
     Track,
 )
+from app.proposals import Proposal, parse_filename
 
 log = logging.getLogger(__name__)
 
@@ -367,8 +368,6 @@ def _decide_key(result: Decision, row, alternatives, hints) -> None:
 def hints(track, online: list) -> tuple[list, list]:
     """BPM and key hints for a track: filename, online sources (``online``: what they found,
     app.identify.results), and the tag itself."""
-    from app.proposals import parse_filename
-
     bpm_hints: list[tuple[float, str]] = []
     key_hints: list[tuple[str, str]] = []
     name = parse_filename(track.path)
@@ -396,8 +395,6 @@ def decide_for(
 
     ``online`` False: the track was never looked up, so don't ask the database (refresh_all).
     """
-    from app import identify  # identify -> changes -> ... imports would go in a circle
-
     found = identify.results(session, track.id, library) if online else []
     return decide_with(track, genre, found, result(session, track.id, library))
 
@@ -447,8 +444,6 @@ def stage_sure(session: Session, track: Track) -> int:
     Bass" found online for a new track) settles 87 or 174 like a genre tag does. An earlier
     BPM from the audio is replaced when the decision changed, and dropped when it isn't sure
     any more."""
-    from app import changes
-
     if refresh(session, track) is None:
         return 0
     session.commit()
@@ -475,8 +470,6 @@ def proposals(track: InboxTrack, found: Decision) -> list:
     """Suggestions for an inbox track's empty BPM and key fields, from its decision (made
     with the genre the review page shows). They replace the filename's and online sources'
     suggestions, which the decision already took into account."""
-    from app.proposals import Proposal
-
     result = []
     if found.bpm and not track.bpm:
         reason = "; ".join(["From the audio", *found.bpm_notes])

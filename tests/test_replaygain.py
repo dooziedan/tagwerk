@@ -11,6 +11,7 @@ from app.models import ChangeEntry, ChangeSet, Track
 from app.rawtags import used_as
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 from tests.conftest import FIXTURES
 
 ALBUM = "Fixture Artist/Fixture Album"
@@ -49,7 +50,7 @@ def test_replaygain_is_applied_and_read_back_in_every_format(engine, music_dir):
         assert flac.replaygain_album_peak == 1.012
         changeset_id = session.exec(select(ChangeSet)).one().id
 
-    changes.undo_changeset(engine, music_dir, changeset_id, WriteProgress(action="undo"))
+    undo_changeset(engine, music_dir, changeset_id, WriteProgress(action="undo"))
     for fmt in FORMATS:
         info = read_file(music_dir / ALBUM / f"tagged.{fmt}")
         assert (info.replaygain_track_gain, info.replaygain_album_gain) == (-6.2, None), fmt

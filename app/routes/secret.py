@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from app import secret
+from app import analysis, secret
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
@@ -40,7 +40,13 @@ def _set(session, settings, track_ids: list[int], on: bool, inbox: bool) -> int:
     """Mark or unmark. An inbox track that is no longer secret is looked up online at once,
     as any new inbox track would be; library tracks only when the owner asks."""
     if on:
-        return secret.mark(session, track_ids, inbox)
+        count = secret.mark(session, track_ids, inbox)
+        if not inbox:  # online BPM and key hints are gone: the audio decides again without them
+            for track_id in track_ids:
+                if track := session.get(Track, track_id):
+                    analysis.refresh(session, track, online=False)
+            session.commit()
+        return count
     count = secret.unmark(session, track_ids, inbox)
     if inbox and count:
         identify_job.start(settings, track_ids)

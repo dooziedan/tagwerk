@@ -1,5 +1,6 @@
 """Secret tracks: edits and bootlegs, never looked up online, complete without a cover."""
 
+import json
 import os
 import re
 import shutil
@@ -9,8 +10,8 @@ import pytest
 from mutagen.id3 import ID3
 from sqlmodel import Session, select
 
-from app import final, identify, secret
-from app.changes import WriteProgress, undo_changeset
+from app import analysis, final, identify, secret
+from app.changes import WriteProgress
 from app.importer import import_tracks
 from app.inbox import scan_inbox
 from app.library import FLAGS, MISSING, SET_READY, TrackFilter, count, find_tracks
@@ -18,6 +19,7 @@ from app.models import (
     ChangeSet,
     FinalTrack,
     InboxTrack,
+    LibraryAnalysis,
     LibraryLookup,
     OnlineLookup,
     SecretInboxTrack,
@@ -25,6 +27,7 @@ from app.models import (
     Track,
 )
 from app.scanner import ScanProgress, scan_library
+from app.undo import undo_changeset
 from app.work import _ready
 from tests.conftest import FIXTURES
 from tests.test_identify import inbox_fixture, web  # noqa: F401  (saved answers, no internet)
@@ -161,6 +164,21 @@ def test_library_lookups_skip_secret_tracks(client, engine, settings, bootleg):
     with Session(engine) as session:
         asked = set(session.exec(select(LibraryLookup.track_id)))
     assert bootleg not in asked and other in asked
+
+
+def test_marking_decides_bpm_again_without_the_online_hints(client, engine, bootleg):
+    candidate = {"source": "deezer", "values": {"bpm": "99"}, "score": 1.0}
+    with Session(engine) as session:
+        session.add(LibraryAnalysis(track_id=bootleg, bpm=128.0, duration=30.0))
+        session.add(LibraryLookup(track_id=bootleg, source="deezer", query='["A", "T", 0]',
+                                  candidates=json.dumps([candidate])))  # fmt: skip
+        analysis.refresh(session, session.get(Track, bootleg))
+        session.commit()
+        assert "says 99 BPM" in session.get(LibraryAnalysis, bootleg).decided_notes
+
+    client.post("/api/tracks/secret", json={"track_ids": [bootleg], "secret": True})
+    with Session(engine) as session:
+        assert "says 99 BPM" not in session.get(LibraryAnalysis, bootleg).decided_notes
 
 
 # --- Complete without a cover ----------------------------------------------------------------
