@@ -15,3 +15,6 @@ dev/
 .vscode/
 .idea/
 .DS_Store
+
+# graphify knowledge graph output
+graphify-out/

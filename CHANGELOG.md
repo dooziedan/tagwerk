@@ -5,9 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-10-13
+
 ### Fixed
 - The header card at the top of a page no longer slides its content away when the browser jumps to something inside it (find in page, a link to a spot on the page, a script scrolling to a switch): on a track page the cover and title could vanish out of the card, on other pages the heading could shift sideways.
 - The side menu no longer shakes slightly while you scroll a page: it now stays exactly where it is instead of being carried along and put back.
+
+## [0.25.1] - 2026-10-13
+
+### Changed
+- **Tidier code underneath, nothing changes for you.** Undo now has its own part of the code, and the parts that write, import, convert and replace tracks no longer depend on each other in circles. This makes future features with an undo safer to add. A new test keeps it that way.
+- Marking a library track as secret works as before: if it was analysed, its BPM and key are worked out again from the audio alone. A test covers this now.
 
 ## [0.25.0] - 2026-10-13
 

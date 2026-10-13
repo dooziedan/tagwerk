@@ -9,6 +9,7 @@ from app.changes import WriteProgress
 from app.models import ChangeEntry, ChangeSet, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 
 ALBUM = "Fixture Artist/Fixture Album"
 
@@ -107,7 +108,7 @@ def test_undo_restores_files_and_database(engine, music_dir):
         changeset_id = session.exec(select(ChangeSet)).one().id
 
     progress = WriteProgress(action="undo")
-    changes.undo_changeset(engine, music_dir, changeset_id, progress)
+    undo_changeset(engine, music_dir, changeset_id, progress)
     assert (progress.written, progress.failed) == (2, 0)
     for name in ("tagged.mp3", "tagged.opus"):
         info = read_file(music_dir / ALBUM / name)
@@ -131,7 +132,7 @@ def test_undo_skips_files_edited_after_the_change(engine, music_dir):
     with Session(engine) as session:
         changeset_id = session.exec(select(ChangeSet)).one().id
     progress = WriteProgress(action="undo")
-    changes.undo_changeset(engine, music_dir, changeset_id, progress)
+    undo_changeset(engine, music_dir, changeset_id, progress)
     assert progress.failed == 1 and "changed after this change was applied" in progress.errors[0]
     assert read_file(path).title == "Newer edit elsewhere"  # newer edit kept
 

@@ -11,13 +11,14 @@ from mutagen.id3 import ID3
 from sqlmodel import Session, select
 
 from app import analysis, preferences, trash, upgrade
-from app.changes import WriteProgress, stage, undo_changeset
+from app.changes import WriteProgress, stage
 from app.duplicates import sound
 from app.images import ImageStore
 from app.inbox import save_values, scan_inbox
 from app.models import ChangeSet, FinalTrack, InboxTrack, LibraryLoudness, Track
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 from tests.conftest import FIXTURES
 
 ALBUM = "Fixture Artist/Fixture Album"

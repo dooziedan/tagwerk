@@ -5,10 +5,11 @@ import pytest
 from sqlmodel import Session, select
 
 from app import changes, final, navidrome, preferences
-from app.changes import WriteProgress, undo_changeset
+from app.changes import WriteProgress
 from app.library import CHANGED_OUTSIDE
 from app.models import ChangeSet, FinalTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
+from app.undo import undo_changeset
 
 ALBUM = "Fixture Artist/Fixture Album"  # tagged.* there: complete (title … cover)
 

@@ -7,6 +7,7 @@ from app.changes import WriteProgress
 from app.models import ChangeSet, FinalTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 
 ALBUM = "Fixture Artist/Fixture Album"
 FORMATS = ["mp3", "flac", "wav", "aiff", "m4a", "ogg", "opus"]
@@ -52,7 +53,7 @@ def test_fixing_writes_capital_letters_into_every_format_and_undo_restores(engin
         assert mix_names.fixes(session) == []
         changeset_id = session.exec(select(ChangeSet).order_by(ChangeSet.id.desc())).first().id
 
-    changes.undo_changeset(engine, music_dir, changeset_id, WriteProgress(action="undo"))
+    undo_changeset(engine, music_dir, changeset_id, WriteProgress(action="undo"))
     for fmt in FORMATS:
         assert read_file(music_dir / ALBUM / f"tagged.{fmt}").title == "Rio (club remix) [vip]"
 

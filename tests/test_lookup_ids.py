@@ -9,6 +9,7 @@ from app.changes import WriteProgress
 from app.models import FinalTrack, InboxTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
 from app.sources.base import Query, Source, SourceError
+from app.undo import undo_changeset
 from tests.test_identify import (
     NAME,
     inbox_fixture,
@@ -286,7 +287,7 @@ def test_applied_ids_are_written_and_undone(web, engine, settings, track):  # no
     assert (info.mb_trackid, info.mb_artistid) == (RECORDING, FISHER)
     with Session(engine) as session:
         changeset = session.exec(select(ChangeSet)).one()
-    changes.undo_changeset(engine, settings.music_dir, changeset.id, WriteProgress(action="undo"))
+    undo_changeset(engine, settings.music_dir, changeset.id, WriteProgress(action="undo"))
     info = read_file(path)
     assert (info.mb_trackid, info.mb_artistid) == (None, None)
 

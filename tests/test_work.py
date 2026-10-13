@@ -7,12 +7,13 @@ import shutil
 from sqlmodel import Session, select
 
 from app import changes
-from app.changes import WriteProgress, undo_changeset
+from app.changes import WriteProgress
 from app.importer import import_tracks
 from app.inbox import save_values, scan_inbox
 from app.library import TrackFilter, find_tracks
 from app.models import ChangeEntry, InboxTrack, PendingChange
 from app.scanner import ScanProgress
+from app.undo import undo_changeset
 from app.work import home_line, work_stats
 from tests.conftest import FIXTURES
 from tests.test_changes import apply, scan, track_ids
