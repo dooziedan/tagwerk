@@ -20,6 +20,7 @@ from app.jobs import scan_job, write_job
 from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
 from app.tags import read_file
+from app.undo import undo_changeset
 from app.work import RAW_ROW, work_stats
 from tests.conftest import FIXTURES
 
@@ -403,7 +404,7 @@ def test_apply_verifies_and_undo_restores(engine, music_dir):
             "raw:riff-info:ISFT",
             "raw:id3:TXXX:MOOD",
         }
-    changes.undo_changeset(engine, music_dir, changeset_id, WriteProgress())
+    undo_changeset(engine, music_dir, changeset_id, WriteProgress())
     assert fields(path) == before
 
 

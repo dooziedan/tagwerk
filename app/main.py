@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
         app.state.db_error = f"{type(exc).__name__}: {exc}"
     if not app.state.db_error:
         from app.duplicates import refresh_library
-        from app.jobs import check_inbox_regularly
+        from app.reminders import check_inbox_regularly
 
         try:  # quick: one query, file contents only for files of the very same size
             refresh_library(get_engine(settings.database_url), settings.music_dir)

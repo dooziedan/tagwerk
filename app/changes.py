@@ -1,7 +1,8 @@
-"""Edits from saving to writing: pending changes, applying them, and undoing applied changes.
+"""Edits from saving to writing: pending changes, applying them, and the history.
 
 The flow (ADR 0003): edit -> **pending** (database only) -> **review** -> **apply** (snapshot
-first, then write) -> **undo** from the snapshot. Files are only written by apply() and undo().
+first, then write) -> **undo** from the snapshot (app/undo.py). Files are only written by apply()
+and undo.
 """
 
 import json
@@ -9,9 +10,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from sqlalchemy import Engine, and_, exists, not_, or_
+from sqlalchemy import Engine, exists, not_
 from sqlmodel import Session, col, delete, func, select
 
 from app import advanced, duplicates, writer
@@ -19,9 +19,6 @@ from app.images import ImageStore
 from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, RawTag, Track
 from app.rawtags import BINARY
 from app.scanner import refresh_track
-
-if TYPE_CHECKING:
-    from app.config import Settings
 
 log = logging.getLogger(__name__)
 
@@ -465,97 +462,6 @@ def _verify_raw(path: Path, values: dict[str, str | None]) -> str:
         if actual != wanted and not (name.startswith("raw:id3:") and actual == ["/".join(wanted)]):
             problems.append(f"{writer.label(name)} is {actual!r}, expected {wanted!r}")
     return "; ".join(problems)
-
-
-def undo_changeset(
-    engine: Engine,
-    music_dir: Path,
-    changeset_id: int,
-    progress: WriteProgress,
-    images: ImageStore | None = None,
-    import_dir: Path | None = None,
-    settings: "Settings | None" = None,
-) -> None:
-    """Restore the files of one applied ChangeSet from their snapshots.
-
-    A file that changed again after the change was applied is skipped, so newer edits
-    (from Tagwerk or another tool) are never overwritten. Imported files also move back
-    into the inbox; files moved into a new genre folder go back to _Unsorted; a better copy goes
-    back into the inbox and the file it replaced comes back from the library trash.
-    """
-    from app import convert, final, folders, upgrade  # these import app.changes themselves
-    from app.config import get_settings
-    from app.importer import move_back
-
-    settings = settings or get_settings()  # Navidrome, for renaming final tracks back
-
-    with Session(engine) as session:
-        changeset = session.get(ChangeSet, changeset_id)
-        entries = session.exec(
-            select(ChangeEntry)
-            .where(ChangeEntry.changeset_id == changeset_id, _undoable())
-            .order_by(ChangeEntry.id.desc())
-        ).all()
-        progress.total = len(entries)
-        progress.changeset_id = changeset_id
-        for entry in entries:
-            progress.current = entry.path
-            try:
-                path = music_dir / entry.path
-                if path.stat().st_mtime != entry.mtime_after:
-                    raise writer.WriteError(
-                        "the file changed after this change was applied; not undone, "
-                        "so newer edits aren't lost"
-                    )
-                if entry.moved_from and changeset.kind == "upgrade":
-                    upgrade.check_undo(entry, settings)  # before the tags change back
-                if entry.snapshot:
-                    writer.undo(path, json.loads(entry.snapshot), images)
-                if entry.moved_from and changeset.kind == "convert":
-                    convert.undo(session, entry, settings)
-                elif entry.moved_from and changeset.kind == "upgrade":
-                    upgrade.undo(session, entry, settings)
-                elif entry.moved_from and changeset.kind == "final":
-                    final.undo(session, entry, settings)
-                elif entry.moved_from and changeset.kind == "folder":
-                    folders.move_back(session, entry, music_dir)
-                elif entry.moved_from:
-                    if import_dir is None or not import_dir.is_dir():
-                        raise writer.WriteError("the import folder isn't available")
-                    move_back(session, entry, import_dir, music_dir)
-                else:
-                    track = session.get(Track, entry.track_id) if entry.track_id else None
-                    if track:
-                        refresh_track(session, music_dir, track)
-                entry.undone = True
-                progress.written += 1
-            except Exception as exc:
-                log.warning("Could not undo %s: %s", entry.path, exc)
-                progress.failed += 1
-                progress.errors.append(f"{entry.path}: {exc}")
-            session.add(entry)
-            session.commit()
-            progress.processed += 1
-        remaining = session.exec(
-            select(func.count(ChangeEntry.id)).where(
-                ChangeEntry.changeset_id == changeset_id, _undoable()
-            )
-        ).one()
-        if remaining == 0:
-            if changeset.kind == "folder":
-                folders.finish_undo(session, changeset, music_dir)
-            changeset.undone_at = datetime.now(UTC)
-            session.add(changeset)
-            session.commit()
-    progress.current = ""
-
-
-def _undoable():
-    """Entries that can still be undone: written tags, or a file moved by an import."""
-    return and_(
-        or_(ChangeEntry.snapshot.is_not(None), ChangeEntry.moved_from.is_not(None)),
-        col(ChangeEntry.undone).is_(False),
-    )
 
 
 HISTORY_PAGE = 50

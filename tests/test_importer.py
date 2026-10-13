@@ -6,12 +6,13 @@ from datetime import UTC, datetime
 import pytest
 from sqlmodel import Session, select
 
-from app.changes import WriteProgress, undo_changeset
+from app.changes import WriteProgress
 from app.importer import import_tracks
 from app.inbox import save_values, scan_inbox
 from app.models import ChangeSet, InboxTrack, Track
 from app.scanner import ScanProgress
 from app.tags import read_file
+from app.undo import undo_changeset
 from tests.conftest import FIXTURES
 
 NAME = "Fisher - Losing It (Extended Mix).mp3"

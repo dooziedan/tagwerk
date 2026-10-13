@@ -29,12 +29,11 @@ from app import (
     navidrome,
     notifications,
     preferences,
-    reminders,
     secret,
     trash,
     upgrade,
 )
-from app.changes import WriteProgress, apply_pending, undo_changeset
+from app.changes import WriteProgress, apply_pending
 from app.config import Settings
 from app.db import get_engine
 from app.duplicates import LibraryIndex
@@ -51,6 +50,7 @@ from app.models import (
     Track,
 )
 from app.scanner import EmptyLibraryError, ScanProgress, scan_library
+from app.undo import undo_changeset
 
 log = logging.getLogger(__name__)
 
@@ -754,28 +754,6 @@ inbox_job = InboxJob()
 write_job = WriteJob()
 identify_job = IdentifyJob()
 analysis_job = AnalysisJob()
-
-
-def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.Thread:
-    """Check the inbox every few minutes in the background (new files, automatic imports), and
-    run the regular checks that write notifications (app/reminders.py).
-
-    Skipped while another job runs; the next round tries again.
-    """
-
-    def loop() -> None:
-        while True:
-            time.sleep(every)
-            reminders.run(settings)  # inbox trash, tracks needing help (app/reminders.py)
-            try:
-                if settings.import_dir.is_dir():
-                    inbox_job.start(settings)
-            except Exception:
-                log.exception("Background inbox check failed")
-
-    thread = threading.Thread(target=loop, name="inbox-timer", daemon=True)
-    thread.start()
-    return thread
 
 
 def run_now(work: Callable[[], Any]) -> tuple[bool, Any]:

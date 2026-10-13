@@ -13,6 +13,7 @@ from app.changes import WriteProgress
 from app.images import ImageStore
 from app.models import ChangeEntry, FinalTrack, PendingChange, Track
 from app.scanner import ScanProgress, scan_library
+from app.undo import undo_changeset
 from tests.conftest import FIXTURES
 
 ALBUM = "Fixture Artist/Fixture Album"
@@ -103,7 +104,7 @@ def test_apply_and_undo_through_changes(engine, library, settings):
         assert "TRAKTOR4" not in private(library / ALBUM / name)
 
     undo = WriteProgress(action="undo")
-    changes.undo_changeset(engine, library, entries[0].changeset_id, undo, images)
+    undo_changeset(engine, library, entries[0].changeset_id, undo, images)
     for name in ("tagged.mp3", "tagged.wav"):
         assert private(library / ALBUM / name)["TRAKTOR4"] == TRAKTOR
 
@@ -168,7 +169,7 @@ def test_import_removes_traktor_data_when_switched_on_and_undo_restores_it(
     assert "Private data (TRAKTOR4)" in changeset.fields
 
     undo = WriteProgress(action="undo")
-    changes.undo_changeset(
+    undo_changeset(
         engine, settings.music_dir, changeset.id, undo, images, settings.import_dir, settings
     )
     assert private(inbox_with_traktor)["TRAKTOR4"] == TRAKTOR

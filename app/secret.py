@@ -27,7 +27,6 @@ from app.models import (
     OnlineLookup,
     SecretInboxTrack,
     SecretTrack,
-    Track,
 )
 
 # Files in this folder of the import folder (any capitals, subfolders too) arrive as secret.
@@ -63,9 +62,10 @@ def secret_ids(session: Session, track_ids: list[int], inbox: bool = False) -> s
 
 def mark(session: Session, track_ids: list[int], inbox: bool = False) -> int:
     """Mark tracks as secret and forget what online sources found for them. Returns how many
-    were newly marked (already secret ones are left as they are)."""
-    from app import analysis  # analysis -> identify -> ... imports would go in a circle
+    were newly marked (already secret ones are left as they are).
 
+    Library tracks' BPM and key are decided again by the caller (analysis.refresh): without
+    the online hints the audio decides on its own."""
     table = _table(inbox)
     already = secret_ids(session, track_ids, inbox)
     new = [i for i in dict.fromkeys(track_ids) if i not in already]
@@ -76,11 +76,6 @@ def mark(session: Session, track_ids: list[int], inbox: bool = False) -> int:
         part = new[start : start + 500]
         session.exec(delete(lookups).where(col(lookups.track_id).in_(part)))
     session.commit()
-    if not inbox:  # online BPM and key hints are gone: the audio decides again without them
-        for track_id in new:
-            if track := session.get(Track, track_id):
-                analysis.refresh(session, track, online=False)
-        session.commit()
     return len(new)
 
 

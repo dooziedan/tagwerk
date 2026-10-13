@@ -1,4 +1,5 @@
-"""Regular checks that write notifications (ADR 0035), run by the background loop in app/jobs.py.
+"""Regular checks that write notifications (ADR 0035), run every few minutes by a background
+loop (check_inbox_regularly) that also checks the inbox for new files.
 
 - **Inbox trash:** deleted inbox files are removed for good after 30 days (app/trash.py). Once a
   day, the files whose day comes within ANNOUNCE_DAYS are announced in one notification, each
@@ -12,6 +13,8 @@ with ``notifications.remember``.
 """
 
 import logging
+import threading
+import time
 from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session
@@ -19,10 +22,34 @@ from sqlmodel import Session
 from app import notifications, preferences, trash
 from app.config import Settings
 from app.db import get_engine
+from app.jobs import analysis_job, identify_job, inbox_job
+from app.routes.inbox import counts  # what "needs help" means (the Inbox tab)
 
 log = logging.getLogger(__name__)
 
 ANNOUNCE_DAYS = 3
+
+
+def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.Thread:
+    """Check the inbox every few minutes in the background (new files, automatic imports), and
+    run the regular checks that write notifications (below).
+
+    Skipped while another job runs; the next round tries again.
+    """
+
+    def loop() -> None:
+        while True:
+            time.sleep(every)
+            run(settings)  # inbox trash, tracks needing help
+            try:
+                if settings.import_dir.is_dir():
+                    inbox_job.start(settings)
+            except Exception:
+                log.exception("Background inbox check failed")
+
+    thread = threading.Thread(target=loop, name="inbox-timer", daemon=True)
+    thread.start()
+    return thread
 
 
 def run(settings: Settings) -> None:
@@ -83,13 +110,8 @@ def announce_inbox_trash(settings: Settings, now: datetime | None = None) -> boo
 def report_inbox_help(settings: Settings) -> bool:
     """When more inbox tracks need help than at the last check, say so. Returns True if a
     notification was written."""
-    from app.jobs import analysis_job, identify_job, inbox_job
-
     if inbox_job.running or identify_job.running or analysis_job.running:
         return False  # the numbers aren't settled yet: next round
-    # routes.inbox decides what "needs help" means (the Inbox tab); it imports a lot.
-    from app.routes.inbox import counts
-
     with Session(get_engine(settings.database_url)) as session:
         now = counts(session)["help"]
     before = notifications.recall("inbox_help:count", 0)

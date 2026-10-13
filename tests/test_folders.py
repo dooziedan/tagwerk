@@ -5,11 +5,12 @@ import pytest
 from sqlmodel import Session, select
 
 from app import folders, preferences
-from app.changes import WriteProgress, undo_changeset
+from app.changes import WriteProgress
 from app.importer import plan
 from app.inbox import save_values, scan_inbox
 from app.models import ChangeSet, InboxTrack, Track
 from app.scanner import ScanProgress, scan_library
+from app.undo import undo_changeset
 from tests.conftest import FIXTURES
 
 
