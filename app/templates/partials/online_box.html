@@ -92,7 +92,8 @@
                 <dd>{{ v.value }}
                   {%- if v.state == "same" %} <span class="mark" title="Same as your tags">✓</span>
                   {%- elif v.state == "new" %} <span class="mark">new</span>
-                  {%- else %} <span class="mark">yours: {{ v.yours }}</span>{% endif %}</dd>
+                  {%- else %} <span class="mark">yours: {{ v.yours }}</span>{% endif %}
+                  {%- if v.note %}<br><small class="muted">{{ v.note }}</small>{% endif %}</dd>
               </div>
               {% endfor %}
             </dl>

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import select
 
-from app import identify, preferences, secret, trash, upgrade, writer
+from app import genres, identify, preferences, secret, trash, upgrade, writer
 from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
@@ -392,7 +392,7 @@ async def inbox_use_online(
     if found is None or n >= len(found.candidates):
         return RedirectResponse(_shown(f"/inbox/{track_id}", show), status_code=303)
     candidate = found.candidates[n]
-    values = {k: v for k, v in candidate.values.items() if k in writer.EDITABLE and v}
+    values = identify.values_to_take(candidate, track, genres.active(session))
     errors = save_values(session, track, values)
     if errors:  # an odd value (e.g. a date format): take over the others
         save_values(session, track, {k: v for k, v in values.items() if k not in errors})

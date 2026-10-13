@@ -9,6 +9,10 @@
 3. **Suggest**: candidates that match well fill fields that are still empty. A value is
    **sure** when two sources agree on it, or when AcoustID recognised the audio clearly;
    otherwise the owner should check it. Tags in the file always win.
+   **Genre and BPM are weighed together** (ADR 0041): Beatport's genre counts double (it files
+   every track under a DJ genre; stores give albums a broad one), a genre the measured tempo
+   contradicts loses, and BPMs are read at the genre's tempo (Beatport's 87 for drum & bass
+   is 174).
 4. **IDs** (ADR 0032): MusicBrainz and Discogs IDs follow stricter rules, because a wrong ID is
    worse than none (Navidrome and Picard trust it). Only sure IDs are suggested, only for empty
    ID fields: see id_suggestions().
@@ -36,11 +40,12 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from app import changes, genres, notifications, preferences, secret, writer
+from app import changes, genres, notifications, preferences, secret, tempo, writer
 from app.config import Settings
 from app.duplicates import ORIGINAL, VERSION_WORDS, main_artist, normalized
 from app.images import MAX_SIZE, ImageError, ImageStore, image_info
 from app.models import (
+    InboxAnalysis,
     InboxTrack,
     InboxValue,
     LibraryAnalysis,
@@ -77,6 +82,9 @@ KEEP = 5  # candidates stored per source
 REFRESH_AFTER = timedelta(days=30)
 # Fields online sources may fill (title and artist only when nothing else knows them).
 FIELDS = ["title", "artist", "album", "date", "genre", "label", "catalognumber", "bpm"]
+# How much a source's genre counts: Beatport files every track under a DJ genre; Deezer,
+# iTunes and Discogs give a whole album one, often a broad one ("Electronic", "Dance").
+GENRE_WEIGHT = {"beatport": 2.0}
 # What an ID suggestion needs to know about the track (see id_suggestions()).
 CONTEXT = ("album", "label", "catalognumber")
 
@@ -262,9 +270,8 @@ def stage_sure(session: Session, track: Track) -> int:
         for c in session.exec(select(PendingChange).where(PendingChange.track_id == track.id))
     }
     pending = set(staged)
-    values = {
-        p.field: p.value for p in suggestions(session, track, taken=pending, library=True) if p.sure
-    }
+    found = suggestions(session, track, taken=pending, library=True, genre=staged.get("genre"))
+    values = {p.field: p.value for p in found if p.sure}
     if session.get(LibraryAnalysis, track.id):
         # The audio decides the BPM, with online values as hints (analysis.stage_sure): two
         # stores agreeing on 87 doesn't make a drum & bass track 87 BPM.
@@ -586,6 +593,7 @@ class Compared:
     value: str
     state: str
     yours: str | None = None
+    note: str = ""  # why Tagwerk reads the value differently ("Beatport says 87: …")
 
 
 def review(session: Session, track, library: bool = False) -> list[Found]:
@@ -602,7 +610,10 @@ def review(session: Session, track, library: bool = False) -> list[Found]:
 def compare(candidate: Candidate, track, genre_map) -> list[Compared]:
     out = []
     for name, label in SHOWN.items():
-        value = candidate.values.get(name)
+        value, note = candidate.values.get(name), ""
+        if name == "bpm" and value:  # as "Use these values" takes it
+            value, note = _bpm(candidate, writer.current_value(track, "genre"), genre_map)
+            value = value or candidate.values["bpm"]
         if not value:
             continue
         yours = writer.current_value(track, name)
@@ -613,7 +624,7 @@ def compare(candidate: Candidate, track, genre_map) -> list[Compared]:
             mine, theirs = _value(name, yours, genre_map), _value(name, value, genre_map)
             same = mine and theirs and _same(name, mine) == _same(name, theirs)
             state = "same" if same else "differs"
-        out.append(Compared(name, label, value, state, yours))
+        out.append(Compared(name, label, value, state, yours, note))
     return out
 
 
@@ -624,9 +635,15 @@ def suggestions(
     library: bool = False,
     found: list[Found] | None = None,
     genre_map: genres.GenreMap | None = None,
+    genre: str | None = None,
+    audio: list[float] | None = None,
 ) -> list[Proposal]:
     """Online suggestions for fields the file leaves empty and nothing else fills (``taken``).
-    ``found`` and ``genre_map``: already loaded (the inbox list); else read here."""
+    ``found`` and ``genre_map``: already loaded (the inbox list); else read here.
+
+    ``genre``: the genre the track will have when it's not the tag's (the owner's value, a
+    pending change); it settles half or double time of online BPMs. ``audio``: the tempos
+    the analysis allows (tempo.audio_tempos); None reads the stored analysis."""
     if found is None:
         found = results(session, track.id, library)
     best = [f.best for f in found if f.best]
@@ -634,13 +651,29 @@ def suggestions(
         return []
     if genre_map is None:
         genre_map = genres.active(session)
+    if audio is None:
+        stored = session.get(LibraryAnalysis if library else InboxAnalysis, track.id)
+        audio = tempo.audio_tempos(stored)
     proposals = []
+    genre = genre or writer.current_value(track, "genre")
     for name in FIELDS:
+        if name == "genre":
+            weighed = weigh_genre(best, genre_map, audio)
+            if weighed and not genre_map.tempo_of(genre):
+                genre = weighed.value  # e.g. the tag says "Electronic", Beatport "Drum & Bass"
+            if weighed and name not in taken and not writer.current_value(track, name):
+                proposals.append(weighed)
+            continue
         if name in taken or writer.current_value(track, name):
             continue
         groups: dict[str, list[tuple[Candidate, str]]] = {}
+        notes: list[str] = []
         for candidate in best:
-            value = _value(name, candidate.values.get(name), genre_map)
+            if name == "bpm":
+                value, note = _bpm(candidate, genre, genre_map, prefer_candidate=False)
+                notes += [note] if note and note not in notes else []
+            else:
+                value = _value(name, candidate.values.get(name), genre_map)
             if value:
                 groups.setdefault(_same(name, value), []).append((candidate, value))
         if not groups:
@@ -654,11 +687,104 @@ def suggestions(
             (c.fingerprint_score or 0) >= SURE_FINGERPRINT for c, _ in group
         ) and name in ("title", "artist", "album")
         sure = len(sources) >= 2 or clear_audio
-        reason = " + ".join(LABELS[s] for s in sources) + (" agree" if len(sources) > 1 else "")
-        if len(sources) == 1:
-            reason += f" ({group[0][0].score:.0%} match)"
+        reason = _agree(group)
+        if name == "bpm" and notes:
+            reason += "; " + "; ".join(notes)
         proposals.append(Proposal(name, value, None, "online", sure, reason))
     return proposals
+
+
+def _agree(group: list[tuple[Candidate, str]]) -> str:
+    """ "Beatport + Deezer agree", or "Beatport (92% match)" for one source."""
+    sources = list(dict.fromkeys(c.source for c, _ in group))
+    reason = " + ".join(LABELS[s] for s in sources) + (" agree" if len(sources) > 1 else "")
+    if len(sources) == 1:
+        reason += f" ({group[0][0].score:.0%} match)"
+    return reason
+
+
+def weigh_genre(
+    best: list[Candidate], genre_map: genres.GenreMap, audio: list[float]
+) -> Proposal | None:
+    """The genre the online sources' best matches suggest, weighed (ADR 0041).
+
+    Sources that say the same genre add up, each by how well it matched, Beatport's double
+    (GENRE_WEIGHT). A genre with a usual tempo the audio doesn't hear (``audio``: tempos from
+    tempo.audio_tempos; empty when not analysed) loses to one it does, and is never sure: a
+    store calling a 174 BPM track "House" is wrong. Sure when two sources agree."""
+    groups: dict[str, list[tuple[Candidate, str]]] = {}
+    for candidate in best:
+        value = _value("genre", candidate.values.get("genre"), genre_map)
+        if value:
+            groups.setdefault(_same("genre", value), []).append((candidate, value))
+    if not groups:
+        return None
+
+    def weight(group) -> float:
+        return sum(c.score * GENRE_WEIGHT.get(c.source, 1.0) for c, _ in group)
+
+    def fits(group) -> bool:
+        found = genre_map.tempo_of(group[0][1])
+        return not audio or not found or tempo.heard(audio, *found[1])
+
+    ranked = sorted(groups.values(), key=lambda g: (fits(g), weight(g)), reverse=True)
+    group = ranked[0]
+    value = max((v for _, v in group), key=len)
+    reason = _agree(group)
+    heard = f"the audio hears {audio[0]:g} BPM" if audio else ""
+    if not fits(group):
+        reason += f"; {heard}, unusual for {value}"
+    for other in ranked[1:]:
+        if not fits(other) and weight(other) > weight(group):
+            name = max((v for _, v in other), key=len)
+            sources = " + ".join(dict.fromkeys(LABELS[c.source] for c, _ in other))
+            reason += f"; not {name} ({sources}): {heard}"
+    sure = len({c.source for c, _ in group}) >= 2 and fits(group)
+    return Proposal("genre", value, None, "online", sure, reason)
+
+
+def online_genre(
+    found: list[Found], genre_map: genres.GenreMap, audio: list[float]
+) -> Proposal | None:
+    """weigh_genre() over what the sources found (app/analysis.py uses it when the track has
+    no genre with a usual tempo)."""
+    return weigh_genre([f.best for f in found if f.best], genre_map, audio)
+
+
+def _bpm(
+    candidate: Candidate, genre: str | None, genre_map, prefer_candidate: bool = True
+) -> tuple[str | None, str]:
+    """A candidate's BPM at its genre's tempo, and why it changed: Beatport's 87 for a drum &
+    bass track is 174 (ADR 0041). The genre is the candidate's own or ``genre`` (the track's);
+    ``prefer_candidate``: which of the two counts first ("Use these values" takes the
+    candidate's genre too; suggestions keep the track's)."""
+    value = _value("bpm", candidate.values.get("bpm"), genre_map)
+    if not value:
+        return None, ""
+    order = [candidate.values.get("genre"), genre]
+    if not prefer_candidate:
+        order.reverse()
+    for name in order:
+        found = genre_map.tempo_of(name)
+        if found:
+            label, (low, high) = found
+            folded = tempo.fold(float(value), low, high)
+            if folded != float(value):
+                read = f"{folded:g}"
+                note = f"{LABELS[candidate.source]} says {value}: {label} is {low:g}-{high:g} BPM"
+                return _value("bpm", read, genre_map), note
+            break
+    return value, ""
+
+
+def values_to_take(candidate: Candidate, track, genre_map) -> dict[str, str]:
+    """What "Use these values" takes from one result: its editable fields, with the BPM read
+    at the genre's tempo (the result's genre, else the track's)."""
+    values = {k: v for k, v in candidate.values.items() if k in writer.EDITABLE and v}
+    if values.get("bpm"):
+        bpm, _ = _bpm(candidate, writer.current_value(track, "genre"), genre_map)
+        values["bpm"] = bpm or values["bpm"]
+    return values
 
 
 def candidate_ids(candidate: Candidate) -> dict[str, str]:

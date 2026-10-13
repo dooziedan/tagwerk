@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, col, func, select
 
-from app import analysis, genres, identify, secret, writer
+from app import analysis, genres, identify, secret, tempo, writer
 from app.models import InboxAnalysis, InboxTrack, InboxValue, OnlineLookup, SecretInboxTrack
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
@@ -196,17 +196,23 @@ def suggestions(
     if known is None:
         known = load_known(session, [track])[track.id]
     local = {p.field: p for p in propose(track, known.genre_map)}
+    mine = known.mine
     online = identify.suggestions(
-        session, track, taken=set(local), found=known.online, genre_map=known.genre_map
+        session,
+        track,
+        taken=set(local),
+        found=known.online,
+        genre_map=known.genre_map,
+        genre=mine.get("genre") or (local["genre"].value if "genre" in local else None),
+        audio=tempo.audio_tempos(known.analysed),
     )
     found = local | {p.field: p for p in online}
-    mine = known.mine
     genre = (
         mine["genre"]
         if "genre" in mine
         else (found["genre"].value if "genre" in found else track.genre)
     )
-    decision = analysis.decide_with(track, genre, known.online, known.analysed)
+    decision = analysis.decide_with(track, genre, known.online, known.analysed, known.genre_map)
     return found | {p.field: p for p in analysis.proposals(track, decision)}
 
 

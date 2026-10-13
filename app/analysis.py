@@ -15,7 +15,6 @@ import json
 import logging
 import math
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -26,7 +25,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, select
 
-from app import changes, identify, loudness
+from app import changes, genres, identify, loudness, tempo
 from app.audio_analysis import ANALYSIS_VERSION
 from app.config import Settings
 from app.keys import display, to_camelot
@@ -226,21 +225,6 @@ def copy_to_library(session: Session, inbox_id: int, track_id: int) -> None:
 
 # --- Deciding: the audio together with genre, filename and online sources ------------------
 
-# Tempo ranges by genre: they decide between half and double time (87 or 174). The first
-# genre of a track that matches decides ("Liquid; Dubstep" is drum & bass). Words match as
-# whole words, so "Electronic" is not "electro".
-GENRE_TEMPOS: list[tuple[str, tuple[float, float]]] = [
-    (r"drum\s*(?:&|and|n|'n')\s*bass|dnb|d&b|jungle|neurofunk|liquid|jump[ -]?up", (160, 185)),
-    (r"dubstep|riddim|brostep", (135, 150)),
-    (r"footwork|juke", (150, 165)),
-    (r"hardstyle", (145, 160)),
-    (r"hip[ -]?hop|rap|r&b|rnb", (70, 115)),
-    (r"house|techno|trance|garage|disco|electro|minimal|progressive", (110, 150)),
-]
-# Tags store BPM rounded (87.5 -> 88), and doubling a rounded half-time value adds to the
-# error (88 x 2 = 176 for a 175 track), so hints count as the same tempo within 1.5 %.
-HINT_TOLERANCE = 0.015
-
 
 @dataclass
 class Decision:
@@ -261,31 +245,15 @@ class Decision:
         return self.bpm_notes + self.key_notes
 
 
-def genre_tempo(genre: str | None) -> tuple[str, tuple[float, float]] | None:
-    """(genre, BPM range) for the first genre of a tag that has a typical tempo."""
-    for part in re.split(r"[;,/]", genre or ""):
-        for pattern, tempo in GENRE_TEMPOS:
-            if re.search(rf"\b(?:{pattern})\b", part, re.I):
-                return part.strip(), tempo
-    return None
-
-
-def _near(a: float, b: float) -> bool:
-    return abs(a - b) <= HINT_TOLERANCE * max(a, b)
-
-
-def _octave(a: float, b: float) -> bool:
-    """True if one tempo is half or double the other (87 and 174)."""
-    return _near(a * 2, b) or _near(a, b * 2)
-
-
 def decide(
     row,
     genre: str | None,
     bpm_hints: list[tuple[float, str]],
     key_hints: list[tuple[str, str]],
+    genre_map: genres.GenreMap = genres.DEFAULT,
 ) -> Decision:
     """Combine a stored analysis with the genre and hints [(value, "Deezer"), ...].
+    The genre's usual tempo comes from the genre map's tempo rules (``genre_map``).
 
     Hints from people or stores (filename, online, the tag) pick between what the audio
     allows (87 or 174; 2A or 5B) and make a value sure when they agree. A hint that fits
@@ -296,16 +264,17 @@ def decide(
         return result
     more = detail(row)
     if row.bpm:
-        _decide_bpm(result, row, more.get("bpm_alternatives", []), genre, bpm_hints)
+        fits = genre_map.tempo_of(genre)
+        _decide_bpm(result, row, more.get("bpm_alternatives", []), fits, bpm_hints)
     if row.key:
         _decide_key(result, row, more.get("key_alternatives", []), key_hints)
     return result
 
 
-def _decide_bpm(result: Decision, row, alternatives, genre, hints) -> None:
+def _decide_bpm(result: Decision, row, alternatives, fits, hints) -> None:
+    """``fits``: (genre, BPM range) of the track's genre (GenreMap.tempo_of), or None."""
     candidates = [row.bpm, *alternatives]
     chosen, sure = row.bpm, row.bpm_sure
-    fits = genre_tempo(genre)
     if fits:
         name, (low, high) = fits
         fitting = [c for c in candidates if low <= c <= high]
@@ -313,7 +282,7 @@ def _decide_bpm(result: Decision, row, alternatives, genre, hints) -> None:
             chosen = fitting[0]
             # Only one reading of the beat fits the genre: that settles half or double time.
             sure = sure or not any(low <= v <= high for v in (chosen / 2, chosen * 2))
-            if chosen != row.bpm and not _octave(chosen, row.bpm):
+            if chosen != row.bpm and not tempo.octave(chosen, row.bpm):
                 result.bpm_warning = (
                     f"The audio hears {row.bpm:g} BPM best. Tagwerk chose {chosen:g} only "
                     f"because the genre tag says {name} (usually {low:g}-{high:g} BPM). If "
@@ -331,8 +300,8 @@ def _decide_bpm(result: Decision, row, alternatives, genre, hints) -> None:
     for hint, source in hints:
         # Tempos the audio allows that this hint means: as written first, then as half or
         # double time (stores often list drum & bass at 87).
-        direct = [c for c in candidates if _near(hint, c)]
-        octave = [c for c in candidates if _near(hint * 2, c) or _near(hint / 2, c)]
+        direct = [c for c in candidates if tempo.near(hint, c)]
+        octave = [c for c in candidates if tempo.octave(hint, c)]
         matches = direct + [c for c in octave if c not in direct]
         if not matches:
             if source != "your tag":  # differing tags are what the flags are for
@@ -396,16 +365,33 @@ def decide_for(
     ``online`` False: the track was never looked up, so don't ask the database (refresh_all).
     """
     found = identify.results(session, track.id, library) if online else []
-    return decide_with(track, genre, found, result(session, track.id, library))
+    row = result(session, track.id, library)
+    return decide_with(track, genre, found, row, genres.active(session))
 
 
-def decide_with(track, genre: str | None, online: list, row) -> Decision:
+def decide_with(
+    track, genre: str | None, online: list, row, genre_map: genres.GenreMap = genres.DEFAULT
+) -> Decision:
     """decide_for() with what is already loaded: what the online sources found
     (app.identify.results) and the stored analysis ``row`` (None: not analysed). The inbox
-    list loads both for all its tracks at once."""
+    list loads both for all its tracks at once.
+
+    A track without a genre that has a usual tempo takes the online sources' weighed genre
+    (identify.online_genre) when the audio fits it: Beatport's "Drum & Bass" settles 87 or
+    174 even before anyone tags the genre (ADR 0041)."""
     bpm_hints, key_hints = hints(track, online)
     genre = genre if genre is not None else track.genre
-    return decide(row, genre, bpm_hints, key_hints)
+    note = ""
+    if online and not genre_map.tempo_of(genre):
+        audio = tempo.audio_tempos(row)
+        weighed = identify.online_genre(online, genre_map, audio)
+        fits = genre_map.tempo_of(weighed.value) if weighed else None
+        if fits and tempo.heard(audio, *fits[1]):
+            genre, note = weighed.value, f"Genre {weighed.value} from {weighed.reason}"
+    found = decide(row, genre, bpm_hints, key_hints, genre_map)
+    if note and found.bpm_notes:
+        found.bpm_notes.insert(0, note)
+    return found
 
 
 def refresh(session: Session, track: Track, online: bool = True) -> Decision | None:
@@ -455,7 +441,8 @@ def stage_sure(session: Session, track: Track) -> int:
     found = decide_for(session, track, library=True, genre=genre)
     values = {}
     bpm_change = staged.get("bpm")
-    if not track.bpm and (bpm_change is None or bpm_change.source == "audio"):
+    # An online BPM staged before the analysis is replaced too: the audio decides now.
+    if not track.bpm and (bpm_change is None or bpm_change.source in ("audio", "online")):
         if found.bpm_sure and found.bpm:
             values["bpm"] = f"{found.bpm:g}"
         elif bpm_change:
@@ -488,9 +475,9 @@ def differences(track: Track, found: Decision) -> list[dict]:
     "half" or "double" (time) for BPMs, else "differs".
     """
     result = []
-    if found.bpm_sure and found.bpm and track.bpm and not _near(track.bpm, found.bpm):
+    if found.bpm_sure and found.bpm and track.bpm and not tempo.near(track.bpm, found.bpm):
         how = "differs"
-        if _near(track.bpm * 2, found.bpm) or _near(track.bpm, found.bpm * 2):
+        if tempo.octave(track.bpm, found.bpm):
             how = "half" if track.bpm < found.bpm else "double"
         result.append({"field": "bpm", "in_file": track.bpm, "audio": found.bpm, "how": how})
     if found.key_sure and found.key and track.key_camelot and track.key_camelot != found.key:
