@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.25.2] - 2026-10-13
+
+### Fixed
+- The header card at the top of a page no longer slides its content away when the browser jumps to something inside it (find in page, a link to a spot on the page, a script scrolling to a switch): on a track page the cover and title could vanish out of the card, on other pages the heading could shift sideways.
+- The side menu no longer shakes slightly while you scroll a page: it now stays exactly where it is instead of being carried along and put back.
+
 ## [0.25.1] - 2026-10-13
 
 ### Changed

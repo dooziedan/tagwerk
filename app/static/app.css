@@ -567,9 +567,12 @@ a:hover > .lift::after, .lift:hover::after { opacity: 1; }
 .tile-link, .tile-link:hover { color: inherit; text-decoration: none; }
 
 /* --- App shell: sidebar on wide screens, floating top bar on narrow ones ---------------------- */
+/* The sidebar is fixed, not sticky: a sticky panel is moved along while the page scrolls and put
+   back each frame, which made the glass menu shake by a pixel. A fixed one never moves; its grid
+   column stays empty and .main-col sits in the second one. */
 .shell { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); min-height: 100vh; }
 .side {
-  position: sticky; top: 0; height: 100vh; height: calc(100vh - var(--side-bottom, 0px)); display: flex; flex-direction: column; gap: 1.25rem;
+  position: fixed; top: 0; left: 0; bottom: var(--side-bottom, 0px); width: 15.5rem; display: flex; flex-direction: column; gap: 1.25rem;
   padding: 1.4rem 1rem 1rem; border-right: 1px solid var(--tw-line); overflow-y: auto;
   border-radius: 0; box-shadow: none;
 }
@@ -601,7 +604,7 @@ a:hover > .lift::after, .lift:hover::after { opacity: 1; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 0.6rem; padding: 0.85rem 0.75rem 0.25rem; border-top: 1px solid var(--tw-line-soft); font-size: 0.78rem; color: var(--tw-ink-2); }
 .side-foot a { color: var(--tw-ink-2); }
 
-.main-col { min-width: 0; display: flex; flex-direction: column; }
+.main-col { grid-column: 2; min-width: 0; display: flex; flex-direction: column; }
 .main-col > main { width: 100%; max-width: 82rem; margin: 0 auto; padding: 1.75rem 2rem 2rem; }
 .main-col > footer { max-width: 82rem; width: 100%; margin: 0 auto; padding: 0 2rem 2rem; color: var(--tw-ink-2); font-size: 0.8rem; }
 
@@ -610,6 +613,7 @@ a:hover > .lift::after, .lift:hover::after { opacity: 1; }
 @media (max-width: 1099px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .side { display: none; }
+  .main-col { grid-column: 1; }
   .topbar {
     position: sticky; top: 0.6rem; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
     margin: 0.6rem 0.75rem 0; padding: 0.55rem 0.6rem 0.55rem 0.8rem; border: 1px solid var(--tw-line); border-radius: 18px;
@@ -625,8 +629,11 @@ a:hover > .lift::after, .lift:hover::after { opacity: 1; }
 @media (max-width: 560px) { .topbar .wide-nav { display: none; } }
 
 /* --- Page header ("hero"): a glass panel with a planet rising at the bottom edge ----------- */
+/* overflow: clip (hidden as the fallback for older browsers) cuts off the planet without making the
+   panel a scroll box: otherwise scrollIntoView, find-in-page or an anchor jump to something inside
+   scrolls the panel itself and the title slides out of sight. Same for .page-head below. */
 .hero {
-  position: relative; overflow: hidden; isolation: isolate;
+  position: relative; overflow: hidden; overflow: clip; isolation: isolate;
   padding: 1.9rem 2rem 1.6rem; margin-bottom: 1.5rem; border-radius: 26px;
 }
 /* The planet: a huge dark disc whose top edge catches the light (thin bright rim + atmosphere glow).
@@ -824,7 +831,7 @@ tbody tr:hover { background: rgba(129, 140, 248, 0.06); }
 
 /* --- Covers: art, or a little planet for tracks without one ---------------------------------- */
 .cover { width: 168px; height: 168px; object-fit: cover; border-radius: 16px; flex: none; background: var(--tw-space-1); border: 1px solid var(--tw-line); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.03) inset; }
-.cover-planet { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+.cover-planet { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; overflow: clip;
   background: radial-gradient(120% 120% at 20% 0%, rgba(99, 102, 241, 0.25), rgba(7, 7, 26, 0) 60%), var(--tw-space-1); }
 .cover-planet i { position: absolute; width: 46%; aspect-ratio: 1; border-radius: 50%;
   background: radial-gradient(circle at 32% 30%, hsl(var(--h, 240), 85%, 78%), hsl(var(--h, 240), 70%, 50%) 45%, hsl(var(--h, 240), 75%, 18%) 100%);
@@ -1014,7 +1021,7 @@ a.player-title:hover, a.player-title:focus-visible { text-decoration: underline;
 .secret-switch small { color: var(--tw-ink-2); }
 .track-title .status-secret, .inbox-title + .status-secret { margin-left: 0.4rem; vertical-align: 0.1em; }
 .info-dot { position: absolute; top: 1.2rem; right: 1.2rem; display: inline-flex; align-items: center; justify-content: center; width: 2.3rem; height: 2.3rem; border-radius: 50%; border: 1px solid var(--tw-line); color: var(--tw-ink-2); background: rgba(7, 7, 26, 0.5); }
-.deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 1.3rem; border-radius: 16px; overflow: hidden; border: 1px solid var(--tw-line);
+.deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 1.3rem; border-radius: 16px; overflow: hidden; overflow: clip; border: 1px solid var(--tw-line);
   background: linear-gradient(180deg, rgba(7, 7, 26, 0.75), rgba(15, 15, 35, 0.55)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 0 40px rgba(67, 56, 202, 0.12); }
 .deck-cell { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.8rem 1rem 0.85rem; border-left: 1px solid var(--tw-line-soft); min-width: 0; }
 .deck-cell:first-child { border-left: 0; }
@@ -1204,7 +1211,7 @@ table.work-fields thead th { letter-spacing: 0.08em; font-size: 0.64rem; }
 /* Every page header (.page-head) is a glass hero with the rising planet; its h1 is the page title
    in the display font (short, Tagwerk's own words). Track titles use .track-head, not this. */
 .page-head {
-  position: relative; overflow: hidden; isolation: isolate; align-items: flex-start; gap: 1rem 2rem;
+  position: relative; overflow: hidden; overflow: clip; isolation: isolate; align-items: flex-start; gap: 1rem 2rem;
   padding: 1.7rem 2rem 3.2rem; margin-bottom: 1.5rem; border-radius: 26px;
   border: 1px solid var(--tw-line); background: var(--tw-glass-solid); box-shadow: var(--tw-glass-edge), 0 10px 30px rgba(0, 0, 0, 0.28);
 }
