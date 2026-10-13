@@ -15,7 +15,7 @@ from app import identify, navidrome, notifications, preferences
 from app.config import SettingsDep
 from app.db import SessionDep
 from app.forms import read_form
-from app.genres import DEFAULT_MAP, GenreMap
+from app.genres import DEFAULT_MAP, GenreMap, with_tempos
 from app.keys import NOTATIONS
 from app.navigation import back_url
 from app.preferences import EFFECTS, Preferences, PreferencesDep
@@ -56,7 +56,7 @@ def settings_page(
 
 def _settings_page(request, prefs, settings, session, saved="", errors=None, genre_text=None,
                    status_code=200):  # fmt: skip
-    genre_text = genre_text if genre_text is not None else (prefs.genre_map or DEFAULT_MAP)
+    genre_text = genre_text if genre_text is not None else with_tempos(prefs.genre_map)
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -118,7 +118,8 @@ async def save_genre_map(request: Request, session: SessionDep, settings: Settin
     bad = GenreMap.problems(text)
     if bad:
         lines = ", ".join(str(n) for n in bad)
-        errors = {"genre_map": f"Line {lines}: use “Genre = variant, …” or “Genre > subgenre, …”."}
+        rules = "“Genre = variant, …”, “Genre > subgenre, …” or “Genre: 160-185 BPM”"
+        errors = {"genre_map": f"Line {lines}: use {rules}."}
         return _settings_page(request, prefs, settings, session, errors=errors, genre_text=text,
                               status_code=422)  # fmt: skip
     if text.strip() == DEFAULT_MAP.strip():

@@ -9,7 +9,7 @@ import shutil
 import pytest
 from sqlmodel import Session, select
 
-from app import analysis
+from app import analysis, genres
 from app.analysis import run_analysis as real_run_analysis  # bound before the stand-in
 from app.audio_analysis import ANALYSIS_VERSION
 from app.changes import WriteProgress
@@ -193,7 +193,7 @@ def stored_row(bpm, alternatives=(), sure=False, key="7A", key_alternatives=(), 
     ],
 )
 def test_genre_tempo(genre, expected):
-    found = analysis.genre_tempo(genre)
+    found = genres.DEFAULT.tempo_of(genre)
     assert (found[0] if found else None) == expected
 
 
@@ -298,6 +298,19 @@ def test_a_pending_genre_settles_half_or_double_time(engine, settings, monkeypat
         changes.stage(session, [track.id], {"bpm": "87"}, "you")
         analysis.stage_sure(session, track)
     assert pending(engine, "untagged.mp3")["bpm"] == "87"
+
+
+def test_an_online_bpm_staged_before_the_analysis_is_replaced(engine, settings, monkeypatch):
+    # A lookup staged Beatport's half-time 87 before the track was analysed; the audio and
+    # the genre say 174 (ADR 0041). The owner's own edits stay (see above).
+    from app import changes
+
+    library_with(engine, settings, monkeypatch, bpm=87.0, bpm_sure=True, bpm_alternatives=[174.0])
+    with Session(engine) as session:
+        track = session.exec(select(Track).where(Track.path.endswith("untagged.mp3"))).one()
+        changes.stage(session, [track.id], {"bpm": "87", "genre": "Drum & Bass"}, "online")
+        analysis.stage_sure(session, track)
+    assert pending(engine, "untagged.mp3")["bpm"] == "174"
 
 
 def test_an_audio_bpm_that_isnt_sure_any_more_is_dropped(engine, settings, monkeypatch):

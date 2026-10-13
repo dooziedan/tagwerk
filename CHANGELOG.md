@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-13
+
+### Added
+- **Online BPM and genre are checked together, and against the audio.** Stores often list drum & bass at half time (Beatport's 87 for a 174 track). Tagwerk now reads every online BPM at its genre's tempo: 87 for drum & bass becomes 174, in suggestions, pending changes, **Use these values** and the online box, which says why (*Beatport says 87: Drum & Bass is 160-185 BPM*). Before, two stores saying 87 could make a sure 87.
+- **Your own tempos in the genre map.** Settings → Genre map now has lines like `Drum & Bass: 160-185 BPM`; subgenres such as Liquid or Neurofunk share them. Prefer half time for a genre? Write e.g. `Dubstep: 70-75 BPM`. If you saved your own map earlier, the built-in tempos are added at its end for you to change.
+
+### Changed
+- **Online genres are weighed.** Beatport's genre counts double, since it files every single track under a DJ genre while Deezer and iTunes give a whole album one broad genre. Once a track is analysed, a genre the measured tempo rules out (House for a 174 BPM track) loses to one that fits and is never marked sure; the suggestion says why.
+- A track without a genre now gets its half or double time settled by the online genre too (if the audio fits it), even when only Beatport knows it.
+- Once a track is analysed, the audio's BPM replaces an online BPM that was waiting on the Changes page (never one you entered yourself).
+
 ## [0.25.2] - 2026-10-13
 
 ### Fixed

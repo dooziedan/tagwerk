@@ -5,16 +5,19 @@ and keep the subgenre after it: ``Drum & Bass; Liquid``. The map lets Tagwerk
 - unify spellings: ``DnB`` -> ``Drum & Bass``
 - add the main genre to a track tagged only with a subgenre: ``Liquid`` -> ``Drum & Bass; Liquid``
 - match store categories from online lookups: ``Jungle/Drum'n'bass`` -> ``Drum & Bass``
+- know a genre's tempo, which settles half or double time: Drum & Bass is 174, never 87
+  (app/tempo.py, ADR 0041)
 
-The map is plain text, one rule per line; a genre may have several lines (editable in
-Settings later):
+The map is plain text, one rule per line; a genre may have several lines (Settings → Genre map):
     Drum & Bass = DnB, D&B, Drum and Bass     (spelling variants)
     Drum & Bass > Liquid, Neurofunk, Jungle   (subgenres)
+    Drum & Bass: 160-185 BPM                  (tempo; subgenres share it)
 Lookups are dictionary checks: no database, no network.
 """
 
+import re
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cached_property, lru_cache
 
 DEFAULT_MAP = """\
 Drum & Bass = DnB, D&B, D'n'B, Drum and Bass, Drum'n'Bass, Drum 'n' Bass, Drum N Bass
@@ -31,13 +34,37 @@ R&B = RnB, R'n'B, Rhythm and Blues, Rhythm & Blues
 UK Garage = UKG, UK Garage / Bassline
 Tech House = Techhouse
 Nu Disco = Nu-Disco, Nudisco, Nu Disco / Disco
+Drum & Bass: 160-185 BPM
+Dubstep: 135-150 BPM
+Footwork: 150-165 BPM
+Juke: 150-165 BPM
+Hardstyle: 145-160 BPM
+Hip-Hop: 70-115 BPM
+Rap: 70-115 BPM
+R&B: 70-115 BPM
+House: 110-150 BPM
+Tech House: 110-150 BPM
+Techno: 110-150 BPM
+Trance: 110-150 BPM
+Garage: 110-150 BPM
+UK Garage: 110-150 BPM
+Disco: 110-150 BPM
+Nu Disco: 110-150 BPM
+Electro: 110-150 BPM
+Minimal: 110-150 BPM
+Progressive: 110-150 BPM
 """
+
+# "Drum & Bass: 160-185 BPM" (BPM optional, "160 - 185" fine).
+_TEMPO_RULE = re.compile(r"^(.+?):\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*(?:bpm)?$", re.I)
 
 
 @dataclass
 class GenreMap:
     spelling: dict[str, str] = field(default_factory=dict)  # lower-case variant -> genre
     main: dict[str, str] = field(default_factory=dict)  # lower-case subgenre -> main genre
+    # Genre as written -> its usual BPM range, e.g. "Drum & Bass" -> (160, 185)
+    tempo: dict[str, tuple[float, float]] = field(default_factory=dict)
 
     @classmethod
     def parse(cls, text: str) -> "GenreMap":
@@ -45,6 +72,10 @@ class GenreMap:
         for line in text.splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
+                continue
+            if rule := _TEMPO_RULE.match(line):
+                low, high = sorted((float(rule[2]), float(rule[3])))
+                result.tempo[rule[1].strip()] = (low, high)
                 continue
             for sep, target in (("=", result.spelling), (">", result.main)):
                 if sep in line:
@@ -69,11 +100,12 @@ class GenreMap:
 
     @staticmethod
     def problems(text: str) -> list[int]:
-        """Line numbers that are neither a spelling rule (=) nor a subgenre rule (>)."""
+        """Line numbers that are neither a spelling rule (=), a subgenre rule (>) nor a tempo
+        rule (Genre: 160-185 BPM)."""
         bad = []
         for number, line in enumerate(text.splitlines(), 1):
             line = line.strip()
-            if not line or line.startswith("#"):
+            if not line or line.startswith("#") or _TEMPO_RULE.match(line):
                 continue
             sep = "=" if "=" in line else ">" if ">" in line else None
             if sep is None or not line.split(sep)[0].strip():
@@ -132,14 +164,67 @@ class GenreMap:
                 return mains.pop()
         return "; ".join(self.tidy([genre]))
 
+    @cached_property
+    def _tempo_by_name(self) -> dict[str, tuple[float, float]]:
+        return {name.lower(): tempo for name, tempo in self.tempo.items()}
+
+    @cached_property
+    def _tempo_words(self) -> list[tuple[str, tuple[float, float]]]:
+        """Every spelling and subgenre of a genre with a tempo, longest first."""
+        words = {}
+        for name, tempo in self.tempo.items():
+            for spelling in self.spellings(name):
+                words.setdefault(spelling.lower(), tempo)
+        for sub, main in self.main.items():
+            if main.lower() in self._tempo_by_name:
+                words.setdefault(sub, self._tempo_by_name[main.lower()])
+        return sorted(words.items(), key=lambda w: -len(w[0]))
+
+    def tempo_of(self, genre: str | None) -> tuple[str, tuple[float, float]] | None:
+        """(genre, BPM range) for the first genre of a tag that has a usual tempo:
+        "Liquid; Dubstep" -> ("Liquid", (160, 185)), as Liquid is drum & bass.
+
+        A genre has a tempo when its spelling, or the main genre the map files it under, has
+        a tempo rule. Store categories like "Melodic House & Techno" match a tempo genre
+        they contain as a whole word ("House"); "Electronic" is not "Electro"."""
+        for part in re.split(r"[;,/]", genre or ""):
+            part = part.strip()
+            if not part:
+                continue
+            for name in (self.canonical(part), self.main_genre(part)):
+                if name and name.lower() in self._tempo_by_name:
+                    return part, self._tempo_by_name[name.lower()]
+            for word, tempo in self._tempo_words:
+                if re.search(rf"(?<!\w){re.escape(word)}(?!\w)", part, re.I):
+                    return part, tempo
+        return None
+
 
 DEFAULT = GenreMap.parse(DEFAULT_MAP)
 
 
 @lru_cache(maxsize=8)
 def from_text(text: str) -> GenreMap:
-    """The owner's genre map (Settings → Genre map); the built-in one when empty."""
-    return GenreMap.parse(text) if text.strip() else DEFAULT
+    """The owner's genre map (Settings → Genre map); the built-in one when empty. A map
+    without any tempo rule (saved before Tagwerk knew them) keeps the built-in tempos."""
+    if not text.strip():
+        return DEFAULT
+    result = GenreMap.parse(text)
+    if not result.tempo:
+        result.tempo = dict(DEFAULT.tempo)
+    return result
+
+
+def with_tempos(text: str) -> str:
+    """The map as Settings shows it: the built-in one when empty; an own map saved before
+    tempo rules existed gets the built-in tempo rules added, so the owner sees and can change
+    the tempos it uses (from_text)."""
+    if not text.strip():
+        return DEFAULT_MAP
+    if GenreMap.parse(text).tempo:
+        return text
+    tempos = [line for line in DEFAULT_MAP.splitlines() if _TEMPO_RULE.match(line)]
+    return text.rstrip("\n") + "\n" + "\n".join(tempos) + "\n"
 
 
 def active(session) -> GenreMap:
