@@ -44,7 +44,7 @@ def proposals(session: Session, music_dir: Path) -> list[FolderProposal]:
     prefs = preferences.load(session)
     if prefs.folder_layout != "genre":
         return []
-    genre_map = genres.from_text(prefs.genre_map)
+    genre_map = genres.of(prefs)
     allowed = prefs.genre_folders or naming.existing_folders(music_dir)
     kept = {g.lower() for g in prefs.kept_unsorted}
     unsorted = PurePosixPath(naming.UNSORTED)

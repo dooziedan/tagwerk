@@ -1,8 +1,8 @@
 """The Settings page and the preferences API.
 
-Sections: General (key notation, effects, time zone), Import, Genre map, Final tracks,
-Online lookups, Notifications, Navidrome. Each section is its own form; after saving, the page
-comes back with ``?saved=<section>`` and scrolls to it.
+Sections: General (key notation, effects, time zone), Import, Genre map, BPM ranges, Final
+tracks, Online lookups, Notifications, Navidrome. Each section is its own form; after saving,
+the page comes back with ``?saved=<section>`` and scrolls to it.
 """
 
 from dataclasses import fields, replace
@@ -11,11 +11,12 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app import identify, navidrome, notifications, preferences
+from app import analysis, genres, identify, navidrome, notifications, preferences, tempo
 from app.config import SettingsDep
-from app.db import SessionDep
+from app.db import SessionDep, get_engine
 from app.forms import read_form
-from app.genres import DEFAULT_MAP, GenreMap, with_tempos
+from app.genres import DEFAULT_MAP, GenreMap
+from app.jobs import run_now
 from app.keys import NOTATIONS
 from app.navigation import back_url
 from app.preferences import EFFECTS, Preferences, PreferencesDep
@@ -55,8 +56,18 @@ def settings_page(
 
 
 def _settings_page(request, prefs, settings, session, saved="", errors=None, genre_text=None,
-                   status_code=200):  # fmt: skip
-    genre_text = genre_text if genre_text is not None else with_tempos(prefs.genre_map)
+                   bpm_rows=None, status_code=200):  # fmt: skip
+    genre_text = genre_text if genre_text is not None else (prefs.genre_map or DEFAULT_MAP)
+    genre_map = genres.of(prefs)
+    if bpm_rows is None:
+        bpm_rows = [
+            {"genre": name, "low": _number(low), "high": _number(high)}
+            for name, (low, high) in sorted(
+                tempo.ranges_of(prefs.bpm_ranges).items(), key=lambda r: (r[1], r[0].lower())
+            )
+        ]
+    for row in bpm_rows:  # subgenres share their main genre's range
+        row["subgenres"] = genre_map.subgenres(row["genre"]) if row["genre"] else []
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -66,6 +77,9 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
             "genre_text": genre_text,
             "genre_rules": GenreMap.rule_count(genre_text),
             "genre_map_custom": bool(prefs.genre_map),
+            "bpm_rows": bpm_rows,
+            "bpm_custom": prefs.bpm_ranges is not None,
+            "bpm_limits": tempo.RANGE_LIMITS,
             "prefs": prefs,
             "notations": NOTATIONS,
             "effects": EFFECTS,
@@ -126,6 +140,60 @@ async def save_genre_map(request: Request, session: SessionDep, settings: Settin
         text = ""  # the built-in map: stored as empty, so it keeps up with updates
     preferences.save(session, replace(prefs, genre_map=text))
     return RedirectResponse("/settings?saved=genres", status_code=303)
+
+
+@router.post("/settings/bpm", include_in_schema=False)
+async def save_bpm_ranges(request: Request, session: SessionDep, settings: SettingsDep):
+    """BPM ranges, one row per genre (genre_0, low_0, high_0, …) plus an empty row to add one.
+    "remove" leaves a row out, a row without a genre is left out too; "reset" goes back to the
+    built-in ranges. Afterwards the library's BPM decisions are worked out again."""
+    form = await read_form(request)
+    prefs = preferences.load(session)
+    rows, removed = [], str(form.get("remove", ""))
+    keys = sorted({k.split("_", 1)[1] for k in form if k.startswith("genre_")},
+                  key=lambda k: (k == "new", int(k) if k.isdigit() else 0))  # fmt: skip
+    for key in keys:
+        row = {f: str(form.get(f"{f}_{key}", "")).strip() for f in ("genre", "low", "high")}
+        if key != removed and any(row.values()):
+            rows.append(row)
+    if form.get("reset"):
+        ranges = None
+    else:
+        ranges, problem = _read_ranges(rows)
+        if problem:
+            return _settings_page(request, prefs, settings, session, errors={"bpm": problem},
+                                  bpm_rows=rows, status_code=422)  # fmt: skip
+    preferences.save(session, replace(prefs, bpm_ranges=ranges))
+    # BPM decisions follow the ranges right away; while a job runs, after it (jobs.py)
+    run_now(lambda: analysis.refresh_all(get_engine(settings.database_url)))
+    return RedirectResponse("/settings?saved=bpm", status_code=303)
+
+
+def _read_ranges(rows: list[dict]) -> tuple[dict, str | None]:
+    """The form's rows as BPM ranges, or what's wrong with them (one message)."""
+    low_limit, high_limit = tempo.RANGE_LIMITS
+    ranges, seen = {}, {}
+    for row in rows:
+        name = row["genre"]
+        if not name:
+            return {}, f"Give the range {row['low']}-{row['high']} BPM a genre."
+        try:
+            low, high = sorted((float(row["low"].replace(",", ".")),
+                                float(row["high"].replace(",", "."))))  # fmt: skip
+        except ValueError:
+            return {}, f"{name}: enter the lowest and the highest BPM, like 160 and 185."
+        if low < low_limit or high > high_limit:
+            return {}, f"{name}: BPM ranges go from {low_limit} to {high_limit}."
+        if name.lower() in seen:
+            return {}, f"{name} is listed twice: keep one row for it."
+        seen[name.lower()] = name
+        ranges[name] = [low, high]
+    return ranges, None
+
+
+def _number(value: float) -> str:
+    """160.0 -> "160", 87.5 -> "87.5" for the form."""
+    return f"{value:g}"
 
 
 @router.post("/settings/online", include_in_schema=False)

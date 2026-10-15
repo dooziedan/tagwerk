@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- **BPM ranges have their own place in Settings.** Each genre's usual tempo, which decides half or double time (a store's 87 BPM for drum & bass becomes 174), is no longer a line in the genre map: Settings → **BPM ranges** lists one row per genre with its lowest and highest BPM. Change a range, add a genre in the empty row at the bottom, or remove one with ×; *Back to the built-in ranges* undoes it all. Each row shows which subgenres share it. Prefer dubstep at half time? Set it to 70–75.
+- Tempo lines you wrote into the genre map (`Drum & Bass: 160-185 BPM`) move to the BPM ranges by themselves, nothing to do.
+- After saving the ranges, the library's BPM suggestions follow them right away instead of after the next scan.
+
+### Fixed
+- **Settings save without reloading the page.** Each Save button now saves in the background: the page stays exactly where it is, the section you saved shows what is stored now, and the overview on the left is updated. What you typed in other sections stays. Before, the whole page reloaded and jumped.
+
 ## [0.26.0] - 2026-10-13
 
 ### Added

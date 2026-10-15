@@ -1,5 +1,5 @@
 # 0041: Online genre and BPM are weighed together and checked against the audio
-Date: 2026-10-13 · Status: Accepted
+Date: 2026-10-13 · Status: Accepted; the tempos moved to their own setting in [0042](0042-bpm-ranges.md)
 
 ## Context
 Stores list drum & bass at half time: Beatport and Deezer often say 87 for a 174 track. For the owner, drum & bass is never under 160 BPM. The audio decision (ADR 0017) already settled 87 or 174 by the genre, but online BPMs slipped through elsewhere:

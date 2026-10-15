@@ -11,13 +11,17 @@ and keep the subgenre after it: ``Drum & Bass; Liquid``. The map lets Tagwerk
 The map is plain text, one rule per line; a genre may have several lines (Settings → Genre map):
     Drum & Bass = DnB, D&B, Drum and Bass     (spelling variants)
     Drum & Bass > Liquid, Neurofunk, Jungle   (subgenres)
-    Drum & Bass: 160-185 BPM                  (tempo; subgenres share it)
+The tempos are their own setting (Settings → BPM ranges, ADR 0042): a genre and its usual BPM
+range, ``Drum & Bass: 160-185``; subgenres share their main genre's range. Before 0.27 they
+were lines in the map (``Drum & Bass: 160-185 BPM``): ``tempo.split_ranges`` moves them out.
 Lookups are dictionary checks: no database, no network.
 """
 
 import re
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
+
+from app.tempo import DEFAULT_RANGES, OLD_RULE, ranges_of
 
 DEFAULT_MAP = """\
 Drum & Bass = DnB, D&B, D'n'B, Drum and Bass, Drum'n'Bass, Drum 'n' Bass, Drum N Bass
@@ -34,29 +38,7 @@ R&B = RnB, R'n'B, Rhythm and Blues, Rhythm & Blues
 UK Garage = UKG, UK Garage / Bassline
 Tech House = Techhouse
 Nu Disco = Nu-Disco, Nudisco, Nu Disco / Disco
-Drum & Bass: 160-185 BPM
-Dubstep: 135-150 BPM
-Footwork: 150-165 BPM
-Juke: 150-165 BPM
-Hardstyle: 145-160 BPM
-Hip-Hop: 70-115 BPM
-Rap: 70-115 BPM
-R&B: 70-115 BPM
-House: 110-150 BPM
-Tech House: 110-150 BPM
-Techno: 110-150 BPM
-Trance: 110-150 BPM
-Garage: 110-150 BPM
-UK Garage: 110-150 BPM
-Disco: 110-150 BPM
-Nu Disco: 110-150 BPM
-Electro: 110-150 BPM
-Minimal: 110-150 BPM
-Progressive: 110-150 BPM
 """
-
-# "Drum & Bass: 160-185 BPM" (BPM optional, "160 - 185" fine).
-_TEMPO_RULE = re.compile(r"^(.+?):\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*(?:bpm)?$", re.I)
 
 
 @dataclass
@@ -72,10 +54,6 @@ class GenreMap:
         for line in text.splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
-                continue
-            if rule := _TEMPO_RULE.match(line):
-                low, high = sorted((float(rule[2]), float(rule[3])))
-                result.tempo[rule[1].strip()] = (low, high)
                 continue
             for sep, target in (("=", result.spelling), (">", result.main)):
                 if sep in line:
@@ -100,17 +78,23 @@ class GenreMap:
 
     @staticmethod
     def problems(text: str) -> list[int]:
-        """Line numbers that are neither a spelling rule (=), a subgenre rule (>) nor a tempo
-        rule (Genre: 160-185 BPM)."""
+        """Line numbers that are neither a spelling rule (=) nor a subgenre rule (>). Old tempo
+        lines (Genre: 160-185 BPM) are fine: saving moves them to the BPM ranges."""
         bad = []
         for number, line in enumerate(text.splitlines(), 1):
             line = line.strip()
-            if not line or line.startswith("#") or _TEMPO_RULE.match(line):
+            if not line or line.startswith("#") or OLD_RULE.match(line):
                 continue
             sep = "=" if "=" in line else ">" if ">" in line else None
             if sep is None or not line.split(sep)[0].strip():
                 bad.append(number)
         return bad
+
+    def subgenres(self, genre: str) -> list[str]:
+        """The subgenres the map files under a genre, as spelled: "Drum & Bass" -> Liquid, …"""
+        name = genre.strip().lower()
+        subs = (sub for sub, main in self.main.items() if main.lower() == name)
+        return [self.spelling.get(sub, sub) for sub in subs]
 
     def canonical(self, genre: str) -> str:
         return self.spelling.get(genre.strip().lower(), genre.strip())
@@ -201,34 +185,30 @@ class GenreMap:
 
 
 DEFAULT = GenreMap.parse(DEFAULT_MAP)
+DEFAULT.tempo = dict(DEFAULT_RANGES)
 
 
 @lru_cache(maxsize=8)
-def from_text(text: str) -> GenreMap:
-    """The owner's genre map (Settings → Genre map); the built-in one when empty. A map
-    without any tempo rule (saved before Tagwerk knew them) keeps the built-in tempos."""
-    if not text.strip():
-        return DEFAULT
-    result = GenreMap.parse(text)
-    if not result.tempo:
-        result.tempo = dict(DEFAULT.tempo)
+def build(text: str, ranges: tuple[tuple[str, float, float], ...] | None = None) -> GenreMap:
+    """A genre map from the map's text (empty: the built-in one) and BPM ranges as
+    (genre, low, high) rows (None: the built-in ranges)."""
+    result = GenreMap.parse(text) if text.strip() else GenreMap.parse(DEFAULT_MAP)
+    result.tempo = (
+        dict(DEFAULT_RANGES) if ranges is None else {name: (lo, hi) for name, lo, hi in ranges}
+    )
     return result
 
 
-def with_tempos(text: str) -> str:
-    """The map as Settings shows it: the built-in one when empty; an own map saved before
-    tempo rules existed gets the built-in tempo rules added, so the owner sees and can change
-    the tempos it uses (from_text)."""
-    if not text.strip():
-        return DEFAULT_MAP
-    if GenreMap.parse(text).tempo:
-        return text
-    tempos = [line for line in DEFAULT_MAP.splitlines() if _TEMPO_RULE.match(line)]
-    return text.rstrip("\n") + "\n" + "\n".join(tempos) + "\n"
+def of(prefs) -> GenreMap:
+    """The genre map in use: the owner's map and BPM ranges from the preferences."""
+    ranges = None
+    if prefs.bpm_ranges is not None:
+        ranges = tuple((name, lo, hi) for name, (lo, hi) in ranges_of(prefs.bpm_ranges).items())
+    return build(prefs.genre_map, ranges)
 
 
 def active(session) -> GenreMap:
     """The genre map in use, from the preferences."""
     from app import preferences  # preferences imports the database layer
 
-    return from_text(preferences.load(session).genre_map)
+    return of(preferences.load(session))

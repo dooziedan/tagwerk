@@ -14,6 +14,14 @@
 {% if hints %}<small class="seg-hint muted">{{ hints[current] }}</small>{% endif %}
 {% endmacro %}
 
+{# Saving happens in the background (htmx): the server saves and answers with the whole page,
+   and only this section, the overview on the left and the "saved" message are put in. The
+   page doesn't reload or move; other sections keep what you typed there. ``also``: sections
+   the save changes too (old tempo lines in the genre map move to the BPM ranges). #}
+{% macro saves(action, section, also="") -%}
+hx-post="{{ action }}" hx-target="#{{ section }}" hx-select="#{{ section }}" hx-swap="outerHTML show:none" hx-select-oob="#settings-nav,#settings-toasts{{ also }}"
+{%- endmacro %}
+
 {% macro section_head(id, icon, title, text) %}
 <header class="set-head">
   <span class="section-ic">{{ nav_icon(icon) }}</span>
@@ -29,15 +37,16 @@
   </form>
 </div>
 
-{% set saved_text = {"general": "General settings saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved."} %}
-{% if saved in saved_text %}<div class="toasts">{% call toast() %}✅ {{ saved_text[saved] }}{% endcall %}</div>{% endif %}
+{% set saved_text = {"general": "General settings saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "bpm": "BPM ranges saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved."} %}
+<div id="settings-toasts">{% if saved in saved_text %}<div class="toasts">{% call toast() %}✅ {{ saved_text[saved] }}{% endcall %}</div>{% endif %}</div>
 
 <div class="settings-layout">
   {# Where everything is, and how it's set right now. #}
-  <nav class="settings-nav" aria-label="Settings sections">
+  <nav id="settings-nav" class="settings-nav" aria-label="Settings sections">
     <a href="#general">{{ nav_icon("eye") }}<span>General<small>{{ notations[prefs.key_notation].split(" ")[0] }} · {{ "full effects" if prefs.effects == "full" else "lighter effects" }}</small></span></a>
     <a href="#import">{{ nav_icon("inbox") }}<span>Import<small>{{ layouts[prefs.folder_layout] }} · {{ "always ask" if prefs.automation == "ask" else "automatic" }}</small></span></a>
     <a href="#genres">{{ nav_icon("fields") }}<span>Genre map<small>{{ genre_rules | plural('rule') }} · {{ "your own" if genre_map_custom else "built-in" }}</small></span></a>
+    <a href="#bpm">{{ nav_icon("wave") }}<span>BPM ranges<small>{{ bpm_rows | length }} genres · {{ "your own" if bpm_custom else "built-in" }}</small></span></a>
     <a href="#final">{{ nav_icon("final") }}<span>Final tracks<small>{{ "renamed on marking" if prefs.rename_on_final else "names stay" }}</small></span></a>
     <a href="#online">{{ nav_icon("globe") }}<span>Online lookups<small>{{ online | selectattr("on") | list | length }} of {{ online | length }} sources on</small></span></a>
     <a href="#notifications">{{ nav_icon("bell") }}<span>Notifications<small>{{ prefs.notifications.values() | select | list | length }} of {{ topics | length }} on</small></span></a>
@@ -47,7 +56,7 @@
   <div class="settings-body">
     <section id="general" class="settings-section">
       {{ section_head("general", "eye", "General", "How keys read, how much the night sky moves, and your time zone.") }}
-      <form method="post" action="/settings">
+      <form method="post" action="/settings" {{ saves("/settings", "general") }}>
         <div class="setting">
           <div class="setting-text"><strong>Key notation</strong><small class="muted">Files always keep standard keys (Am, F#).</small></div>
           <div class="setting-control">{{ segmented("key_notation", notations, prefs.key_notation, "Key notation") }}</div>
@@ -69,7 +78,7 @@
 
     <section id="import" class="settings-section">
       {{ section_head("import", "inbox", "Import", "Where tracks from the inbox go, and how much Tagwerk does on its own.") }}
-      <form method="post" action="/settings/choices/import">
+      <form method="post" action="/settings/choices/import" {{ saves("/settings/choices/import", "import") }}>
         {% include "partials/choices_folders.html" %}
         {% include "partials/choices_automation.html" %}
         <div class="section-foot"><button type="submit">Save import</button></div>
@@ -78,10 +87,10 @@
 
     <section id="genres" class="settings-section">
       {{ section_head("genres", "fields", "Genre map", "How Tagwerk tidies genres and picks the main genre (and with it the genre folder).") }}
-      <details class="genre-map-box"{% if errors.genre_map %} open{% endif %}>
+      <details class="genre-map-box"{% if errors.genre_map or saved == "genres" %} open{% endif %}>
         <summary>{{ genre_rules | plural('rule') }}, {{ "your own map" if genre_map_custom else "the built-in map" }} <small class="muted">· show and edit</small></summary>
-        <p class="muted"><small>One rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines. Genres from online lookups are matched too, also store categories like <code>Jungle/Drum'n'bass</code> (→ Drum &amp; Bass). <code>Drum &amp; Bass: 160-185 BPM</code> sets a genre's tempo (its subgenres share it): it decides half or double time, so a store's 87 BPM for drum &amp; bass becomes 174. Prefer half time for a genre? Set e.g. <code>Dubstep: 70-75 BPM</code>.</small></p>
-        <form method="post" action="/settings/genres">
+        <p class="muted"><small>One rule per line. <code>Drum &amp; Bass = DnB, D&amp;B</code> unifies spellings; <code>Drum &amp; Bass &gt; Liquid, Neurofunk</code> makes them subgenres (the track gets <code>Drum &amp; Bass; Liquid</code> and the Drum &amp; Bass folder). A genre may have several lines. Genres from online lookups are matched too, also store categories like <code>Jungle/Drum'n'bass</code> (→ Drum &amp; Bass). Each genre's tempo is set under <a href="#bpm">BPM ranges</a>.</small></p>
+        <form method="post" action="/settings/genres" {{ saves("/settings/genres", "genres", ",#bpm") }}>
           <textarea name="genre_map" rows="14" spellcheck="false" class="genre-map"{% if errors.genre_map %} aria-invalid="true"{% endif %}>{{ genre_text }}</textarea>
           {% if errors.genre_map %}<small class="form-error">{{ errors.genre_map }}</small>{% endif %}
           <div class="section-foot">
@@ -92,9 +101,45 @@
       </details>
     </section>
 
+    <section id="bpm" class="settings-section">
+      {{ section_head("bpm", "wave", "BPM ranges", "Each genre's usual tempo. It settles half or double time: a store's 87 BPM for drum & bass becomes 174, and a genre the measured tempo doesn't fit loses. Subgenres share their main genre's range.") }}
+      <form method="post" action="/settings/bpm" {{ saves("/settings/bpm", "bpm") }}>
+        {# Enter in a field presses the form's first button: this one saves, not a row's ×. #}
+        <button type="submit" class="visually-hidden" tabindex="-1" aria-hidden="true">Save BPM ranges</button>
+        <div class="bpm-ranges" role="table" aria-label="BPM ranges">
+          <div class="bpm-row bpm-labels" role="row" aria-hidden="true"><span>Genre</span><span>Lowest</span><span></span><span>Highest</span><span></span></div>
+          {% for row in bpm_rows %}
+          <div class="bpm-row" role="row">
+            <span class="bpm-genre">
+              <input name="genre_{{ loop.index0 }}" value="{{ row.genre }}" aria-label="Genre" autocomplete="off">
+              {% if row.subgenres %}<small class="muted" title="{{ row.subgenres | join(', ') }}">with {{ row.subgenres[:3] | join(", ") }}{% if row.subgenres | length > 3 %} +{{ row.subgenres | length - 3 }}{% endif %}</small>{% endif %}
+            </span>
+            <input name="low_{{ loop.index0 }}" value="{{ row.low }}" inputmode="decimal" aria-label="{{ row.genre }}: lowest BPM">
+            <span class="bpm-dash" aria-hidden="true">–</span>
+            <input name="high_{{ loop.index0 }}" value="{{ row.high }}" inputmode="decimal" aria-label="{{ row.genre }}: highest BPM">
+            <button type="submit" name="remove" value="{{ loop.index0 }}" class="outline secondary bpm-remove" title="Remove {{ row.genre }}" aria-label="Remove {{ row.genre }}">{{ nav_icon("close") }}</button>
+          </div>
+          {% endfor %}
+          <div class="bpm-row bpm-new" role="row">
+            <span class="bpm-genre"><input name="genre_new" placeholder="Add a genre" aria-label="New genre" autocomplete="off"></span>
+            <input name="low_new" placeholder="BPM" inputmode="decimal" aria-label="New genre: lowest BPM">
+            <span class="bpm-dash" aria-hidden="true">–</span>
+            <input name="high_new" placeholder="BPM" inputmode="decimal" aria-label="New genre: highest BPM">
+            <span></span>
+          </div>
+        </div>
+        {% if errors.bpm %}<small class="form-error">{{ errors.bpm }}</small>{% endif %}
+        <p class="muted"><small>Prefer half time for a genre? Set e.g. Dubstep to 70–75. A genre without a range (Electronic, Pop) settles nothing. Spellings from the <a href="#genres">genre map</a> count too: a range for Drum &amp; Bass also covers DnB.</small></p>
+        <div class="section-foot">
+          {% if bpm_custom %}<button type="submit" name="reset" value="1" class="outline secondary" formnovalidate>Back to the built-in ranges</button>{% endif %}
+          <button type="submit">Save BPM ranges</button>
+        </div>
+      </form>
+    </section>
+
     <section id="final" class="settings-section">
       {{ section_head("final", "final", "Final tracks", "") }}
-      <form method="post" action="/settings/choices/final">
+      <form method="post" action="/settings/choices/final" {{ saves("/settings/choices/final", "final") }}>
         {% include "partials/choices_final.html" %}
         <div class="section-foot"><button type="submit">Save final tracks</button></div>
       </form>
@@ -102,7 +147,7 @@
 
     <section id="online" class="settings-section">
       {{ section_head("online", "globe", "Online lookups", "Sources Tagwerk asks about new inbox tracks (and library tracks on request). Only artist, title and, for AcoustID, a fingerprint of the sound are sent; never the file.") }}
-      <form method="post" action="/settings/online">
+      <form method="post" action="/settings/online" {{ saves("/settings/online", "online") }}>
         <div class="source-grid">
           {% for s in online %}
           <label class="source-card">
@@ -129,7 +174,7 @@
 
     <section id="notifications" class="settings-section">
       {{ section_head("notifications", "bell", "Notifications", "What Tagwerk tells you about work done while you were away (the bell). Switched off, a topic writes nothing at all.") }}
-      <form method="post" action="/settings/notifications">
+      <form method="post" action="/settings/notifications" {{ saves("/settings/notifications", "notifications") }}>
         {% for name, topic in topics.items() %}
         <label class="setting setting-switch">
           <span class="setting-text"><strong>{{ topic.label }}</strong><small class="muted">{{ topic.about }}</small></span>
@@ -154,8 +199,8 @@
       </dl>
       {% if not navidrome.library %}<p class="muted"><small>If Navidrome has several libraries, set <strong>Navidrome Library</strong> (<code>NAVIDROME_LIBRARY</code>) to the one that uses your music folder, so only that one is rescanned. <em>Test connection</em> lists them.</small></p>{% endif %}
       <div class="section-foot">
-        <form method="post" action="/settings/navidrome/test"><button class="outline secondary">Test connection</button></form>
-        <form method="post" action="/settings/navidrome/rescan"><button class="outline secondary">Rescan now</button></form>
+        <form method="post" action="/settings/navidrome/test" {{ saves("/settings/navidrome/test", "navidrome") }}><button class="outline secondary">Test connection</button></form>
+        <form method="post" action="/settings/navidrome/rescan" {{ saves("/settings/navidrome/rescan", "navidrome") }}><button class="outline secondary">Rescan now</button></form>
       </div>
       {% else %}
       <p class="muted">Optional. To set it up on Unraid, edit the Tagwerk container and fill in <strong>Navidrome URL</strong> (your server's IP and Navidrome's port, e.g. <code>http://192.168.1.10:4533</code>, or <code>http://navidrome:4533</code> if both containers share a custom Docker network; not <code>localhost</code>), <strong>Navidrome User</strong> and <strong>Navidrome Password</strong>. The user needs admin rights in Navidrome.</p>
@@ -165,29 +210,49 @@
 </div>
 {% include "partials/choices_script.html" %}
 <script>
+  // Bound once to the whole page (and kept across page changes), so sections that come back
+  // from a save work like the rest.
   (function () {
-    // Pills: show the hint of the chosen option.
-    document.querySelectorAll(".seg").forEach(function (seg) {
+    if (window.tagwerkSettings) return setUpZone();
+    window.tagwerkSettings = true;
+    document.addEventListener("change", function (e) {
+      // Pills: show the hint of the chosen option.
+      const seg = e.target.closest && e.target.closest(".seg");
+      if (!seg) return;
       const hint = seg.nextElementSibling && seg.nextElementSibling.classList.contains("seg-hint") ? seg.nextElementSibling : null;
-      seg.addEventListener("change", function (e) {
-        if (hint && e.target.dataset.hint) hint.textContent = e.target.dataset.hint;
-        // Effects apply at once, so you can see the difference before saving.
-        if (e.target.name === "effects") document.documentElement.dataset.effects = e.target.value;
-      });
+      if (hint && e.target.dataset.hint) hint.textContent = e.target.dataset.hint;
+      // Effects apply at once, so you can see the difference before saving.
+      if (e.target.name === "effects") document.documentElement.dataset.effects = e.target.value;
     });
     // Time zone: offer the browser's own, a click picks it (saved with Save).
-    const browserZone = document.querySelector("[data-browser-zone]");
-    const select = document.querySelector("select[name=time_zone]");
-    const own = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (browserZone && own && [...select.options].some((o) => o.value === own) && select.value !== own) {
-      const pick = browserZone.querySelector("button");
-      pick.textContent = own;
-      pick.addEventListener("click", () => { select.value = own; browserZone.hidden = true; });
-      browserZone.hidden = false;
+    document.addEventListener("click", function (e) {
+      const pick = e.target.closest && e.target.closest("[data-browser-zone] button");
+      if (!pick) return;
+      document.querySelector("select[name=time_zone]").value = pick.textContent;
+      pick.closest("[data-browser-zone]").hidden = true;
+    });
+    // A section saved with a mistake comes back as 422: show it, with the message.
+    document.addEventListener("htmx:beforeSwap", function (e) {
+      const elt = e.detail.requestConfig && e.detail.requestConfig.elt;
+      if (e.detail.xhr.status === 422 && elt && elt.closest && elt.closest(".settings-body")) {
+        e.detail.shouldSwap = true;
+        e.detail.isError = false;
+      }
+    });
+    document.addEventListener("htmx:afterSettle", setUpZone);
+    setUpZone();
+
+    function setUpZone() {
+      const zone = document.querySelector("[data-browser-zone]");
+      const select = document.querySelector("select[name=time_zone]");
+      const own = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (!zone || !select || zone.dataset.ready) return;
+      zone.dataset.ready = "yes";
+      if (own && [...select.options].some((o) => o.value === own) && select.value !== own) {
+        zone.querySelector("button").textContent = own;
+        zone.hidden = false;
+      }
     }
-    // After saving: back to the section (base.html drops "saved" from the address).
-    const saved = document.getElementById(new URL(location.href).searchParams.get("saved") || "-");
-    if (saved) saved.scrollIntoView({ block: "start" });
   })();
 </script>
 {% endblock %}

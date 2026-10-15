@@ -96,7 +96,7 @@ def examples(session: Session, prefs: Preferences, limit: int = 3) -> list[dict]
 
 def preview(session: Session, prefs: Preferences, kind: str) -> list[tuple[str, str]]:
     """(original filename, result) for the example tracks: the folder or the final name."""
-    genre_map = genres.from_text(prefs.genre_map)
+    genre_map = genres.of(prefs)
     existing = naming.existing_folders(get_settings().music_dir)
     result = []
     for ex in examples(session, prefs):
@@ -114,7 +114,7 @@ def preview(session: Session, prefs: Preferences, kind: str) -> list[tuple[str, 
 
 def main_genres(session: Session, prefs: Preferences, limit: int = 16) -> list[tuple[str, int]]:
     """The most common main genres in the library and inbox, to offer as genre folders."""
-    genre_map = genres.from_text(prefs.genre_map)
+    genre_map = genres.of(prefs)
     counts: Counter[str] = Counter()
     values = list(session.exec(select(Track.genre).where(Track.genre.is_not(None))))
     values += session.exec(select(InboxTrack.genre).where(InboxTrack.genre.is_not(None)))

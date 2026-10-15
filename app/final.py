@@ -52,7 +52,7 @@ def new_name(session: Session, track: Track) -> str:
     """The filename the pattern gives this track (same extension)."""
     prefs = preferences.load(session)
     values = {f: writer.current_value(track, f) for f in writer.EDITABLE}
-    names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation)
+    names = naming.values_for(values, genres.of(prefs), prefs.key_notation)
     suffix = PurePosixPath(track.path).suffix
     name = naming.filename(prefs.filename_pattern, names, suffix)
     stem = name[: -len(suffix)] if suffix else name

@@ -123,12 +123,10 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   with review, apply and undo like every other edit (RIFF INFO of WAV files too). Pictures and
   private data can only be removed; when a field that feeds a Tagwerk field (`TBPM` → BPM) and
   that field both change, the normal field wins.
-- **BPM ranges as their own settings** (next release, decided by the owner 2026-10-13). Since
-  0.26 each genre's tempo range is a line in the genre map (`Drum & Bass: 160-185 BPM`,
-  [ADR 0041](decisions/0041-genre-and-bpm-weighed.md)); it settles half or double time of
-  online and measured BPMs. Move them to a separate Settings section: one row per genre with its
-  BPM range, easy to change (e.g. a genre the owner plays at half time), add or remove, without
-  editing the map's text. Subgenres keep sharing their main genre's range.
+- **BPM ranges as their own settings** ✅ next release
+  ([ADR 0042](decisions/0042-bpm-ranges.md)). Settings → BPM ranges: one row per genre with
+  its range, changed, added or removed without editing the genre map's text; subgenres share
+  their main genre's range. Tempo lines in an old genre map move there by themselves.
 - **Even loudness on the decks: change the sound itself**. CDJs and XDJs don't read ReplayGain.
   Apply the measured gain ([ADR 0029](decisions/0029-loudness-and-replaygain-check.md)) to the
   audio of lossless files (AIFF, WAV, FLAC: exact, no quality loss), keeping originals and undo
