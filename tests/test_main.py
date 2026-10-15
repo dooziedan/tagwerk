@@ -57,6 +57,7 @@ def test_settings_api(client):
         "remove_traktor_on_import": False,
         "replace_automatically": False,
         "genre_map": "",
+        "bpm_ranges": None,  # the built-in ones
         "online_sources": ["acoustid", "musicbrainz", "discogs", "beatport", "deezer", "itunes"],
         "rename_on_final": False,
         "filename_pattern": "{artist} - {title}",

@@ -106,7 +106,7 @@ def plan(
     found_ids = _online_ids(session, track, fields, mine, changes)
     for name, (value, source, _why) in found_ids.items():
         changes[name], old[name], sources[name] = value, None, source
-    names = naming.values_for(values, genres.from_text(prefs.genre_map), prefs.key_notation, added)
+    names = naming.values_for(values, genres.of(prefs), prefs.key_notation, added)
     existing = naming.existing_folders(music_dir)
     folder = naming.folder(
         prefs.folder_layout, prefs.folder_pattern, names, prefs.genre_folders, existing

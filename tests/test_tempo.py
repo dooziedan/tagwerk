@@ -5,8 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import analysis, genres, identify, tempo
+from app import analysis, genres, identify, preferences, tempo
 from app.models import Track
+from app.preferences import Preferences
 from app.sources.base import Candidate
 
 
@@ -30,10 +31,15 @@ def analysed(bpm, alternatives=(), sure=False):
     )
 
 
-# --- Tempo rules in the genre map ------------------------------------------------------------
+# --- BPM ranges (Settings → BPM ranges, ADR 0042) -------------------------------------------
 
 
-def test_the_genre_map_knows_tempos_and_the_owner_can_change_them():
+def ranges(text="", **own):
+    """A genre map with the owner's BPM ranges (genre=(low, high)); no ranges: the built-in."""
+    return genres.of(Preferences(genre_map=text, bpm_ranges=own or None))
+
+
+def test_the_bpm_ranges_know_tempos_and_the_owner_can_change_them():
     assert genres.DEFAULT.tempo_of("Drum & Bass; Liquid") == ("Drum & Bass", (160, 185))
     assert genres.DEFAULT.tempo_of("Neurofunk") == ("Neurofunk", (160, 185))  # a subgenre
     assert genres.DEFAULT.tempo_of("Melodic House & Techno") == (
@@ -41,16 +47,41 @@ def test_the_genre_map_knows_tempos_and_the_owner_can_change_them():
         (110, 150),
     )
     assert genres.DEFAULT.tempo_of("Electronic") is None
-    # An owner who plays dubstep at half time says so in the map.
-    own = genres.from_text("Dubstep > Riddim\nDubstep: 70-75 BPM\n")
+    assert ranges().tempo_of("DnB") == ("DnB", (160, 185))  # spellings count
+    # An owner who plays dubstep at half time sets its range; subgenres follow.
+    own = ranges("Dubstep > Riddim\n", Dubstep=[70, 75])
     assert own.tempo_of("Riddim") == ("Riddim", (70, 75))
-    assert own.tempo_of("Drum & Bass") is None  # their map has its own tempo rules only
+    assert own.tempo_of("Drum & Bass") is None  # their own ranges only
+    # An own genre map without ranges keeps the built-in ranges.
+    assert ranges("Drum & Bass = Drum und Bass\n").tempo_of("Drum und Bass")[1] == (160, 185)
     assert genres.GenreMap.problems("Dubstep: 70-75 BPM\nTechno: 125 - 140\nnonsense") == [3]
-    # A map saved before tempo rules existed keeps the built-in tempos, and Settings shows them.
-    assert genres.from_text("Drum & Bass = DnB\n").tempo_of("DnB") == ("DnB", (160, 185))
-    shown = genres.with_tempos("Drum & Bass = DnB\n")
-    assert shown.startswith("Drum & Bass = DnB\nDrum & Bass: 160-185 BPM\n")
-    assert genres.with_tempos("Techno: 125-140 BPM") == "Techno: 125-140 BPM"
+
+
+def test_old_tempo_lines_in_the_genre_map_move_to_the_bpm_ranges():
+    # A map saved with 0.26 holds its tempos as lines: they become the ranges, all of them.
+    prefs = preferences._validated(
+        Preferences(genre_map="Dubstep > Riddim\nDubstep: 70-75 BPM\nTechno: 125 - 140\n")
+    )
+    assert prefs.genre_map == "Dubstep > Riddim\n"
+    assert prefs.bpm_ranges == {"Dubstep": [70, 75], "Techno": [125, 140]}
+    # The built-in tempo lines alone: back to the built-in ranges, which keep up with updates.
+    lines = "".join(f"{g}: {lo}-{hi} BPM\n" for g, (lo, hi) in tempo.DEFAULT_RANGES.items())
+    prefs = preferences._validated(Preferences(genre_map=genres.DEFAULT_MAP + lines))
+    assert prefs.bpm_ranges is None and prefs.genre_map == genres.DEFAULT_MAP
+    # With own ranges already, a pasted tempo line is added to them.
+    prefs = preferences._validated(
+        Preferences(genre_map="House: 120-130 BPM", bpm_ranges={"Techno": [125, 140]})
+    )
+    assert prefs.genre_map == "" and prefs.bpm_ranges == {"Techno": [125, 140], "House": [120, 130]}
+
+
+def test_odd_bpm_ranges_are_left_out():
+    cleaned = tempo.clean_ranges(
+        {"Techno": [140, 125], "techno": [1, 2], "": [80, 90], "Ambient": [10, 20], "X": "fast"}
+    )
+    assert cleaned == {"Techno": (125, 140)}  # sorted; twice, empty, out of limits, no numbers
+    assert tempo.clean_ranges(dict(tempo.DEFAULT_RANGES)) is None  # same as built in
+    assert tempo.clean_ranges("nonsense") is None
 
 
 def test_fold_reads_a_tempo_at_the_genres_speed():

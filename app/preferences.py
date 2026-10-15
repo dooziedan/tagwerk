@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo, available_timezones
 from fastapi import Depends
 from sqlmodel import Session, select
 
+from app import tempo
 from app.db import SessionDep
 from app.keys import NOTATIONS
 from app.models import AppSetting
@@ -76,6 +77,9 @@ class Preferences:
     replace_automatically: bool = False
     # The genre map (app/genres.py) as plain text; empty: the built-in one.
     genre_map: str = ""
+    # Settings → BPM ranges: genre -> [low, high], its usual tempo (ADR 0042); None: the
+    # built-in ranges (tempo.DEFAULT_RANGES), which keep up with updates.
+    bpm_ranges: dict[str, list[float]] | None = None
 
     # Online identification (Settings → Online lookups, app/identify.py): which sources to ask.
     online_sources: list[str] = field(
@@ -142,6 +146,7 @@ def _validated(prefs: Preferences) -> Preferences:
         setattr(prefs, names, [str(g).strip() for g in value if str(g).strip()])
     for text in ("folder_pattern", "filename_pattern", "genre_map"):
         setattr(prefs, text, str(getattr(prefs, text) or ""))
+    prefs.genre_map, prefs.bpm_ranges = _ranges_moved(prefs.genre_map, prefs.bpm_ranges)
     prefs.folder_pattern = prefs.folder_pattern.strip() or default.folder_pattern
     prefs.filename_pattern = prefs.filename_pattern.strip() or default.filename_pattern
     chosen = prefs.notifications if isinstance(prefs.notifications, dict) else {}
@@ -149,6 +154,18 @@ def _validated(prefs: Preferences) -> Preferences:
     hidden = prefs.hidden_hints if isinstance(prefs.hidden_hints, list) else []
     prefs.hidden_hints = [key for key in HINTS if key in hidden]
     return prefs
+
+
+def _ranges_moved(text: str, ranges) -> tuple[str, dict[str, list[float]] | None]:
+    """BPM ranges are their own setting since 0.27 (ADR 0042). A genre map saved earlier may
+    hold tempo lines ("Drum & Bass: 160-185 BPM"): they move to the ranges. Without own ranges
+    they become the ranges, as the map's tempo lines were all of them; else they're added."""
+    text, moved = tempo.split_ranges(text)
+    if moved:
+        own = tempo.ranges_of(tempo.clean_ranges(ranges))
+        ranges = moved if ranges is None else {**own, **moved}
+    cleaned = tempo.clean_ranges(ranges)
+    return text, None if cleaned is None else {name: list(pair) for name, pair in cleaned.items()}
 
 
 @cache

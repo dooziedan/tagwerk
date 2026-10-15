@@ -86,6 +86,13 @@ def test_settings_sections_change_the_same_choices(client):
     assert prefs(client)["genre_map"] == "Breaks = Breakbeat"
     client.post("/settings/genres", data={"reset": "1"})
     assert prefs(client)["genre_map"] == ""
+    # An old tempo line typed into the map goes to the BPM ranges.
+    client.post("/settings/genres", data={"genre_map": "Breaks = Breakbeat\nBreaks: 125-140 BPM"})
+    p = prefs(client)
+    assert p["genre_map"].strip() == "Breaks = Breakbeat" and p["bpm_ranges"]["Breaks"] == [
+        125,
+        140,
+    ]
 
     again = client.post("/settings/setup-again", follow_redirects=False)
     assert again.headers["location"] == "/setup" and prefs(client)["setup_done"] is False
@@ -104,3 +111,87 @@ def test_import_uses_the_chosen_folder_layout(client, settings):
     client.post("/inbox/import", data={"ids": [str(track)]})
     write_job.wait(30)
     assert (settings.music_dir / "Artist One" / "x.flac").exists()  # the filename never changes
+
+
+def bpm_form(client) -> dict:
+    """The BPM ranges form as the page shows it: genre_0, low_0, high_0, …"""
+    import re
+
+    page = client.get("/settings").text
+    section = page[page.index('action="/settings/bpm"') :]
+    section = section[: section.index("</form>")]
+    return dict(re.findall(r'name="((?:genre|low|high)_\d+)" value="([^"]*)"', section))
+
+
+def test_bpm_ranges_in_settings(client):
+    page = client.get("/settings").text
+    assert 'id="bpm"' in page and "BPM ranges" in page and "19 genres · built-in" in page
+    assert "with Liquid, Liquid Funk, Liquid Drum &amp; Bass +6" in page  # subgenres share it
+    # Saved in the background: only the section, the overview and the message are replaced.
+    assert 'hx-post="/settings/bpm" hx-target="#bpm" hx-select="#bpm"' in page
+    assert 'id="settings-nav"' in page and 'id="settings-toasts"' in page
+    form = bpm_form(client)
+    dubstep = next(k.split("_")[1] for k, v in form.items() if v == "Dubstep")
+    assert (form[f"low_{dubstep}"], form[f"high_{dubstep}"]) == ("135", "150")
+
+    # Change one (half time), add one, remove one: all in one save.
+    form[f"low_{dubstep}"], form[f"high_{dubstep}"] = "70", "75"
+    juke = next(k.split("_")[1] for k, v in form.items() if v == "Juke")
+    saved = client.post(
+        "/settings/bpm",
+        data={**form, "genre_new": "Breaks", "low_new": "125", "high_new": "140", "remove": juke},
+        follow_redirects=False,
+    )
+    assert saved.headers["location"] == "/settings?saved=bpm"
+    ranges = prefs(client)["bpm_ranges"]
+    assert ranges["Dubstep"] == [70, 75] and ranges["Breaks"] == [125, 140]
+    assert "Juke" not in ranges and len(ranges) == 19
+    assert "your own" in client.get("/settings").text
+
+    # Mistakes come back with the rows as typed and a message.
+    bad = client.post("/settings/bpm", data={"genre_0": "House", "low_0": "fast", "high_0": "130"})
+    assert bad.status_code == 422 and "House: enter the lowest and the highest BPM" in bad.text
+    assert 'value="fast"' in bad.text
+    twice = client.post(
+        "/settings/bpm",
+        data={"genre_0": "House", "low_0": "120", "high_0": "130", "genre_1": "house",
+              "low_1": "110", "high_1": "120"},
+    )  # fmt: skip
+    assert twice.status_code == 422 and "house is listed twice" in twice.text
+    wide = client.post("/settings/bpm", data={"genre_0": "Ambient", "low_0": "20", "high_0": "60"})
+    assert wide.status_code == 422 and "from 40 to 300" in wide.text
+    assert prefs(client)["bpm_ranges"]["Dubstep"] == [70, 75]  # nothing saved
+
+    client.post("/settings/bpm", data={"reset": "1"})
+    assert prefs(client)["bpm_ranges"] is None
+
+
+def test_new_bpm_ranges_decide_the_library_bpm_again(client, engine):
+    """After saving, the library's BPM decisions follow the new ranges right away."""
+    import json
+
+    from sqlmodel import Session
+
+    from app.models import LibraryAnalysis, Track
+
+    with Session(engine) as session:
+        track = Track(
+            path="d.mp3",
+            format="mp3",
+            size=1,
+            mtime=0,
+            title="T",
+            artist="A",
+            genre="Dubstep",
+            bpm=None,
+        )
+        session.add(track)
+        session.commit()
+        detail = {"bpm_alternatives": [70.0], "key_alternatives": []}
+        session.add(LibraryAnalysis(track_id=track.id, bpm=140.0, bpm_sure=True,
+                                    detail=json.dumps(detail)))  # fmt: skip
+        session.commit()
+        track_id = track.id
+    client.post("/settings/bpm", data={"genre_0": "Dubstep", "low_0": "70", "high_0": "75"})
+    with Session(engine) as session:
+        assert session.get(LibraryAnalysis, track_id).decided_bpm == 70

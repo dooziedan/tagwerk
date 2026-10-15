@@ -85,7 +85,7 @@ class Plan:
 def plan(session: Session, settings: Settings, tracks: list[Track]) -> list[Plan]:
     """What converting these tracks would do; tracks that can't be converted say why."""
     prefs = preferences.load(session)
-    genre_map = genres.from_text(prefs.genre_map)
+    genre_map = genres.of(prefs)
     existing = naming.existing_folders(settings.music_dir)
     pending = set(
         session.exec(

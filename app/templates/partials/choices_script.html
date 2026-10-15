@@ -1,44 +1,49 @@
 <script>
   // Shared by the wizard and Settings: live previews, layout details, placeholder chips.
+  // Bound once to the whole page (and kept across page changes), so a Settings section that
+  // comes back from a save works like the rest.
   (function () {
-    document.querySelectorAll(".choice-cards").forEach(function (cards) {
-      cards.addEventListener("change", function () {
-        cards.querySelectorAll(".choice-card").forEach((c) => c.classList.toggle("selected", c.querySelector("input").checked));
+    if (window.tagwerkChoices) return;
+    window.tagwerkChoices = true;
+    const timers = new WeakMap();
+    function refresh(box) {
+      const params = new URLSearchParams({ kind: box.dataset.kind });
+      box.querySelectorAll("input").forEach(function (input) {
+        if ((input.type === "radio" || input.type === "checkbox") && !input.checked) return;
+        if (input.name) params.append(input.name, input.type === "checkbox" && input.value === "on" ? "on" : input.value);
       });
-    });
-    // A switch that shows its details only while it's on (data-shows: the id of the details).
-    document.querySelectorAll("[data-shows]").forEach(function (box) {
-      box.addEventListener("change", function () { document.getElementById(box.dataset.shows).hidden = !box.checked; });
-    });
-    document.querySelectorAll(".live-preview").forEach(function (box) {
-      let timer;
-      function refresh() {
-        const params = new URLSearchParams({ kind: box.dataset.kind });
-        box.querySelectorAll("input").forEach(function (input) {
-          if ((input.type === "radio" || input.type === "checkbox") && !input.checked) return;
-          if (input.name) params.append(input.name, input.type === "checkbox" && input.value === "on" ? "on" : input.value);
-        });
-        fetch("/setup/preview?" + params).then((r) => r.text()).then(function (html) {
-          document.getElementById(box.dataset.target).innerHTML = html;
-        });
+      fetch("/setup/preview?" + params).then((r) => r.text()).then(function (html) {
+        document.getElementById(box.dataset.target).innerHTML = html;
+      });
+    }
+    document.addEventListener("change", function (e) {
+      const input = e.target;
+      if (!input.closest) return;
+      const cards = input.closest(".choice-cards");
+      if (cards) cards.querySelectorAll(".choice-card").forEach((c) => c.classList.toggle("selected", c.querySelector("input").checked));
+      // A switch that shows its details only while it's on (data-shows: the id of the details).
+      if (input.matches("[data-shows]")) document.getElementById(input.dataset.shows).hidden = !input.checked;
+      const box = input.closest(".live-preview");
+      if (box && input.name === "folder_layout") {
+        box.querySelectorAll(".layout-detail").forEach((d) => { d.hidden = d.dataset.for !== input.value; });
       }
-      box.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(refresh, 250); });
-      box.querySelectorAll("input[name=folder_layout]").forEach(function (radio) {
-        radio.addEventListener("change", function () {
-          box.querySelectorAll(".layout-detail").forEach((d) => { d.hidden = d.dataset.for !== radio.value; });
-        });
-      });
-      box.querySelectorAll("[data-insert]").forEach(function (chip) {
-        chip.addEventListener("click", function () {
-          const field = box.querySelector("input[name=filename_pattern]");
-          const at = field.selectionStart ?? field.value.length;
-          const before = field.value.slice(0, at);
-          const space = before && !/[\s\[(]$/.test(before) ? " " : "";  // "{title}" + " {bpm}"
-          field.value = before + space + chip.dataset.insert + field.value.slice(field.selectionEnd ?? at);
-          field.focus();
-          field.dispatchEvent(new Event("input", { bubbles: true }));
-        });
-      });
+    });
+    document.addEventListener("input", function (e) {
+      const box = e.target.closest && e.target.closest(".live-preview");
+      if (!box) return;
+      clearTimeout(timers.get(box));
+      timers.set(box, setTimeout(() => refresh(box), 250));
+    });
+    document.addEventListener("click", function (e) {
+      const chip = e.target.closest && e.target.closest(".live-preview [data-insert]");
+      if (!chip) return;
+      const field = chip.closest(".live-preview").querySelector("input[name=filename_pattern]");
+      const at = field.selectionStart ?? field.value.length;
+      const before = field.value.slice(0, at);
+      const space = before && !/[\s\[(]$/.test(before) ? " " : "";  // "{title}" + " {bpm}"
+      field.value = before + space + chip.dataset.insert + field.value.slice(field.selectionEnd ?? at);
+      field.focus();
+      field.dispatchEvent(new Event("input", { bubbles: true }));
     });
   })();
 </script>
