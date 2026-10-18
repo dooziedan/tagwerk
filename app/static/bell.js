@@ -1,9 +1,9 @@
-// The bell (ADR 0035): opens the notification menu (#bell-panel in base.html). A summary opens
-// its card: beside the menu on wide screens, in the menu's place on phones and narrow windows
-// (with ← Back). Escape and a click outside close everything.
-// Opening the menu or a card marks nothing as read: only the ✓ Read buttons do.
+// The bell (ADR 0035, 0043): opens the notification menu (#bell-panel in base.html) with the
+// unread notifications. A summary is a link to the notification on the Notifications page; ✓
+// marks it as read in place. Escape and a click outside close the menu.
+// Opening the menu marks nothing as read.
 (function () {
-  const WIDE = "(min-width: 1100px)"; // the side menu shows (app.css), so the card fits beside
+  const WIDE = "(min-width: 1100px)"; // the side menu shows (app.css)
   let opener = null; // the button that opened the menu: it gets the focus back
 
   const panel = () => document.getElementById("bell-panel");
@@ -32,7 +32,6 @@
     if (!p) return;
     opener = from;
     document.querySelectorAll("details.dropdown[open]").forEach((d) => (d.open = false));
-    closeCard();
     place(p);
     p.hidden = false;
     expanded(true);
@@ -44,21 +43,8 @@
     const p = panel();
     if (!p || p.hidden) return;
     p.hidden = true;
-    closeCard();
     expanded(false);
     if (opener && opener.offsetParent) opener.focus();
-  }
-
-  function closeCard() {
-    const p = panel();
-    if (!p) return;
-    const shown = p.querySelector("[data-bell-item][aria-current]");
-    document.getElementById("bell-card").innerHTML = "";
-    p.classList.remove("with-card");
-    if (shown) {
-      shown.removeAttribute("aria-current");
-      if (p.contains(document.activeElement) || document.activeElement === document.body) shown.focus();
-    }
   }
 
   document.addEventListener("click", (e) => {
@@ -66,13 +52,6 @@
     if (bell) {
       e.preventDefault();
       panel().hidden ? open(bell.matches("[data-bell]") ? bell : visibleBell()) : close();
-      return;
-    }
-    if (e.target.closest("[data-bell-back]")) return closeCard();
-    const item = e.target.closest("[data-bell-item]");
-    if (item) {
-      panel().querySelectorAll("[data-bell-item][aria-current]").forEach((b) => b.removeAttribute("aria-current"));
-      item.setAttribute("aria-current", "true");
       return;
     }
     const p = panel();
@@ -83,17 +62,20 @@
     if (e.key === "Escape" && panel() && !panel().hidden) close();
   });
 
+  // ✓ removed the row that had the focus: the menu takes it, so the keyboard stays in it.
   document.addEventListener("htmx:afterSwap", (e) => {
-    const target = e.detail.target;
-    if (target.id === "bell-card") {
-      panel().classList.add("with-card");
-      const card = target.querySelector(".note-card");
-      if (card) card.focus();
-    } else if (target.id === "bell-list" && panel().classList.contains("with-card")) {
-      closeCard(); // ✓ Read: back to the list, without it
-      panel().focus();
-    }
+    if (e.detail.target.id === "bell-list" && document.activeElement === document.body) panel().focus();
   });
+
+  // The tab's title starts with the bell's number, like other web apps: "(3) Inbox · Tagwerk".
+  function title() {
+    const count = document.getElementById("bell-count-side");
+    const n = count ? Number(count.dataset.count || 0) : 0;
+    const plain = document.title.replace(/^\(\d+\) /, "");
+    document.title = n ? `(${n}) ${plain}` : plain;
+  }
+  title();
+  document.addEventListener("htmx:afterSettle", title);
 
   addEventListener("resize", () => {
     const p = panel();

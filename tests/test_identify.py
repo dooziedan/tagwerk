@@ -221,7 +221,7 @@ def test_a_refused_key_becomes_one_notification(web, monkeypatch, engine, settin
     identify.lookup(engine, settings, track)
     identify.lookup(engine, settings, track, force=True)
     with Session(engine) as session:
-        summaries = [n.summary for n in notifications.unread(session)]
+        summaries = [n.summary for n in notifications.current(session)]
     assert summaries == ["Discogs refused Tagwerk's key"]  # the others answered: nothing
 
 

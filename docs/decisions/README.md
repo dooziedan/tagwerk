@@ -53,7 +53,7 @@ What gets easier, what gets harder.
 | [0032](0032-ids-from-the-online-lookup.md) | MusicBrainz and Discogs IDs from the online lookup: only sure ones, only for empty fields | Accepted |
 | [0033](0033-discogs-track-ids.md) | Discogs track IDs (`33199809-3`): their own field, kept by Fix IDs, found in the release's tracklist | Accepted |
 | [0034](0034-longer-versions.md) | Longer versions: Beatport, Discogs tracklists, and recognising club mixes | Accepted |
-| [0035](0035-notifications.md) | Notifications: what Tagwerk did while you were away; few, chosen by the owner, read and cleared only by the owner | Accepted |
+| [0035](0035-notifications.md) | Notifications: what Tagwerk did while you were away; few, chosen by the owner, read and cleared only by the owner | Accepted (reading changed by 0043) |
 | [0036](0036-secret-tracks.md) | Secret tracks: edits and bootlegs, never looked up online, complete without a cover | Accepted |
 | [0037](0037-better-copies.md) | Better copies: an inbox file that sounds better replaces its library copy (tags, folder and name stay; the old file goes to the library trash) | Accepted |
 | [0038](0038-fast-inbox.md) | A fast Inbox: what is stored about the tracks is read once, background checks only do what's needed | Accepted |
@@ -61,3 +61,4 @@ What gets easier, what gets harder.
 | [0040](0040-no-import-circles.md) | Modules import in one direction: undo in its own module, no circles, not even inside functions | Accepted |
 | [0041](0041-genre-and-bpm-weighed.md) | Online genre and BPM weighed together: tempo rules in the genre map read store BPMs at the genre's speed (87 → 174), the measured tempo rules out wrong genres | Accepted (tempos moved by 0042) |
 | [0042](0042-bpm-ranges.md) | BPM ranges are their own Settings section, one row per genre; old tempo lines in the genre map move there | Accepted |
+| [0043](0043-notifications-read-on-opening.md) | Notifications: the bell's menu lists the unread ones (click: open it on the page; ✓: mark as read); on the page, opening reads it and it stays in New until cleared (× or Clear all); Mark as unread; the unread number in the tab's title | Accepted |

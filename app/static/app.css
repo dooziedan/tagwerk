@@ -1613,19 +1613,17 @@ article table thead th, table.kv thead th { background: none; }
 .bell-items li { list-style: none; margin: 0; }
 .bell-item {
   display: flex; align-items: flex-start; gap: 0.7rem; width: 100%; margin: 0; padding: 0.6rem 0.6rem; border: 0; border-radius: 10px;
-  background: transparent; box-shadow: none; color: var(--tw-ink-1); text-align: left; font-size: 0.9rem; font-weight: 400;
+  background: transparent; box-shadow: none; color: var(--tw-ink-1); text-align: left; font-size: 0.9rem; font-weight: 400; text-decoration: none;
 }
-/* Hover, and the row whose card is open: a gold glow all around (not dropped below like the
-   buttons' glow), tight, with a thin gold edge. */
-.bell-item:hover, .bell-item:focus-visible, .bell-item[aria-current] {
-  background: rgba(129, 140, 248, 0.08); color: var(--tw-ink);
+/* Hover: a gold glow all around (not dropped below like the buttons' glow), tight, with a thin
+   gold edge. */
+.bell-item:hover, .bell-item:focus-visible {
+  background: rgba(129, 140, 248, 0.08); color: var(--tw-ink); text-decoration: none;
   box-shadow: inset 0 0 0 1px var(--tw-gold-line), 0 0 12px rgba(245, 197, 66, 0.28);
 }
-.bell-item[aria-current] { background: rgba(129, 140, 248, 0.14); }
 .bell-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
 .bell-summary { color: var(--tw-ink); font-weight: 550; line-height: 1.35; }
 .bell-text small { color: var(--tw-ink-2); font-size: 0.78rem; }
-.bell-more { align-self: center; color: var(--tw-ink-3); }
 .bell-empty { display: flex; align-items: center; gap: 0.55rem; margin: 0; padding: 1.1rem 1rem; color: var(--tw-ink-2); font-size: 0.9rem; }
 .bell-empty svg { color: var(--tw-ok); }
 .bell-all { display: block; padding: 0.7rem 1rem; border-top: 1px solid var(--tw-line-soft); text-align: center; font-weight: 600; font-size: 0.9rem; text-decoration: none; }
@@ -1639,27 +1637,25 @@ article table thead th, table.kv thead th { background: none; }
 .note-kind.kind-needs_you { color: var(--tw-gold); }
 .note-kind.kind-problem { color: var(--tw-warn); }
 
-/* The card: one notification's details, hovering beside the menu on wide screens. */
-.bell-card:empty { display: none; }
-.bell-card {
-  position: absolute; top: 0; left: calc(100% + 12px); width: 24rem; max-width: calc(100vw - 100% - 3rem);
-  border: 1px solid var(--tw-line); border-radius: 16px; background: var(--tw-space-1); box-shadow: var(--tw-glass-edge), 0 0 36px rgba(0, 0, 0, 0.5);
+/* The round ✓ (menu) and × (page) beside a row. Hovered: a soft gold glow, centred. */
+.bell-read, .note-clear {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; margin: 0.45rem 0 0; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; box-shadow: none; color: var(--tw-ink-3);
 }
-/* The card itself never scrolls, so nothing cuts off the buttons' glow; a very long message
-   scrolls on its own. */
-.note-card { padding: 0.75rem 1.1rem 1.1rem; }
-.note-card .note-message { max-height: 40vh; overflow-y: auto; }
-.note-card:focus { outline: none; }
-.note-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
-.bell-back, .bell-x { width: auto; margin: 0; border: 0; background: transparent; box-shadow: none; color: var(--tw-ink-2); font-size: 0.88rem; }
-/* ← Back: a pill; ×: a circle with the cross drawn in its middle. */
-.bell-back { display: none; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem 0.3rem 0.6rem; border-radius: 999px; }
-.bell-x { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; margin-left: auto; border-radius: 50%; }
-/* Hovered: a soft gold glow, centred on the button. */
-.bell-back:hover, .bell-x:hover, .bell-back:focus-visible, .bell-x:focus-visible {
+.bell-read svg, .note-clear svg { width: 14px; height: 14px; }
+.bell-read:hover, .note-clear:hover, .bell-read:focus-visible, .note-clear:focus-visible {
   color: var(--tw-ink); background: rgba(129, 140, 248, 0.1); box-shadow: 0 0 22px rgba(245, 197, 66, 0.4);
 }
-.note-title { margin: 0 0 0.45rem; font-size: 1.02rem; font-weight: 650; color: var(--tw-ink); line-height: 1.35; }
+/* On the page, unread: a gold dot before the summary. Read ones stay in New until cleared,
+   quieter (ADR 0043). */
+.unread-dot { display: inline-block; width: 0.5rem; height: 0.5rem; margin: 0 0.45rem 0.12rem 0; border-radius: 50%; background: var(--tw-gold); vertical-align: middle; }
+.is-read .bell-summary { color: var(--tw-ink-2); font-weight: 400; }
+.is-read .kind-ic { opacity: 0.6; }
+.bell-row { display: flex; align-items: flex-start; gap: 0.2rem; }
+.bell-row .bell-item { flex: 1; min-width: 0; }
+/* Mark all read in the menu's head: a small text button. */
+.bell-link { width: auto; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--tw-indigo-300); font-size: 0.8rem; font-weight: 600; }
+.bell-link:hover, .bell-link:focus-visible { color: var(--tw-ink); background: transparent; text-decoration: underline; }
 .note-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.4rem; margin: 0 0 0.6rem; font-size: 0.82rem; color: var(--tw-ink-2); }
 .note-meta time { flex-basis: 100%; color: var(--tw-ink-3); }
 .note-meta .kind-ic { width: 1.5rem; height: 1.5rem; border-radius: 7px; }
@@ -1670,13 +1666,9 @@ article table thead th, table.kv thead th { background: none; }
 .note-actions button, .note-actions [role="button"] { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 0.3rem; }
 .note-actions button svg { width: 15px; height: 15px; }
 
-/* Phones and narrow windows: below the top bar; the details replace the list (← Back). */
+/* Phones and narrow windows: below the top bar. */
 @media (max-width: 1099px) {
   .bell-panel { right: 0.75rem; left: auto; width: 24rem; max-height: calc(100vh - 6rem); }
-  .bell-card { position: static; width: auto; max-width: none; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-  .bell-panel.with-card .bell-list { display: none; }
-  .bell-back { display: inline-flex; }
-  .bell-x { display: none; }
   .topbar .bell-button { padding: 0.4rem 0.6rem; font-size: 0.88rem; }
 }
 /* Below 430 px only the logo shows, so the bell fits beside Inbox, Changes and the menu. */
@@ -1691,13 +1683,17 @@ article table thead th, table.kv thead th { background: none; }
 .note-list > li { list-style: none; margin: 0; }
 .note-day { padding: 0.9rem 0 0.25rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tw-ink-3); }
 .note-day:first-child { padding-top: 0; }
-.note-entry { margin: 0; border-bottom: 1px solid var(--tw-line-soft); }
-.note-list > li:last-child .note-entry { border-bottom: 0; }
+.note-row { display: flex; align-items: flex-start; gap: 0.2rem; border-bottom: 1px solid var(--tw-line-soft); }
+.note-list > .note-row:last-child { border-bottom: 0; }
+.note-row > .note-entry { flex: 1; min-width: 0; }
+.note-row > form { margin: 0; }
+.note-entry { margin: 0; }
 .note-entry > summary { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.65rem 0; font-size: 0.92rem; list-style: none; }
 .note-entry > summary::-webkit-details-marker { display: none; }
 .note-entry > summary::after { align-self: center; flex: none; }
 .note-body { padding: 0 0 0.9rem 2.7rem; }
 #new .card-head form, #history .card-head form { margin: 0; }
+.card-head .head-action { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
 #new .card-head button, #history .card-head button { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 0.3rem; }
 #new .card-head button svg { width: 15px; height: 15px; }
 @media (max-width: 576px) { .note-body { padding-left: 0; } }
@@ -1707,6 +1703,5 @@ article table thead th, table.kv thead th { background: none; }
 .setting-switch input[role="switch"] { margin: 0; }
 
 @media (forced-colors: active) {
-  .bell-panel, .bell-card { background: Canvas; border: 1px solid CanvasText; }
-  .bell-item[aria-current] { outline: 2px solid Highlight; }
+  .bell-panel { background: Canvas; border: 1px solid CanvasText; }
 }

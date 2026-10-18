@@ -357,8 +357,9 @@ class NotDuplicate(SQLModel, table=True):
 class Notification(SQLModel, table=True):
     """Something Tagwerk did or found while the owner was away (app/notifications.py, ADR 0035).
 
-    Unread ones (``read_at`` empty) are "New"; read ones are the History. Nothing is removed on
-    its own: only the owner's "Clear history" deletes read ones.
+    Unread ones (``read_at`` empty) are in the bell's menu. Read ones stay in "New" on the page
+    until the owner clears them (``cleared_at``), then they are in the History. Nothing is
+    removed on its own: only the owner's "Clear history" deletes cleared ones (ADR 0043).
     """
 
     id: int | None = Field(default=None, primary_key=True)
@@ -369,7 +370,8 @@ class Notification(SQLModel, table=True):
     summary: str  # one short line (the menu)
     message: str = ""  # the details, plain text; may have several lines
     url: str | None = None  # where the owner can act on it
-    read_at: datetime | None = Field(default=None, index=True)  # when ✓ Read was pressed
+    read_at: datetime | None = Field(default=None, index=True)  # opened, or marked read
+    cleared_at: datetime | None = Field(default=None, index=True)  # moved to the History
 
 
 class NotificationState(SQLModel, table=True):

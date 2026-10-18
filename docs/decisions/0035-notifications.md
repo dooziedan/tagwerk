@@ -1,5 +1,5 @@
 # 0035: Notifications: what Tagwerk did while you were away
-Date: 2026-10-11 · Status: Accepted · Issue [#61](https://github.com/dooziedan/tagwerk/issues/61)
+Date: 2026-10-11 · Status: Accepted (reading and clearing changed by [0043](0043-notifications-read-on-opening.md)) · Issue [#61](https://github.com/dooziedan/tagwerk/issues/61)
 
 ## Context
 More and more of Tagwerk's work happens while the owner isn't looking: the inbox is checked every five minutes and may import tracks on its own (automatic mode, [ADR 0007](0007-import-inbox.md)), deleted inbox files are removed for good after 30 days ([ADR 0011](0011-inbox-duplicates-and-trash.md)), a scan stops when the music folder looks empty, Navidrome may not answer, a source may reject its key, and long jobs (audio analysis, lookups for many tracks) finish minutes after the owner left the page.
@@ -25,7 +25,7 @@ Toasts don't fit this: they belong to the page and are shown once, for what the 
 
 **`notify()` never raises:** a notification that can't be written (e.g. a locked database) is logged, and the scan or import that called carries on.
 
-**Read and removed only by the owner.** Only **✓ Read** (in the card, the phone menu's detail or an opened entry on the page) or **Mark all as read** marks a notification as read; opening the menu, a card, the page or an entry doesn't. Nothing disappears by itself: unread ones stay in **New**, read ones in **History** until **Clear history**. No timer.
+**Read and removed only by the owner.** *(Changed by [ADR 0043](0043-notifications-read-on-opening.md): the bell's menu lists the unread ones and opens them on the page; opening one reads it; it stays in New until cleared.)* Only **✓ Read** (in the card, the phone menu's detail or an opened entry on the page) or **Mark all as read** marks a notification as read; opening the menu, a card, the page or an entry doesn't. Nothing disappears by itself: unread ones stay in **New**, read ones in **History** until **Clear history**. No timer.
 
 **The bell, designed for the phone first.** Phones: a bell with the unread count in the floating top bar between Changes and the menu; below 430 px only the logo shows, without the word "Tagwerk", so everything fits at 390 px. The bell opens a menu below the bar with the summaries of the unread notifications, newest first ("Nothing new" when empty) and **All** at the bottom; a summary shows its details in place of the list, with **← Back**. Wide screens: the bell sits next to the logo at the top of the side menu, its number on the bell's corner (beside it, the two don't fit the side menu's width); the menu opens as a panel beside it and a summary opens a card hovering next to the panel. Windows too narrow for the side menu behave like the phone. Escape and a click outside close it. From 10 unread on the number reads **9+** ("128" would cover the bell; "9+" is tinier than "99+"), screen readers hear the whole number. No menu entry: the page opens only from **All**. The number keeps up while a page stays open (a quiet check every minute); it just changes, nothing blinks.
 
