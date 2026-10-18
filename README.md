@@ -2,7 +2,7 @@
 
 A self-hosted music library manager, built to run in Docker on Unraid next to Navidrome.
 
-> **Status: v0.27, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks, secret tracks for edits and bootlegs, and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library and an onboarding tour; see the [roadmap](docs/roadmap.md).
+> **Status: v0.28, working towards 1.0.** Scanning, statistics, editing tags with review and undo, the import inbox, online identification, BPM and key from the audio, final tracks, secret tracks for edits and bootlegs, and duplicates all work, in a night-sky look. What's left before 1.0 is checking it on a real library and an onboarding tour; see the [roadmap](docs/roadmap.md).
 
 ![Home: what needs you, recently added tracks, set-ready share](docs/screenshots/home.jpg)
 
@@ -51,7 +51,7 @@ A self-hosted music library manager, built to run in Docker on Unraid next to Na
 - **Navidrome rescan** after every change, so new tags and tracks show up there right away (optional).
 
 **While you were away**
-- **Notifications:** a bell with what Tagwerk did and found while you weren't looking: inbox-trash files 3 days before they are removed for good, inbox tracks needing your help, a skipped scan, Navidrome or an online source not answering, and (if you like) automatic imports and long jobs finished. You choose what is reported; nothing is marked as read or removed unless you say so.
+- **Notifications:** a bell with what Tagwerk did and found while you weren't looking: inbox-trash files 3 days before they are removed for good, inbox tracks needing your help, a skipped scan, Navidrome or an online source not answering, and (if you like) automatic imports and long jobs finished. You choose what is reported. The bell lists the unread ones and the browser tab counts them; opening one reads it, and it stays on the Notifications page until you clear it.
 
 **Look:** the night sky: a dark, space-inspired design with glass panels and slowly drifting stars, plus a Lighter effects switch for weak devices.
 
