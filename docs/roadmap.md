@@ -79,8 +79,9 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   [ADR 0035](decisions/0035-notifications.md)). A place for what Tagwerk did while the owner
   was away: a bell with the unread count (side menu next to the logo; top bar on phones), a
   menu with short summaries and a card with the details, and a full page with New and History.
-  A notification is only read when the owner ticks it; nothing disappears by itself, History is
-  emptied only with *Clear history*. The owner chooses in Settings what is reported; by default
+  Since v0.28 ([ADR 0043](decisions/0043-notifications-read-on-opening.md)) the bell lists
+  only unread ones and opening one reads it; it stays in New until the owner clears it, nothing
+  disappears by itself, History is emptied only with *Clear history*. The owner chooses in Settings what is reported; by default
   only what needs the owner or could lose data, e.g. inbox-trash files 3 days **before** they
   are removed for good. Later: the release watch and AcoustID report here too, and
   notifications can go to the phone (ntfy, Gotify, Unraid), switchable per topic.
@@ -169,6 +170,7 @@ Details are in the [changelog](../CHANGELOG.md) and the [decisions](decisions/RE
 | 0.25 | Advanced tags: every tag field of a file (RIFF INFO too) changed, added or removed on the edit page, with review and undo. | [0039](decisions/0039-advanced-tags.md) |
 | 0.26 | Online genre and BPM weighed together and checked against the audio: store BPMs read at the genre's tempo (87 → 174 for drum & bass), Beatport's genre counts double, genres the measured tempo rules out lose; tempo ranges in the genre map. | [0041](decisions/0041-genre-and-bpm-weighed.md) |
 | 0.27 | BPM ranges as their own Settings section (one row per genre, old tempo lines in the genre map move there); Settings save without reloading the page. | [0042](decisions/0042-bpm-ranges.md) |
+| 0.28 | Notifications: the bell lists only the unread ones, opening one reads it, the page keeps them until cleared, Mark as unread, the unread count in the tab title; better-sounding inbox copies no longer under In library. | [0043](decisions/0043-notifications-read-on-opening.md) |
 
 ## Later / ideas
 Not planned for 1.0; open for discussion.

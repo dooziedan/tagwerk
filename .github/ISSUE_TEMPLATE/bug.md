@@ -16,7 +16,7 @@ labels: bug
 3. …
 
 ## Details and environment
-- Version: v0.27.0 (or whatever the footer/Settings shows)
+- Version: v0.28.0 (or whatever the footer/Settings shows)
 - Unraid / local Docker
 - Browser: Firefox / Chrome / phone
 - Example track: (artist – title, format like MP3/FLAC)

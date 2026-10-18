@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-18
+
 ### Changed
 - **The bell shows only what's new.** Its menu lists your unread notifications. Click one to read it in full on the Notifications page, or press **✓** to mark it as read right there; either way it leaves the menu. **Mark all read** clears the bell in one go. No more ✓ Read to press after reading.
 - **Notifications stay on the page until you clear them.** Read ones stay under **New**, quieter; unread ones have a small gold dot. Each has a round **×** that moves it to the History, and **Clear all** moves every one at once. The History keeps them until **Clear history**, as before.
