@@ -209,6 +209,20 @@ def test_the_inbox_page_offers_to_replace(client, engine, settings, inbox, libra
     assert "Replaced with a better copy" in history and "tagged.mp3" in history
 
 
+def test_a_better_copy_is_not_listed_as_in_library(engine, settings, inbox, library):
+    """Trashing everything on the In library tab must never take a better copy along (#96)."""
+    from app.routes.inbox import VIEWS, _rows
+
+    shutil.copy(settings.music_dir / MP3, settings.import_dir / "same-file.mp3")  # a plain copy
+    scan_inbox(engine, settings.import_dir, ScanProgress())
+    with Session(engine) as session:
+        rows = {r.track.path: r for r in _rows(session)}
+    in_library, better_sound = VIEWS["duplicates"][1], VIEWS["better"][1]
+    better, plain = rows["Pool/silent-track.flac"], rows["same-file.mp3"]
+    assert better_sound(better) and not in_library(better)
+    assert in_library(plain) and not better_sound(plain)
+
+
 def test_automatic_replacing_only_when_switched_on(engine, settings, inbox, library):
     from app.jobs import inbox_job
 

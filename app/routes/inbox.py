@@ -151,7 +151,8 @@ VIEWS = {
     "help": ("Needs help", lambda r: bool(r.missing) and not r.track.error and not r.better),
     "edited": ("Edited", lambda r: r.edited),
     "ready": ("Ready", lambda r: r.ready),
-    "duplicates": ("In library", lambda r: bool(r.duplicates)),
+    # A better copy is a replacement, not a copy to throw away: only on "Better sound" (#96).
+    "duplicates": ("In library", lambda r: bool(r.duplicates) and not r.better),
     "better": ("Better sound", lambda r: r.better is not None),
     "secret": ("Secret", lambda r: r.secret),
     "unreadable": ("Unreadable", lambda r: bool(r.track.error)),

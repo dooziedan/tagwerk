@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- **Better-sounding copies are no longer listed under *In library*.** An inbox file that sounds better than your library copy showed up on both the **Better sound** and the **In library** tab, so ticking everything on *In library* and pressing **Move to trash** also threw away the copies worth keeping. Now they are only on **Better sound**; *In library* holds just the copies you already have at the same or better quality.
+
 ## [0.27.0] - 2026-10-16
 
 ### Changed
