@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- **The bell shows only what's new.** Its menu lists your unread notifications. Click one to read it in full on the Notifications page, or press **✓** to mark it as read right there; either way it leaves the menu. **Mark all read** clears the bell in one go. No more ✓ Read to press after reading.
+- **Notifications stay on the page until you clear them.** Read ones stay under **New**, quieter; unread ones have a small gold dot. Each has a round **×** that moves it to the History, and **Clear all** moves every one at once. The History keeps them until **Clear history**, as before.
+- **Mark as unread** in a notification's details brings it back on the bell, for when you want to deal with it later.
+- **The browser tab shows the number of unread notifications**, like "(3) Inbox · Tagwerk", so a pinned tab tells you when something happened.
+
 ### Fixed
 - **Better-sounding copies are no longer listed under *In library*.** An inbox file that sounds better than your library copy showed up on both the **Better sound** and the **In library** tab, so ticking everything on *In library* and pressing **Move to trash** also threw away the copies worth keeping. Now they are only on **Better sound**; *In library* holds just the copies you already have at the same or better quality.
 

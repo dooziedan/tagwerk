@@ -9,8 +9,9 @@ kept few on purpose:
 - a lasting problem is reported once, and once more when it is fine again (``problem()`` and
   ``solved()``).
 
-Nothing disappears by itself: unread notifications stay "New" until ✓ Read or "Mark all as
-read"; read ones stay in the History until "Clear history".
+Nothing disappears by itself: the bell's menu lists the unread ones; a read one stays in "New"
+on the page until the owner clears it; cleared ones stay in the History until "Clear history"
+(ADR 0043).
 
 ``notify()`` never raises: a notification that can't be written must not stop the scan or
 import that wanted to write it.
@@ -152,32 +153,59 @@ def unread_count(session: Session, kind: str | None = None) -> int:
 
 
 def unread(session: Session) -> list[Notification]:
-    """New notifications, newest first."""
+    """Unread notifications, newest first (the bell's menu)."""
     query = select(Notification).where(Notification.read_at.is_(None))
     return list(
         session.exec(query.order_by(Notification.created_at.desc(), Notification.id.desc()))
     )
 
 
+def current(session: Session) -> list[Notification]:
+    """New: the notifications not cleared yet, read or not, newest first (the page)."""
+    query = select(Notification).where(Notification.cleared_at.is_(None))
+    return list(
+        session.exec(query.order_by(Notification.created_at.desc(), Notification.id.desc()))
+    )
+
+
 def history(session: Session) -> list[Notification]:
-    """Read notifications, the latest read first."""
-    query = select(Notification).where(Notification.read_at.is_not(None))
-    return list(session.exec(query.order_by(Notification.read_at.desc(), Notification.id.desc())))
+    """Cleared notifications, the latest cleared first."""
+    query = select(Notification).where(Notification.cleared_at.is_not(None))
+    return list(
+        session.exec(query.order_by(Notification.cleared_at.desc(), Notification.id.desc()))
+    )
 
 
 def mark_read(session: Session, notification_id: int) -> Notification | None:
-    """✓ Read: the notification moves to the History. None if there is no such notification."""
+    """Opened: the notification counts as read but stays in New. None if there is no such one."""
     note = session.get(Notification, notification_id)
     if note is not None and note.read_at is None:
         note.read_at = datetime.now(UTC)
-        session.add(note)
-        session.commit()
-        session.refresh(note)
+        _save(session, note)
+    return note
+
+
+def mark_unread(session: Session, notification_id: int) -> Notification | None:
+    """Mark as unread: counts on the bell again, and comes back to New if it was cleared."""
+    note = session.get(Notification, notification_id)
+    if note is not None and (note.read_at or note.cleared_at):
+        note.read_at = note.cleared_at = None
+        _save(session, note)
+    return note
+
+
+def clear(session: Session, notification_id: int) -> Notification | None:
+    """Clear (×): the notification moves from New to the History, read."""
+    note = session.get(Notification, notification_id)
+    if note is not None and note.cleared_at is None:
+        note.cleared_at = datetime.now(UTC)
+        note.read_at = note.read_at or note.cleared_at
+        _save(session, note)
     return note
 
 
 def mark_all_read(session: Session) -> int:
-    """Mark all as read: every New notification moves to the History. Returns how many."""
+    """Mark all as read: the bell's number goes to zero; everything stays in New."""
     result = session.exec(
         update(Notification).where(Notification.read_at.is_(None)).values(read_at=datetime.now(UTC))
     )
@@ -185,11 +213,29 @@ def mark_all_read(session: Session) -> int:
     return result.rowcount
 
 
-def clear_history(session: Session) -> int:
-    """Clear history: removes the read notifications for good (New ones stay). Returns how many."""
-    result = session.exec(delete(Notification).where(Notification.read_at.is_not(None)))
+def clear_all(session: Session) -> int:
+    """Clear all: every notification in New moves to the History, read. Returns how many."""
+    now = datetime.now(UTC)
+    new = Notification.cleared_at.is_(None)
+    session.exec(
+        update(Notification).where(new, Notification.read_at.is_(None)).values(read_at=now)
+    )
+    result = session.exec(update(Notification).where(new).values(cleared_at=now))
     session.commit()
     return result.rowcount
+
+
+def clear_history(session: Session) -> int:
+    """Clear history: removes the cleared notifications for good (New stays). Returns how many."""
+    result = session.exec(delete(Notification).where(Notification.cleared_at.is_not(None)))
+    session.commit()
+    return result.rowcount
+
+
+def _save(session: Session, note: Notification) -> None:
+    session.add(note)
+    session.commit()
+    session.refresh(note)
 
 
 # --- What the checks remember between runs (NotificationState) ---------------------------------

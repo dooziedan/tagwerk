@@ -76,13 +76,13 @@ wheel, cover cards with planet placeholders, task lists, chips, status pills, th
 deck readout, notices, toasts, the play bar.
 The **notification bell** (in the side menu its number sits on the bell's corner; in the phone
 bar beside it, like Inbox and Changes) opens a panel (fixed, beside the side menu; below the top
-bar on phones) with one row per notification: the kind's icon (needs you: gold flag; problem: rose
-triangle; done: indigo tick), the summary, source and time. The details open in a card hovering
-beside the panel, or in the panel's place on phones (← Back). Panel and card are solid (they
-lie over text) with the usual hairline border. The hovered row, and the one
-whose card is open, glows gold all around with a thin gold edge, not dropped below like the
-buttons' glow; the card's round × and pill-shaped ← Back glow softly, centred. No animation:
-it just appears.
+bar on phones) with one row per unread notification: the kind's icon (needs you: gold flag;
+problem: rose triangle; done: indigo tick), the summary, source and time, and a round ✓ (Mark as
+read) on the right. A row is a link to the notification on the Notifications page. The panel is
+solid (it lies over text) with the usual hairline border. The hovered row glows gold all around
+with a thin gold edge, not dropped below like the buttons' glow; the round ✓, and the × on the
+page, glow softly, centred. No animation: it just appears. On the page, unread entries have a
+small gold dot before the summary; read ones stay, quieter (softer ink, the icon dimmed).
 The track page's **Online sources** card is folded to one line of source pills (a dot and a
 word or number each); open, every source is its own panel with a status edge, and each value it
 found is marked against the file: ✓ same, *new* (fills an empty field), *yours: …* (differs).

@@ -18,7 +18,7 @@ from sqlmodel import Session
 from app import duplicates, preferences
 from app.db import MIGRATIONS_DIR
 from app.home import home_data
-from app.models import Track
+from app.models import Notification, Track
 from app.stats import library_stats
 from app.work import work_stats
 
@@ -83,6 +83,8 @@ def test_an_old_database_upgrades_through_every_migration(tmp_path):
         library_stats(session, prefs)
         work_stats(session)
         duplicates.load_groups(session)
+        note = session.get(Notification, 1)  # read before 0021: it stays in the History
+        assert note.read_at and note.cleared_at == note.read_at
     duplicates.refresh_library(engine, tmp_path)
     engine.dispose()
 

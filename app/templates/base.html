@@ -67,10 +67,9 @@
       </div>
     </aside>
     {# The notification menu, opened by either bell (app/static/bell.js): beside the side menu on
-       wide screens, below the top bar on narrow ones. The card holds one notification's details. #}
+       wide screens, below the top bar on narrow ones. #}
     <div id="bell-panel" class="bell-panel" role="dialog" aria-label="Notifications" tabindex="-1" hidden>
       <div id="bell-list" class="bell-list"></div>
-      <div id="bell-card" class="bell-card"></div>
     </div>
     {# The bell's number keeps up while a page stays open (a quiet check every minute). #}
     <div hidden hx-get="/partials/notifications/count" hx-trigger="every 60s" hx-swap="none"></div>

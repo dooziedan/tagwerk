@@ -1,22 +1,25 @@
-{# The bell's menu: short summaries of the unread notifications, newest first. Opening it, or a
-   summary, marks nothing as read (ADR 0035). #}
+{# The bell's menu: the newest unread notifications (ADR 0043). A summary opens the notification
+   on the Notifications page, which marks it as read; ✓ marks it as read right here. Either way
+   it leaves the menu. Opening the menu marks nothing. #}
 {% from "macros.html" import kind_icon, nav_icon %}
 <div class="bell-head">
-  <strong>Notifications</strong>
-  {% if items %}<small>{{ items | length }} new</small>{% endif %}
+  <span><strong>Notifications</strong>{% if total %} <small>{{ total }} new</small>{% endif %}</span>
+  {% if items %}<button type="button" class="bell-link plain" hx-post="/partials/notifications/read-all" hx-target="#bell-list" hx-swap="innerHTML">Mark all read</button>{% endif %}
 </div>
 {% if items %}
 <ul class="bell-items">
   {% for n in items %}
-  <li><button type="button" class="bell-item plain" data-bell-item hx-get="/partials/notifications/{{ n.id }}" hx-target="#bell-card" hx-swap="innerHTML">
-    {{ kind_icon(n.kind) }}
-    <span class="bell-text"><span class="bell-summary">{{ n.summary }}</span><small>{{ n.source }} · <time data-local data-short datetime="{{ n.created_at | isoutc }}">{{ n.created_at | isoutc }}</time></small></span>
-    <span class="bell-more">{{ nav_icon("chevron") }}</span>
-  </button></li>
+  <li class="bell-row">
+    <a class="bell-item" href="/notifications?open={{ n.id }}">
+      {{ kind_icon(n.kind) }}
+      <span class="bell-text"><span class="bell-summary">{{ n.summary }}</span><small>{{ n.source }} · <time data-local data-short datetime="{{ n.created_at | isoutc }}">{{ n.created_at | isoutc }}</time></small></span>
+    </a>
+    <button type="button" class="bell-read plain" title="Mark as read" aria-label="Mark as read: {{ n.summary }}" hx-post="/partials/notifications/{{ n.id }}/read" hx-target="#bell-list" hx-swap="innerHTML">{{ nav_icon("check") }}</button>
+  </li>
   {% endfor %}
 </ul>
 {% else %}
 <p class="bell-empty">{{ nav_icon("check") }} Nothing new</p>
 {% endif %}
-<a class="bell-all" href="/notifications">All</a>
+<a class="bell-all" href="/notifications">{% if total > items | length %}All {{ total }} new{% else %}All{% endif %}</a>
 {% include "partials/notification_count.html" %}

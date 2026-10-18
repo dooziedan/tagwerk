@@ -88,27 +88,52 @@ def test_a_lasting_problem_is_reported_once_and_once_when_it_is_fine_again(engin
     assert len(_all(engine)) == 3
 
 
-def test_only_read_marks_as_read_and_only_clear_history_removes(engine):
+def test_read_ones_stay_in_new_until_cleared_and_only_clear_history_removes(engine):
+    """ADR 0043: opening marks as read; clearing moves to the History; nothing goes by itself."""
     for n in range(3):
         notifications.notify("scan", "problem", f"Problem {n}")
     first, second, third = _all(engine)
+
+    def summaries(notes):
+        return [n.summary for n in notes]
+
     with Session(engine) as session:
-        assert [n.summary for n in notifications.unread(session)] == [
-            "Problem 2",
-            "Problem 1",
-            "Problem 0",
-        ]
-        notifications.mark_read(session, second.id)
+        assert summaries(notifications.current(session)) == ["Problem 2", "Problem 1", "Problem 0"]
+        assert notifications.mark_read(session, second.id).read_at
         assert notifications.unread_count(session) == 2
-        assert [n.summary for n in notifications.history(session)] == ["Problem 1"]
+        assert summaries(notifications.unread(session)) == ["Problem 2", "Problem 0"]  # the menu
+        assert summaries(notifications.current(session)) == ["Problem 2", "Problem 1", "Problem 0"]
+        assert notifications.history(session) == []
 
-        assert notifications.clear_history(session) == 1  # only the read one goes
-        assert [n.summary for n in notifications.unread(session)] == ["Problem 2", "Problem 0"]
+        cleared = notifications.clear(session, third.id)  # unread: clearing reads it too
+        assert cleared.cleared_at and cleared.read_at
+        assert notifications.unread_count(session) == 1
+        assert summaries(notifications.current(session)) == ["Problem 1", "Problem 0"]
+        assert summaries(notifications.history(session)) == ["Problem 2"]
 
-        assert notifications.mark_all_read(session) == 2
-        assert notifications.unread(session) == []
-        assert len(notifications.history(session)) == 2
-        assert notifications.mark_read(session, 999) is None
+        assert notifications.clear_history(session) == 1  # only the cleared one goes
+        assert summaries(notifications.current(session)) == ["Problem 1", "Problem 0"]
+
+        assert notifications.mark_all_read(session) == 1
+        assert notifications.unread_count(session) == 0
+        assert len(notifications.current(session)) == 2  # read, still in New
+        assert notifications.clear_all(session) == 2
+        assert notifications.current(session) == []
+        assert summaries(notifications.history(session)) == ["Problem 1", "Problem 0"]
+        for missing in (notifications.mark_read, notifications.mark_unread, notifications.clear):
+            assert missing(session, 999) is None
+
+
+def test_mark_as_unread_counts_again_and_brings_a_cleared_one_back(engine):
+    notifications.notify("scan", "problem", "Scan skipped")
+    (note,) = _all(engine)
+    with Session(engine) as session:
+        notifications.clear(session, note.id)
+        back = notifications.mark_unread(session, note.id)
+        assert back.read_at is None and back.cleared_at is None
+        assert notifications.unread_count(session) == 1
+        assert [n.summary for n in notifications.current(session)] == ["Scan skipped"]
+        assert notifications.history(session) == []
 
 
 def test_checks_remember_values_between_runs(engine):
@@ -495,7 +520,7 @@ def test_the_bell_counts_unread_and_the_menu_shows_summaries(client, engine):
     trash_note, navidrome_note = _seed(engine)
     home = client.get("/").text
     assert home.count(" data-bell ") == 2  # side menu and phone bar
-    assert 'id="bell-count-side"><span class="count-badge">2<' in home
+    assert 'id="bell-count-side" data-count="2"><span class="count-badge">2<' in home
     # No menu entry: the page opens only through "All" in the bell's menu.
     assert 'href="/notifications"' not in home
 
@@ -504,18 +529,44 @@ def test_the_bell_counts_unread_and_the_menu_shows_summaries(client, engine):
         "Inbox trash: 2 files"
     )  # newest first
     assert "Connection refused" not in menu  # summaries only
+    assert "2 new" in menu and "Mark all read" in menu
+    assert f'href="/notifications?open={navidrome_note.id}"' in menu  # opens it on the page
     assert 'href="/notifications"' in menu and ">All<" in menu
-
-    card = client.get(f"/partials/notifications/{navidrome_note.id}").text
-    assert "Connection refused." in card and "Open Settings" in card and "Read" in card
-    # Opening the menu, a card or the page marks nothing as read.
+    # Opening the menu or the page marks nothing as read; GET never changes anything.
     client.get("/notifications")
+    client.get("/notifications", params={"open": navidrome_note.id})
+    client.get(f"/api/notifications/{navidrome_note.id}")
     assert client.get("/api/notifications/count").json() == {"unread": 2, "needs_you": 1}
 
-    menu = client.post(f"/partials/notifications/{navidrome_note.id}/read").text
+
+def test_read_ones_leave_the_menu(client, engine):
+    """ADR 0043: the menu holds the unread ones; read ones stay in New on the page."""
+    trash_note, navidrome_note = _seed(engine)
+    menu = client.post(f"/partials/notifications/{navidrome_note.id}/read").text  # ✓
     assert "Navidrome" not in menu.split('id="bell-count-side"')[0]
-    assert 'id="bell-count-side" hx-swap-oob="true"><span class="count-badge">1<' in menu
-    assert client.get("/api/notifications/count").json()["unread"] == 1
+    assert 'id="bell-count-side" data-count="1" hx-swap-oob="true">' in menu  # the bell follows
+    assert "Navidrome didn" in client.get("/notifications").text.split('id="history"')[0]
+
+    client.post(f"/api/notifications/{trash_note.id}/read")  # opened on the page
+    menu = client.get("/partials/notifications/menu").text
+    assert "Nothing new" in menu and "Mark all read" not in menu
+
+    client.post(f"/api/notifications/{trash_note.id}/unread")
+    assert "Inbox trash: 2 files" in client.get("/partials/notifications/menu").text
+    menu = client.post("/partials/notifications/read-all").text
+    assert "Nothing new" in menu
+    assert len(client.get("/api/notifications").json()) == 2  # read, still in New
+    assert client.post("/partials/notifications/999/read").status_code == 404
+
+
+def test_the_menu_shows_the_newest_20(client, engine):
+    for i in range(25):
+        notifications.notify("navidrome", "problem", f"Problem {i}", engine=engine)
+    menu = client.get("/partials/notifications/menu").text
+    assert (
+        menu.count('class="bell-row"') == 20 and "Problem 24" in menu and "Problem 4<" not in menu
+    )
+    assert ">All 25 new<" in menu
 
 
 def test_nothing_new_in_an_empty_menu(client):
@@ -535,20 +586,33 @@ def test_the_bell_shows_9_plus_from_10_on(client, engine):
     assert '<span aria-hidden="true">9+</span><span class="visually-hidden">128 new</span>' in count
 
 
-def test_the_page_new_history_mark_all_as_read_and_clear_history(client, engine):
+def test_the_page_new_history_clear_and_clear_history(client, engine):
     trash_note, navidrome_note = _seed(engine)
     page = client.get("/notifications").text
-    assert "Mark all as read" in page and "Clear history" not in page  # nothing read yet
+    assert "Mark all as read" in page and "Clear all" in page and "Clear history" not in page
     assert "Connection refused." in page  # inside the entry, opened by a click
+    assert page.count(f'data-unread="{trash_note.id}"') == 1  # opening it marks it as read
+    assert " data-opened" not in page
 
-    client.post(f"/notifications/{trash_note.id}/read")
-    page = client.get("/notifications").text
-    new, history = page.split('id="history"')
-    assert (
-        "Navidrome didn" in new and "Inbox trash: 2 files" in history and "Clear history" in history
-    )
+    # Clicked in the bell's menu: the page shows it opened (its script marks it as read).
+    page = client.get("/notifications", params={"open": trash_note.id}).text
+    assert f'data-unread="{trash_note.id}" open data-opened>' in page
+
+    client.post(f"/api/notifications/{trash_note.id}/read")  # what opening the entry sends
+    new, history = client.get("/notifications").text.split('id="history"')
+    assert "Inbox trash: 2 files" in new and "1 unread · 2" in new
+    # Mark as unread: shown for the read one, waiting hidden in the unread one until opened
+    assert new.count("Mark as unread") == 2 and new.count("hidden data-unread-button") == 1
+
+    client.post(f"/notifications/{trash_note.id}/clear")
+    new, history = client.get("/notifications").text.split('id="history"')
+    assert "Navidrome didn" in new and "Inbox trash: 2 files" in history
+    assert "Clear history" in history and "Mark as unread" not in history
 
     client.post("/notifications/read-all")
+    assert client.get("/api/notifications/count").json()["unread"] == 0
+    assert len(client.get("/api/notifications").json()) == 1  # read, still in New
+    client.post("/notifications/clear-all")
     assert client.get("/api/notifications").json() == []
     assert len(client.get("/api/notifications", params={"show": "history"}).json()) == 2
 
@@ -566,7 +630,10 @@ def test_the_api(client, engine):
     one = client.get(f"/api/notifications/{trash_note.id}").json()
     assert one["message"] == "• a.mp3\n• b.mp3" and one["read_at"] is None
     assert client.post(f"/api/notifications/{trash_note.id}/read").json()["read_at"]
-    assert client.post("/api/notifications/read-all").json() == {"marked": 1}
+    assert client.post(f"/api/notifications/{trash_note.id}/unread").json()["read_at"] is None
+    assert client.post("/api/notifications/read-all").json() == {"marked": 2}
+    assert client.post(f"/api/notifications/{trash_note.id}/clear").json()["cleared_at"]
+    assert client.post("/api/notifications/clear-all").json() == {"cleared": 1}
     assert client.post("/api/notifications/clear-history").json() == {"removed": 2}
     assert client.get("/api/notifications/999").status_code == 404
 
