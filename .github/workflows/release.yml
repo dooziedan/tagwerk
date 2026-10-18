@@ -24,7 +24,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Notes from CHANGELOG.md
         run: python3 scripts/release_notes.py "$TAG" > notes.md
       - name: Create or update the Release
