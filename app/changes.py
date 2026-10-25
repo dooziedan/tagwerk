@@ -14,7 +14,7 @@ from pathlib import Path
 from sqlalchemy import Engine, exists, not_
 from sqlmodel import Session, col, delete, func, select
 
-from app import advanced, duplicates, writer
+from app import advanced, area, duplicates, preferences, writer
 from app.images import ImageStore
 from app.models import ChangeEntry, ChangeSet, FinalTrack, PendingChange, RawTag, Track
 from app.rawtags import BINARY
@@ -338,6 +338,14 @@ def apply_pending(
     with Session(engine) as session:
         items = pending(session, change_ids)
         progress.total = len(items)
+        # The Releasomat folder kept out of the library (ADR 0044): its rows go with the next
+        # scan; until then nothing is written there. Their changes stay pending, with the rows.
+        prefs = preferences.load(session)
+        for item in [i for i in items if area.contains(prefs, i.track.path)]:
+            items.remove(item)
+            progress.failed += 1
+            progress.processed += 1
+            progress.errors.append(f"{item.track.path}: in the Releasomat folder, not written")
         trashed = [i for i in items if any(c.field == writer.TRASH for c in i.changes)]
         items = [i for i in items if i not in trashed]
         if items:

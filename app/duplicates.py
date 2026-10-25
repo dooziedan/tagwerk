@@ -31,7 +31,7 @@ from pathlib import Path, PurePosixPath
 from sqlalchemy import Engine, delete, distinct, func
 from sqlmodel import Session, col, select
 
-from app import trash, writer
+from app import area, preferences, trash, writer
 from app.models import DuplicateTrack, FinalTrack, InboxTrack, NotDuplicate, PendingChange, Track
 from app.tags import LOSSLESS_FORMATS
 
@@ -606,12 +606,16 @@ def queued_trash(session: Session) -> dict[int, int]:
     return {track_id: int(keep or 0) for track_id, keep in session.exec(query)}
 
 
-def restore_copy(session: Session, music_dir: Path, entry: str) -> Track:
-    """Move a trashed copy back to where it was and read it into the library again."""
+def restore_copy(session: Session, music_dir: Path, entry: str) -> str:
+    """Move a trashed copy back to where it was and read it into the library again. A copy
+    from the Releasomat folder (kept out of the library since, ADR 0044) goes back there but
+    isn't read in. Returns its path."""
     from app.scanner import store_file  # the scanner is only needed here
 
     rel = trash.restore(music_dir, entry)
+    if area.contains(preferences.load(session), rel):
+        return rel
     path = music_dir / rel
-    track = store_file(session, path, rel, path.stat(), path.with_suffix(".lrc").exists(), None)
+    store_file(session, path, rel, path.stat(), path.with_suffix(".lrc").exists(), None)
     session.commit()
-    return track
+    return rel

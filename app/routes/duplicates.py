@@ -158,10 +158,9 @@ def _restore(settings, entry: str) -> tuple[bool, str]:
     def work() -> tuple[bool, str]:
         with Session(get_engine(settings.database_url)) as session:
             try:
-                track = duplicates.restore_copy(session, settings.music_dir, entry)
+                path = duplicates.restore_copy(session, settings.music_dir, entry)
             except (trash.TrashError, OSError) as exc:
                 return False, str(exc)
-            path = track.path
         duplicates.refresh_library(get_engine(settings.database_url), settings.music_dir)
         return True, path
 

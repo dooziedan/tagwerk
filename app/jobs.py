@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 
 from app import (
     analysis,
+    area,
     convert,
     duplicates,
     final,
@@ -121,7 +122,9 @@ class ScanJob(Job):
             try:
                 if not settings.music_dir.is_dir():
                     raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
-                scan_library(engine, settings.music_dir, progress)
+                with Session(engine) as session:
+                    skip = area.skipped(preferences.load(session))
+                scan_library(engine, settings.music_dir, progress, skip)
             except (FileNotFoundError, EmptyLibraryError) as exc:
                 notifications.problem(
                     "scan",
@@ -143,9 +146,30 @@ class ScanJob(Job):
                 engine,
             )
             report_unreadable(engine)
+            report_left_for_area(engine, progress, skip)
             after_library_change(engine, settings)
 
         return self._start(work, progress)
+
+
+def report_left_for_area(engine, progress: ScanProgress, skip: tuple[str, ...]) -> bool:
+    """After the first scan that kept the Releasomat folder out (ADR 0044): how many tracks
+    left the library lists. Once: the next scans find no rows there any more."""
+    if not progress.left_for_area:
+        return False
+    folder = ", ".join(f"/{f}" for f in skip)
+    return notifications.notify(
+        "releasomat",
+        "done",
+        f"{notifications.many(progress.left_for_area, 'track')} left the library: they're in "
+        "the Releasomat folder",
+        f"Tagwerk keeps {folder} out of the library now, as you confirmed in Settings. The files "
+        "are untouched; their analysis, pending changes and marks in Tagwerk went with them. "
+        "Settings → Releasomat can treat the folder as library again.",
+        "Scan",
+        "/settings#releasomat",
+        engine,
+    )
 
 
 def report_unreadable(engine) -> bool:

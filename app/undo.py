@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import Engine, and_, or_
 from sqlmodel import Session, col, func, select
 
-from app import convert, final, folders, upgrade, writer
+from app import area, convert, final, folders, preferences, upgrade, writer
 from app.changes import WriteProgress
 from app.config import Settings, get_settings
 from app.images import ImageStore
@@ -42,6 +42,7 @@ def undo_changeset(
     settings = settings or get_settings()  # Navidrome, for renaming final tracks back
 
     with Session(engine) as session:
+        prefs = preferences.load(session)
         changeset = session.get(ChangeSet, changeset_id)
         entries = session.exec(
             select(ChangeEntry)
@@ -53,6 +54,10 @@ def undo_changeset(
         for entry in entries:
             progress.current = entry.path
             try:
+                if area.contains(prefs, entry.path):  # never write into the folder kept out
+                    raise writer.WriteError(
+                        "this file is in the Releasomat folder now, which isn't library"
+                    )
                 path = music_dir / entry.path
                 if path.stat().st_mtime != entry.mtime_after:
                     raise writer.WriteError(

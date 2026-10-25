@@ -36,11 +36,19 @@ def filter_from_url(url: str) -> TrackFilter:
     return TrackFilter(**params)
 
 
-def test_every_dashboard_number_matches_its_track_list(engine, music_dir):
-    """Clicking a number on the dashboard must show exactly that many tracks."""
-    scan(engine, music_dir)
+@pytest.mark.parametrize("with_area", [False, True])
+def test_every_dashboard_number_matches_its_track_list(engine, music_dir, with_area):
+    """Clicking a number on the dashboard must show exactly that many tracks. With the
+    Releasomat folder kept out of the library (ADR 0044), its files count nowhere."""
+    if with_area:
+        area = music_dir / "Releasomat" / "Someone"
+        area.mkdir(parents=True)
+        for name in ("tagged.mp3", "tagged.flac", "untagged.mp3"):
+            shutil.copy(FIXTURES / name, area / name)
+    scan_library(engine, music_dir, ScanProgress(), ("Releasomat",) if with_area else ())
     with Session(engine) as session:
         stats = library_stats(session, Preferences())
+        assert find_tracks(session, TrackFilter()).total == 10
         bars = stats.missing + stats.formats + stats.genres + stats.bpm
         bars += [cell for cell in stats.keys if cell.url]
         bars += stats.growth + stats.growth_years + stats.lengths + stats.labels

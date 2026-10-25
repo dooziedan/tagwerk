@@ -12,7 +12,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
-from app import genres, naming, navidrome, preferences, writer
+from app import area, genres, naming, navidrome, preferences, writer
 from app.config import SettingsDep, get_settings
 from app.db import SessionDep
 from app.forms import read_form
@@ -97,7 +97,7 @@ def examples(session: Session, prefs: Preferences, limit: int = 3) -> list[dict]
 def preview(session: Session, prefs: Preferences, kind: str) -> list[tuple[str, str]]:
     """(original filename, result) for the example tracks: the folder or the final name."""
     genre_map = genres.of(prefs)
-    existing = naming.existing_folders(get_settings().music_dir)
+    existing = naming.existing_folders(get_settings().music_dir, area.skipped(prefs))
     result = []
     for ex in examples(session, prefs):
         values = naming.values_for(ex["values"], genre_map, prefs.key_notation)

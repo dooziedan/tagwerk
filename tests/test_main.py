@@ -69,9 +69,11 @@ def test_settings_api(client):
             "online": True,
             "auto_import": False,
             "auto_upgrade": False,
+            "releasomat": True,  # shown only once Releasomat is set up (ADR 0044)
             "long_jobs": False,
         },
         "hidden_hints": [],  # messages hidden with "Don't show again"
+        "releasomat_area": "",  # no folder kept out of the library (ADR 0044)
     }
     saved = client.put(
         "/api/settings", json={"mode": "dj", "key_notation": "musical", "show_musicbrainz": True}

@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Releasomat's downloads can stay out of your library.** If you use [Releasomat](https://github.com/dooziedan/releasomat), the playlist downloader, it saves its downloads in its own folder inside your music library, and Tagwerk counted, checked and offered them like your own tracks. Set **Releasomat Folder** (`RELEASOMAT_FOLDER`, e.g. `Releasomat`) in the container settings, and Settings → **Releasomat** first shows what would leave Tagwerk's lists (tracks, pending changes, final marks, duplicate groups), then keeps the folder out with one click. From then on scans skip it: its files aren't counted on Home or Statistics, aren't analysed, checked, tagged, renamed or moved, and imports and genre folders never go there. The files themselves stay exactly where they are. **Treat it as library again** undoes it.
+- Releasomat is optional: without it nothing changes, and Tagwerk never mentions it.
+
 ## [0.28.0] - 2026-10-18
 
 ### Changed

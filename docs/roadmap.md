@@ -134,6 +134,15 @@ Noted by the owner; not yet placed before or after 1.0. Order decided so far (20
   like Convert, so every track plays at the same level on the decks. Lossy files would need
   re-encoding (quality loss) and stay out. A separate release, decided by the owner
   (2026-10-09).
+- **The Releasomat area** ([ADR 0044](decisions/0044-releasomat-area.md)), optional: Tagwerk
+  works in full without Releasomat. Releasomat's download folder is a discovery area, not
+  library; tracks enter the library only when the owner adopts them, through the inbox. Steps 1
+  to 5 ship together in one release (owner, 2026-10-25):
+  1. keep the folder out of the library (Settings, one confirming click after a pre-check) ✅
+     (unreleased); 2. the connection (`RELEASOMAT_URL`, `RELEASOMAT_API_KEY`); 3. a read-only
+     Releasomat page; 4. Delete (asks Releasomat); 5. Adopt into the inbox; 6. notices when an
+     adopted track is thrown away or restored, kept until Releasomat takes them; 7. Give back
+     (later).
 - **Phone menu bar for one thumb**. On a phone held in one hand, the floating top bar is the
   hardest place to reach. Rework the whole bar (Inbox, Changes, menu, the notification bell)
   for one-thumb use instead of fixing it feature by feature.

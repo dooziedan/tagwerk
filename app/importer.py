@@ -24,7 +24,7 @@ from pathlib import Path
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import analysis, genres, identify, ids, naming, preferences, secret, writer
+from app import analysis, area, genres, identify, ids, naming, preferences, secret, writer
 from app.changes import WriteProgress, sources_json
 from app.config import get_settings
 from app.duplicates import LibraryIndex
@@ -107,7 +107,7 @@ def plan(
     for name, (value, source, _why) in found_ids.items():
         changes[name], old[name], sources[name] = value, None, source
     names = naming.values_for(values, genres.of(prefs), prefs.key_notation, added)
-    existing = naming.existing_folders(music_dir)
+    existing = naming.existing_folders(music_dir, area.skipped(prefs))
     folder = naming.folder(
         prefs.folder_layout, prefs.folder_pattern, names, prefs.genre_folders, existing
     )
@@ -123,6 +123,8 @@ def plan(
             result.problems.append(f"needs {writer.EDITABLE[name].lower()}")
     if (music_dir / result.destination).exists():
         result.problems.append(f"{result.destination} already exists in the library")
+    if area.contains(prefs, result.destination):  # never into the folder kept out (ADR 0044)
+        result.problems.append("it would land in the Releasomat folder: change the folder pattern")
     return result
 
 

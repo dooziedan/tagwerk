@@ -32,7 +32,8 @@ Files are never modified directly from a form or a lookup:
 | `app/templates/`, `app/static/` | HTML pages; vendored Pico CSS and htmx | 0.1 |
 | `app/db.py`, `app/models.py`, `app/migrations/` | Database tables and Alembic migrations (run on every start) | 0.2 |
 | `app/tags.py` | Reads ID3 / Vorbis / MP4 / RIFF INFO into one set of fields ([ADR 0005](decisions/0005-reading-tags.md)) | 0.2 |
-| `app/scanner.py` | Walks the music folder, updates the `track` table, skips unchanged files; recognises files moved outside Tagwerk (same size and date) and never empties the library when the folder looks unmounted | 0.2, 0.14 |
+| `app/scanner.py` | Walks the music folder, updates the `track` table, skips unchanged files; recognises files moved outside Tagwerk (same size and date) and never empties the library when the folder looks unmounted; skips the Releasomat folder the owner kept out | 0.2, 0.14 |
+| `app/area.py` | The Releasomat area ([ADR 0044](decisions/0044-releasomat-area.md)), optional: the folder `RELEASOMAT_FOLDER` names, its checks, the one the owner kept out of the library (a preference), and what keeping it out takes out of Tagwerk's lists. Import, Convert, genre folders, Apply, Undo and library-trash Restore never act inside it. Touches no file | 0.29 |
 | `app/percent.py` | Percentages as shown: never 100 % while something is missing, never 0 % while something is there | 0.14 |
 | `app/library.py` | Track filters, sorting, paging; artists and albums. The dashboard counts with the same conditions, so every number matches its list | 0.5 |
 | `app/stats.py` | Statistics page: totals, charts and the heat map (any two of key, tempo, year, added, genre, format), every number with the URL of its track list (`app/library.py` conditions) | 0.2 |

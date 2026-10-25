@@ -1,22 +1,24 @@
 """The Settings page and the preferences API.
 
 Sections: General (key notation, effects, time zone), Import, Genre map, BPM ranges, Final
-tracks, Online lookups, Notifications, Navidrome. Each section is its own form; after saving,
-the page comes back with ``?saved=<section>`` and scrolls to it.
+tracks, Online lookups, Notifications, Navidrome, and Releasomat (only when it is set up, ADR
+0044). Each section is its own form; after saving, the page comes back with ``?saved=<section>``
+and scrolls to it.
 """
 
 from dataclasses import fields, replace
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
-from app import analysis, genres, identify, navidrome, notifications, preferences, tempo
-from app.config import SettingsDep
+from app import analysis, area, genres, identify, navidrome, notifications, preferences, tempo
+from app.config import Settings, SettingsDep
 from app.db import SessionDep, get_engine
 from app.forms import read_form
 from app.genres import DEFAULT_MAP, GenreMap
-from app.jobs import run_now
+from app.jobs import run_now, scan_job
 from app.keys import NOTATIONS
 from app.navigation import back_url
 from app.preferences import EFFECTS, Preferences, PreferencesDep
@@ -96,7 +98,7 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
                 }
                 for cls in identify.SOURCES
             ],
-            "topics": notifications.TOPICS,
+            "topics": _topics(settings, prefs),
             "navidrome": {
                 "configured": navidrome.configured(settings),
                 "url": settings.navidrome_url,
@@ -104,9 +106,18 @@ def _settings_page(request, prefs, settings, session, saved="", errors=None, gen
                 "library": settings.navidrome_library,
                 "last": navidrome.last,
             },
+            "releasomat": area.overview(session, settings, prefs),
         },
         status_code=status_code,
     )
+
+
+def _topics(settings: Settings, prefs: Preferences) -> dict:
+    """The notification switches shown: Releasomat's only when Releasomat is set up."""
+    shown = dict(notifications.TOPICS)
+    if not area.configured(settings, prefs):
+        shown.pop("releasomat")
+    return shown
 
 
 @router.post("/settings/choices/{section}", include_in_schema=False)
@@ -207,11 +218,17 @@ async def save_online(request: Request, session: SessionDep):
 
 
 @router.post("/settings/notifications", include_in_schema=False)
-async def save_notifications(request: Request, session: SessionDep):
-    """Which topics may write notifications: a switched-off topic writes nothing."""
+async def save_notifications(request: Request, session: SessionDep, settings: SettingsDep):
+    """Which topics may write notifications: a switched-off topic writes nothing. A topic that
+    isn't shown (Releasomat, not set up) keeps its switch."""
     form = await read_form(request)
-    chosen = {name: name in form.getlist("topics") for name in notifications.TOPICS}
-    preferences.save(session, replace(preferences.load(session), notifications=chosen))
+    prefs = preferences.load(session)
+    shown = _topics(settings, prefs)
+    chosen = {
+        name: name in form.getlist("topics") if name in shown else prefs.notifications[name]
+        for name in notifications.TOPICS
+    }
+    preferences.save(session, replace(prefs, notifications=chosen))
     return RedirectResponse("/settings?saved=notifications", status_code=303)
 
 
@@ -249,6 +266,60 @@ def navidrome_rescan_api(settings: SettingsDep) -> dict:
     """Ask Navidrome to rescan the library now (needs NAVIDROME_URL, _USER, _PASSWORD)."""
     result = navidrome.start_scan(settings)
     return {"ok": result.ok, "message": result.message}
+
+
+class AreaChoice(BaseModel):
+    folder: str  # the folder RELEASOMAT_FOLDER names, as GET /api/releasomat/area shows it
+
+
+@router.get("/api/releasomat/area", tags=["settings"])
+def releasomat_area_api(session: SessionDep, settings: SettingsDep, prefs: PreferencesDep):
+    """The Releasomat folder (ADR 0044): the one ``RELEASOMAT_FOLDER`` names, its check, the one
+    kept out of the library, and what keeping it out would take out of Tagwerk's lists."""
+    return area.overview(session, settings, prefs)
+
+
+@router.post("/api/releasomat/area", tags=["settings"])
+def keep_out_api(choice: AreaChoice, session: SessionDep, settings: SettingsDep) -> dict:
+    """Keep the Releasomat folder out of the library (the owner's one confirming click). The
+    files stay untouched; a scan starts to take its tracks out of Tagwerk's lists."""
+    try:
+        folder = area.keep_out(session, settings, choice.folder)
+    except area.FolderProblem as exc:
+        raise HTTPException(409, str(exc)) from None
+    return {"kept_out": folder, "scan_started": scan_job.start(settings)}
+
+
+@router.delete("/api/releasomat/area", tags=["settings"])
+def treat_as_library_api(session: SessionDep, settings: SettingsDep) -> dict:
+    """Treat the Releasomat folder as library again: a scan starts to read its files in."""
+    area.treat_as_library(session)
+    return {"kept_out": None, "scan_started": scan_job.start(settings)}
+
+
+@router.post("/settings/releasomat/{action}", include_in_schema=False)
+async def releasomat_action(
+    request: Request, action: str, session: SessionDep, settings: SettingsDep
+):
+    """Settings → Releasomat: keep the folder out (``keep-out``), or treat it as library
+    again (``library``). Both start a scan, so the lists change right away."""
+    if action == "keep-out":
+        form = await read_form(request)
+        try:
+            area.keep_out(session, settings, str(form.get("folder", "")))
+        except area.FolderProblem as exc:
+            prefs = preferences.load(session)
+            return _settings_page(
+                request, prefs, settings, session, errors={"releasomat": str(exc)},
+                status_code=422,
+            )  # fmt: skip
+        saved = "releasomat-out"
+    else:
+        area.treat_as_library(session)
+        saved = "releasomat-library"
+    if not scan_job.start(settings):
+        saved += "-later"  # a job is running: the next scan does it
+    return RedirectResponse(f"/settings?saved={saved}#releasomat", status_code=303)
 
 
 @router.post("/settings", include_in_schema=False)

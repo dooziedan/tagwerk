@@ -110,11 +110,13 @@ def main_genre(genre: str | None, genres: GenreMap) -> str | None:
     return tidy[0] if tidy else None
 
 
-def existing_folders(music_dir: Path) -> list[str]:
-    """The folders at the top of the library (not hidden ones, not _Unsorted)."""
+def existing_folders(music_dir: Path, skip: tuple[str, ...] = ()) -> list[str]:
+    """The folders at the top of the library (not hidden ones, not _Unsorted, not the ones in
+    ``skip``: the Releasomat folder kept out of the library, ADR 0044)."""
     try:
         return sorted(p.name for p in music_dir.iterdir()
-                      if p.is_dir() and not p.name.startswith((".", "_")))  # fmt: skip
+                      if p.is_dir() and not p.name.startswith((".", "_"))
+                      and p.name not in skip)  # fmt: skip
     except OSError:
         return []
 

@@ -31,6 +31,7 @@ def test_a_fresh_install_has_only_the_topics_that_need_you_switched_on(engine):
         "online": True,
         "auto_import": False,
         "auto_upgrade": False,
+        "releasomat": True,
         "long_jobs": False,
     }
     assert set(chosen) == set(TOPICS)
@@ -666,7 +667,8 @@ def test_settings_switch_topics_on_and_off(client, engine):
     client.post("/settings/notifications", data={"topics": ["scan", "long_jobs"]})
     with Session(engine) as session:
         chosen = preferences.load(session).notifications
-    assert {name for name, on in chosen.items() if on} == {"scan", "long_jobs"}
+    # Releasomat's switch isn't shown without Releasomat (ADR 0044): it keeps its value.
+    assert {name for name, on in chosen.items() if on} == {"scan", "long_jobs", "releasomat"}
 
 
 def test_a_failing_notification_doesnt_stop_the_job(engine, settings, monkeypatch):

@@ -37,7 +37,7 @@ hx-post="{{ action }}" hx-target="#{{ section }}" hx-select="#{{ section }}" hx-
   </form>
 </div>
 
-{% set saved_text = {"general": "General settings saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "bpm": "BPM ranges saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved."} %}
+{% set saved_text = {"general": "General settings saved.", "import": "Import settings saved.", "genres": "Genre map saved.", "bpm": "BPM ranges saved.", "final": "Final tracks saved.", "online": "Online lookups saved.", "notifications": "Notifications saved.", "releasomat-out": "The Releasomat folder is kept out of the library. A scan is taking its tracks out of the lists.", "releasomat-out-later": "The Releasomat folder is kept out of the library from the next scan (another job is running).", "releasomat-library": "The Releasomat folder is library again. A scan is reading its files in.", "releasomat-library-later": "The Releasomat folder is library again from the next scan (another job is running)."} %}
 <div id="settings-toasts">{% if saved in saved_text %}<div class="toasts">{% call toast() %}✅ {{ saved_text[saved] }}{% endcall %}</div>{% endif %}</div>
 
 <div class="settings-layout">
@@ -51,6 +51,7 @@ hx-post="{{ action }}" hx-target="#{{ section }}" hx-select="#{{ section }}" hx-
     <a href="#online">{{ nav_icon("globe") }}<span>Online lookups<small>{{ online | selectattr("on") | list | length }} of {{ online | length }} sources on</small></span></a>
     <a href="#notifications">{{ nav_icon("bell") }}<span>Notifications<small>{{ prefs.notifications.values() | select | list | length }} of {{ topics | length }} on</small></span></a>
     <a href="#navidrome">{{ nav_icon("link") }}<span>Navidrome<small>{% if not navidrome.configured %}not set up{% elif navidrome.last and not navidrome.last.ok %}last try failed{% else %}connected{% endif %}</small></span></a>
+    {% if releasomat.configured %}<a href="#releasomat">{{ nav_icon("telescope") }}<span>Releasomat<small>{% if releasomat.problem %}check the folder{% elif releasomat.precheck and releasomat.confirmed %}the folder changed{% elif releasomat.precheck %}not kept out yet{% else %}folder kept out{% endif %}</small></span></a>{% endif %}
   </nav>
 
   <div class="settings-body">
@@ -206,6 +207,49 @@ hx-post="{{ action }}" hx-target="#{{ section }}" hx-select="#{{ section }}" hx-
       <p class="muted">Optional. To set it up on Unraid, edit the Tagwerk container and fill in <strong>Navidrome URL</strong> (your server's IP and Navidrome's port, e.g. <code>http://192.168.1.10:4533</code>, or <code>http://navidrome:4533</code> if both containers share a custom Docker network; not <code>localhost</code>), <strong>Navidrome User</strong> and <strong>Navidrome Password</strong>. The user needs admin rights in Navidrome.</p>
       {% endif %}
     </section>
+
+    {# Only when Releasomat is set up (RELEASOMAT_FOLDER, or a folder kept out earlier):
+       Tagwerk works in full without it, so nothing here asks for it (ADR 0044). #}
+    {% if releasomat.configured %}
+    {% set r = releasomat %}
+    <section id="releasomat" class="settings-section">
+      {{ section_head("releasomat", "telescope", "Releasomat", "Releasomat, your playlist downloader, saves its downloads in its own folder inside the library. Tagwerk can keep that folder out of your library: its files aren't counted, checked, tagged or moved, and stay exactly where they are.") }}
+      <dl class="facts">
+        {% if r.confirmed %}
+        <dt>Kept out</dt><dd>✅ <code>{{ r.music_dir }}/{{ r.confirmed }}</code> <small class="muted">· scans skip it; imports and genre folders never go there</small></dd>
+        {% endif %}
+        {% if r.proposed and r.folder != r.confirmed %}
+        <dt>Releasomat folder</dt><dd>{% if r.problem %}<span class="form-error">⚠️ <code>{{ r.proposed }}</code>: {{ r.problem }}</span>{% else %}<code>{{ r.music_dir }}/{{ r.folder }}</code> <small class="muted">· from <code>RELEASOMAT_FOLDER</code>, still part of the library</small>{% endif %}</dd>
+        {% elif not r.proposed %}
+        <dt>Releasomat folder</dt><dd class="muted"><small><code>RELEASOMAT_FOLDER</code> isn't set any more: the folder stays out until you treat it as library again.</small></dd>
+        {% endif %}
+      </dl>
+      {% if errors.releasomat %}<p class="form-error">⚠️ {{ errors.releasomat }}</p>{% endif %}
+      {% if r.precheck %}
+      {% set p = r.precheck %}
+      <p>Keeping <code>{{ r.music_dir }}/{{ p.folder }}</code> out takes {% if p.tracks %}<strong>{{ p.tracks | plural('track') }}</strong> out of Tagwerk's lists (Home, Statistics, tracks, checks, duplicates){% else %}no tracks out of Tagwerk's lists: none are in the library yet{% endif %}.</p>
+      {% if p.marks or p.trash_kept_here or p.in_library_trash %}
+      <ul class="muted">
+        {% if p.with_changes %}<li>{{ p.with_changes | plural('track') }} with pending changes: the changes are dropped with the tracks</li>{% endif %}
+        {% if p.final %}<li>{{ p.final | plural('final mark') }}: removed with the tracks</li>{% endif %}
+        {% if p.secret %}<li>{{ p.secret | plural('secret mark') }}: removed with the tracks</li>{% endif %}
+        {% if p.duplicate_groups %}<li>{{ p.duplicate_groups | plural('duplicate group') }} with a copy there: those copies aren't duplicates any more</li>{% endif %}
+        {% if p.trash_kept_here %}<li>{{ p.trash_kept_here | plural('library copy', 'library copies') }} queued for the trash in favour of a copy there: the decision is dropped, the library copy stays</li>{% endif %}
+        {% if p.in_library_trash %}<li>{{ p.in_library_trash | plural('file') }} in the library trash came from there: Restore puts them back there, not into the library</li>{% endif %}
+      </ul>
+      {% endif %}
+      <p class="muted"><small>The files themselves aren't touched. Tags Tagwerk already wrote into them stay; the History shows which. {% if r.confirmed %}<code>{{ r.music_dir }}/{{ r.confirmed }}</code> becomes library again on the next scan.{% endif %}</small></p>
+      <form method="post" action="/settings/releasomat/keep-out" {{ saves("/settings/releasomat/keep-out", "releasomat") }} class="section-foot" data-confirm="Keep {{ r.music_dir }}/{{ p.folder }} out of the library?{% if p.tracks %} {{ p.tracks | plural('track') }} leave Tagwerk's lists, with their pending changes and marks.{% endif %} The files stay untouched." data-confirm-ok="Keep it out">
+        <input type="hidden" name="folder" value="{{ r.proposed }}">
+        <button type="submit">Keep this folder out of the library</button>
+      </form>
+      {% elif r.confirmed %}
+      <form method="post" action="/settings/releasomat/library" {{ saves("/settings/releasomat/library", "releasomat") }} class="section-foot" data-confirm="Treat {{ r.music_dir }}/{{ r.confirmed }} as library again? The next scan reads its files into the library, with analysis and checks." data-confirm-ok="Treat as library">
+        <button type="submit" class="outline secondary">Treat it as library again</button>
+      </form>
+      {% endif %}
+    </section>
+    {% endif %}
   </div>
 </div>
 {% include "partials/choices_script.html" %}
