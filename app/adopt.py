@@ -15,6 +15,12 @@ BPM and key, the duplicate check and the review happen there, as for every new t
 4. The file is read into the inbox list at once, and the adoption is recorded
    (``releasomatadoption``).
 
+**Notices** (``send_notices``): when the owner throws an adopted file away in the inbox
+(``discarded``: Releasomat marks it Don't like), restores it (``restored``), or a move failed
+(``returned``). They are kept on the adoption record until Releasomat takes them: sent right after
+the owner's action, and again by the regular check every few minutes. Not taken after a day: a
+Releasomat notification, and one more once they went through.
+
 **Delete asks Releasomat.** Tagwerk never deletes an area file itself: it sends the file's path,
 size and Releasomat's id to Releasomat's ``delete`` call, and Releasomat deletes the file with
 its own owner's delete (only files it downloaded, only in its folder) and marks the track
@@ -27,16 +33,17 @@ Nothing imports this module except routes (ADR 0040, no import circles).
 import json
 import logging
 import os
+import threading
 import time
 import unicodedata
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import area, preferences, releasomat
+from app import area, notifications, preferences, releasomat
 from app.changes import WriteProgress
 from app.config import Settings
 from app.importer import STABLE_AFTER, move_file
@@ -46,6 +53,8 @@ from app.models import ReleasomatAdoption, ReleasomatFile
 log = logging.getLogger(__name__)
 
 INBOX_FOLDER = "Releasomat"  # adopted files arrive in /import/Releasomat/<path in the area>
+NOTICE_LATE = timedelta(days=1)  # a notice Releasomat hasn't taken for this long: tell the owner
+_sending = threading.Lock()  # one round of notices at a time (after a click, the regular check)
 
 
 class NotReady(Exception):
@@ -253,6 +262,93 @@ def _failed(progress: WriteProgress, path: str, reason: str) -> None:
     progress.failed += 1
     progress.processed += 1
     progress.errors.append(f"{path}: {reason}")
+
+
+def send_notices(engine: Engine, settings: Settings) -> int:
+    """Send the notices Releasomat hasn't taken yet. Returns how many it took. Never raises:
+    what isn't taken stays and is tried again later."""
+    if not releasomat.configured(settings) or not _sending.acquire(blocking=False):
+        return 0
+    try:
+        return _send_notices(engine, settings)
+    except Exception:
+        log.exception("Sending notices to Releasomat failed")
+        return 0
+    finally:
+        _sending.release()
+
+
+def send_notices_soon(engine: Engine, settings: Settings) -> None:
+    """send_notices() in the background, so the owner's click doesn't wait for Releasomat."""
+    threading.Thread(
+        target=send_notices, args=(engine, settings), name="releasomat-notices", daemon=True
+    ).start()
+
+
+def _send_notices(engine: Engine, settings: Settings) -> int:
+    with Session(engine) as session:
+        waiting = list(
+            session.exec(select(ReleasomatAdoption).where(ReleasomatAdoption.notice != ""))
+        )
+    taken = 0
+    for kind in ("returned", "discarded", "restored"):
+        records = [r for r in waiting if r.notice == kind]
+        if not records:
+            continue
+        refs = [{"path": unicodedata.normalize("NFC", r.area_path), "size": r.size,
+                 "id": r.releasomat_id} for r in records]  # fmt: skip
+        try:
+            if kind == "returned":
+                answers = releasomat.returned(settings, refs, "move_failed")
+            else:
+                answers = getattr(releasomat, kind)(settings, refs)
+            results = [(a.ok, a.reason) for a in answers]
+        except releasomat.ReleasomatError as exc:
+            results = [(False, exc.message)] * len(records)
+        with Session(engine) as session:
+            for record, (ok, reason) in zip(records, results, strict=True):
+                current = session.get(ReleasomatAdoption, record.id)
+                if current is None or current.notice != kind:
+                    continue  # changed meanwhile (restored before the notice went out)
+                if ok:
+                    current.notice, current.notice_since, current.notice_error = "", None, None
+                    taken += 1
+                else:
+                    current.notice_error = reason or "Releasomat refused."
+                session.add(current)
+            session.commit()
+    _report_late(engine)
+    if taken:
+        log.info("Releasomat took %d notices", taken)
+    return taken
+
+
+def _report_late(engine: Engine) -> None:
+    """Notices not taken for a day: reported once while it lasts, and once more when solved."""
+    with Session(engine) as session:
+        waiting = list(
+            session.exec(select(ReleasomatAdoption).where(ReleasomatAdoption.notice != ""))
+        )
+    since = datetime.now(UTC) - NOTICE_LATE
+    late = [r for r in waiting if r.notice_since and area.as_utc(r.notice_since) < since]
+    if late:
+        names = "\n".join(f"• {r.area_path} ({r.notice})" for r in late[:10])
+        if len(late) > 10:
+            names += f"\n… and {len(late) - 10:,} more"
+        reason = late[0].notice_error or "no answer"
+        notifications.problem(
+            "releasomat", "releasomat-notices",
+            f"Releasomat hasn't taken {notifications.many(len(late), 'notice')} for a day",
+            f"Tagwerk couldn't tell Releasomat about these adopted tracks: {reason}\n{names}\n"
+            "Tagwerk keeps trying every few minutes; nothing else waits for it.",
+            "Releasomat", "/settings#releasomat", engine,
+        )  # fmt: skip
+    elif not waiting:
+        notifications.solved(
+            "releasomat", "releasomat-notices", "Releasomat took the waiting notices",
+            "Releasomat knows again which adopted tracks you threw away or restored.",
+            "Releasomat", "/releasomat?show=adopted", engine,
+        )  # fmt: skip
 
 
 def delete_files(engine: Engine, settings: Settings, ids: list[int]) -> list[Outcome]:

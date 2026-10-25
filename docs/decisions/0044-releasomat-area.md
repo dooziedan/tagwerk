@@ -260,6 +260,23 @@ CLAUDE.md gets these changes when this record is accepted:
 - **Import rules pointing into the area**: an artist or label called "Releasomat" in a custom folder
   pattern. Refused as an import problem, never filed there.
 
+## As built (2026-10-25)
+Steps 1 to 6 shipped together in one release (owner's choice). Where the build differs from the
+sketch below, or adds to it:
+- Settings → Releasomat, the menu entry and the Releasomat notification switch appear only once
+  `RELEASOMAT_FOLDER` or `RELEASOMAT_URL` is set or a folder is kept out; the hidden switch keeps
+  its value.
+- The folder Releasomat reports is remembered in its own `appsetting` row
+  (`releasomat_reported_folder`), not a preference: the owner doesn't choose it.
+- Opening the Releasomat page reads the area inline (`run_now`, at most every 10 s), not as a
+  job of its own; the library scan reads it too.
+- The Releasomat page flags files on its *In your library* and *Better sound* tabs as a possible
+  Releasomat bug: Releasomat links songs the library has instead of downloading them (owner,
+  2026-10-25), so such a file came into the library later or Releasomat missed the copy.
+- Adopt removes the folders a file leaves when they are empty (only `rmdir`).
+- The Adopted tab counts a file as in the Inbox when it is on disk there (also right after an
+  import was undone, before the inbox check lists it again).
+
 ## Contract
 The integration API is specified in Releasomat's
 [ADR 0009](https://github.com/dooziedan/releasomat/blob/main/docs/decisions/0009-tagwerk-integration.md)

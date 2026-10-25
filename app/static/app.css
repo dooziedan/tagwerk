@@ -1718,6 +1718,7 @@ a.kpi-value:hover { text-decoration: underline; }
 .area-sound { white-space: nowrap; }
 .area-sound small { display: block; }
 .area-low { color: var(--tw-warn); }
+.area-notice { display: block; white-space: normal; margin-top: 0.25rem; }
 .area-actions { width: 1%; }
 .area-actions button { display: block; width: 100%; margin: 0 0 0.3rem; }
 .area-actions button:last-child { margin-bottom: 0; }

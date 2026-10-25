@@ -63,7 +63,7 @@
   <tbody>
     {% for r, in_views in rows %}{% set t = r.track %}
     <tr data-views="{{ in_views | join(' ') }}"{% if show not in in_views %} hidden{% endif %}>
-      <td class="check-col"><input type="checkbox" name="ids" form="inbox-import" value="{{ t.id }}" aria-label="Select {{ t.title or t.path }}" onchange="inboxSelection()"></td>
+      <td class="check-col"><input type="checkbox" name="ids" form="inbox-import" value="{{ t.id }}" aria-label="Select {{ t.title or t.path }}" onchange="inboxSelection()"{% if r.adopted %} data-releasomat{% endif %}></td>
       <td><div class="play-row">
         {% if not t.error %}{{ play_button(t, "/inbox/" ~ t.id) }}{% endif %}
         <div>
@@ -138,8 +138,12 @@
     const visible = visibleBoxes(), all = document.getElementById("inbox-all");
     all.checked = visible.length > 0 && visible.every((b) => b.checked);
     document.getElementById("inbox-import-button").textContent = n === 1 ? "Import 1 track" : `Import ${n} tracks`;
+    // Adopted from Releasomat (ADR 0044): it is told, and marks them Don't like.
+    const adopted = document.querySelectorAll("input[name=ids][data-releasomat]:checked").length;
+    const releasomat = !adopted ? "" : n === 1 ? " It came from Releasomat: it will be marked Don't like there and not downloaded again."
+      : ` ${adopted === n ? (n === 2 ? "Both" : "All of them") : adopted + " of them"} came from Releasomat: ${adopted === 1 ? "it" : "they"} will be marked Don't like there and not downloaded again.`;
     document.getElementById("inbox-delete-button").dataset.confirm =
-      `Move ${n === 1 ? "1 file" : n + " files"} to the trash? You can restore them for {{ keep_days }} days.`;
+      `Move ${n === 1 ? "1 file" : n + " files"} to the trash? You can restore them for {{ keep_days }} days.` + releasomat;
     document.body.classList.toggle("with-action-bar", n > 0);  // room so the bar covers nothing
   }
 </script>

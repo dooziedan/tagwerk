@@ -4,6 +4,8 @@ loop (check_inbox_regularly) that also checks the inbox for new files.
 - **Inbox trash:** deleted inbox files are removed for good after 30 days (app/trash.py). Once a
   day, the files whose day comes within ANNOUNCE_DAYS are announced in one notification, each
   file only once. Afterwards it would be too late to restore them, so nothing is said then.
+- **Releasomat notices** (optional, ADR 0044): adopted tracks thrown away or restored in the
+  inbox are told to Releasomat; what it hasn't taken is tried again every round.
 - **Inbox needs you:** when more inbox tracks need the owner's help than at the last check.
   Only counted while the inbox check, its online lookups and the audio analysis are idle: a new
   track lacks BPM and key until they are done, which isn't a reason to call the owner.
@@ -19,7 +21,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlmodel import Session
 
-from app import notifications, preferences, trash
+from app import adopt, notifications, preferences, trash
 from app.config import Settings
 from app.db import get_engine
 from app.jobs import analysis_job, identify_job, inbox_job
@@ -54,6 +56,8 @@ def check_inbox_regularly(settings: Settings, every: float = 300) -> threading.T
 
 def run(settings: Settings) -> None:
     """One round of the regular checks. Never raises."""
+    # Notices Releasomat hasn't taken yet (ADR 0044): kept and tried again until it does.
+    adopt.send_notices(get_engine(settings.database_url), settings)
     if not settings.import_dir.is_dir():
         return
     for check in (announce_inbox_trash, report_inbox_help):

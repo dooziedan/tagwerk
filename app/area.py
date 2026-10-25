@@ -328,8 +328,8 @@ def adopted(session: Session, settings: Settings) -> list[Adopted]:
             link = f"/inbox/{track_id}" if track_id else "/inbox"
             found.append(Adopted(record, "inbox", link, record.inbox_path))
         elif later := [m for m in imported.get(record.inbox_path, [])
-                       if _utc(m[0]) >= _utc(record.adopted_at)]:  # fmt: skip
-            _at, track_id, path = max(later, key=lambda m: _utc(m[0]))
+                       if as_utc(m[0]) >= as_utc(record.adopted_at)]:  # fmt: skip
+            _at, track_id, path = max(later, key=lambda m: as_utc(m[0]))
             link = f"/tracks/{track_id}" if track_id else None
             found.append(Adopted(record, "library", link, path))
         else:
@@ -337,7 +337,47 @@ def adopted(session: Session, settings: Settings) -> list[Adopted]:
     return found
 
 
-def _utc(when: datetime) -> datetime:
+def note_discarded(session: Session, inbox_paths: list[str]) -> int:
+    """The owner moved these inbox files to the inbox trash: adopted ones are noted, so
+    Releasomat hears it (``discarded``: Don't like, never downloaded again). Returns how many
+    came from Releasomat. The caller commits and then sends the notices (adopt.send_notices)."""
+    noted = 0
+    for record in _adopted_at(session, inbox_paths, "adopted"):
+        record.state, record.notice = "discarded", "discarded"
+        record.notice_since, record.notice_error = datetime.now(UTC), None
+        session.add(record)
+        noted += 1
+    return noted
+
+
+def note_restored(session: Session, inbox_path: str) -> int:
+    """A file came back from the inbox trash: an adoption thrown away is adopted again. A
+    ``discarded`` notice not sent yet is simply dropped; else Releasomat hears ``restored``."""
+    noted = 0
+    for record in _adopted_at(session, [inbox_path], "discarded"):
+        record.state = "adopted"
+        record.notice = "" if record.notice == "discarded" else "restored"
+        record.notice_since = datetime.now(UTC) if record.notice else None
+        record.notice_error = None
+        session.add(record)
+        noted += 1
+    return noted
+
+
+def _adopted_at(session: Session, inbox_paths: list[str], state: str) -> list[ReleasomatAdoption]:
+    """The latest adoption of each of these inbox paths, if it is in ``state``."""
+    latest: dict[str, ReleasomatAdoption] = {}
+    for start in range(0, len(inbox_paths), 500):
+        query = select(ReleasomatAdoption).where(
+            col(ReleasomatAdoption.inbox_path).in_(inbox_paths[start : start + 500])
+        )
+        for record in session.exec(query.order_by(ReleasomatAdoption.id)):
+            latest[record.inbox_path] = record
+    return [r for r in latest.values() if r.state == state]
+
+
+def as_utc(when: datetime) -> datetime:
+    """SQLite gives back times without their zone: they are stored as UTC."""
     return when if when.tzinfo else when.replace(tzinfo=UTC)
 
 

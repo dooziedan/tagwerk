@@ -79,7 +79,8 @@
       <td><span class="inbox-title">{{ rec.title or rec.area_path.rsplit("/", 1)[-1] }}</span> <span class="muted">{{ rec.artist or "Unknown artist" }}</span><small class="muted inbox-file">{{ rec.area_path }}</small></td>
       <td class="area-sound"><small class="muted"><time data-local data-medium datetime="{{ rec.adopted_at | isoutc }}">{{ rec.adopted_at | isoutc }}</time></small></td>
       <td class="area-playlists">{% for name in a.playlists %}<span class="chip">{{ name }}</span>{% endfor %}</td>
-      <td class="inbox-status">{% if a.link %}<a class="status{% if a.where == 'library' %} status-better{% endif %}" href="{{ a.link }}"{% if a.path %} title="{{ a.path }}"{% endif %}>{{ where[a.where] }}</a>{% else %}<span class="status{% if a.where == 'returned' %} status-help{% endif %}">{{ where[a.where] }}</span>{% endif %}</td>
+      <td class="inbox-status">{% if a.link %}<a class="status{% if a.where == 'library' %} status-better{% endif %}" href="{{ a.link }}"{% if a.path %} title="{{ a.path }}"{% endif %}>{{ where[a.where] }}</a>{% else %}<span class="status{% if a.where == 'returned' %} status-help{% endif %}">{{ where[a.where] }}</span>{% endif %}
+        {% if rec.notice %}<small class="muted area-notice" title="{{ rec.notice_error or '' }}">Releasomat not told yet{% if rec.notice_error %}: {{ rec.notice_error }}{% endif %}. Tagwerk keeps trying.</small>{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>

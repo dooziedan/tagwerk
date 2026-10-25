@@ -55,8 +55,8 @@ TOPICS = {
     ),
     "releasomat": Topic(
         "Releasomat",
-        "Tracks that left the library because Releasomat's folder is kept out (once). Only "
-        "shown when Releasomat is set up.",
+        "Tracks that left the library because Releasomat's folder is kept out (once), and "
+        "notices Releasomat hasn't taken for a day. Only shown when Releasomat is set up.",
         True,
     ),
     "long_jobs": Topic(

@@ -555,3 +555,105 @@ def test_where_an_adopted_file_is_now(client, engine, settings, music_dir, adopt
     (settings.import_dir / "Releasomat" / BETTER).unlink()
     scan_inbox(engine, settings.import_dir, ScanProgress())
     assert where() == "gone"
+
+
+# --- Notices (step 6) -----------------------------------------------------------------------
+
+
+@pytest.fixture
+def adopted(client, engine, adoptable, monkeypatch):
+    """NEW adopted into the inbox; notices are sent right away, not in a thread (tests)."""
+    from app import adopt as adopt_module
+
+    monkeypatch.setattr(adopt_module, "send_notices_soon", adopt_module.send_notices)
+    assert adopt_now(client, engine, NEW).written == 1
+    with Session(engine) as session:
+        return session.exec(select(page_models.InboxTrack.id)).one()
+
+
+def record(engine):
+    with Session(engine) as session:
+        return session.exec(select(page_models.ReleasomatAdoption)).one()
+
+
+def test_throwing_an_adopted_file_away_tells_releasomat(client, engine, adopted, adoptable):
+    page = client.get("/inbox").text
+    assert "data-releasomat" in page and "came from Releasomat" in page
+    client.post("/inbox/delete", data={"ids": [adopted]})
+    assert adoptable.sent("discarded") == [{"files": [
+        {"path": NEW, "size": (FIXTURES / "untagged.mp3").stat().st_size, "id": 2}]}]  # fmt: skip
+    assert (record(engine).state, record(engine).notice) == ("discarded", "")
+    assert "Thrown away in the Inbox" in client.get("/releasomat?show=adopted").text
+
+
+def test_restoring_it_tells_releasomat_again(client, engine, settings, adopted, adoptable):
+    from app import trash
+
+    client.post("/inbox/delete", data={"ids": [adopted]})
+    [entry] = trash.items(settings.import_dir)
+    client.post(f"/inbox/trash/{entry.id}/restore")
+    assert len(adoptable.sent("restored")) == 1
+    assert (record(engine).state, record(engine).notice) == ("adopted", "")
+    assert client.get("/api/releasomat/adoptions").json()[0]["where"] == "inbox"
+
+
+def test_restored_before_releasomat_heard_of_it_sends_nothing(client, engine, settings, adopted,
+                                                               adoptable):  # fmt: skip
+    from app import trash
+
+    adoptable.answers["discarded"] = 503  # Releasomat down: the notice waits
+    client.post("/inbox/delete", data={"ids": [adopted]})
+    assert record(engine).notice == "discarded" and "error 503" in record(engine).notice_error
+    [entry] = trash.items(settings.import_dir)
+    client.post(f"/inbox/trash/{entry.id}/restore")
+    assert record(engine).notice == "" and adoptable.sent("restored") == []
+
+
+def test_notices_are_kept_retried_and_reported_after_a_day(client, engine, settings, adopted,
+                                                           adoptable):  # fmt: skip
+    from datetime import UTC, datetime, timedelta
+
+    from app import reminders
+
+    adoptable.answers["discarded"] = TimeoutError("timed out")
+    client.post("/inbox/delete", data={"ids": [adopted]})
+    assert "Releasomat not told yet" in client.get("/releasomat?show=adopted").text
+    settings = get_settings()  # with Releasomat's address (set by the fixture)
+    reminders.run(settings)  # the regular check tries again: still down
+    assert record(engine).notice == "discarded"
+    with Session(engine) as session:
+        late = session.exec(select(page_models.ReleasomatAdoption)).one()
+        late.notice_since = datetime.now(UTC) - timedelta(days=2)
+        session.add(late)
+        session.commit()
+    reminders.run(settings)
+    with Session(engine) as session:
+        notes = session.exec(select(page_models.Notification)).all()
+    assert [n.summary for n in notes] == ["Releasomat hasn't taken 1 notice for a day"]
+    assert "didn't answer" in notes[0].message
+    reminders.run(settings)  # reported once while it lasts
+
+    del adoptable.answers["discarded"]  # Releasomat is back
+    reminders.run(settings)
+    assert record(engine).notice == "" and record(engine).state == "discarded"
+    with Session(engine) as session:
+        summaries = [n.summary for n in session.exec(select(page_models.Notification))]
+    assert summaries == [
+        "Releasomat hasn't taken 1 notice for a day",
+        "Releasomat took the waiting notices",
+    ]
+
+
+def test_other_inbox_files_send_nothing(client, engine, settings, adopted, adoptable):
+    shutil.copy(FIXTURES / "untagged.mp3", settings.import_dir / "mine.mp3")
+    client.post("/api/inbox/scan")
+    from app.jobs import inbox_job
+
+    inbox_job.wait(10)
+    with Session(engine) as session:
+        mine = session.exec(
+            select(page_models.InboxTrack).where(page_models.InboxTrack.path == "mine.mp3")
+        ).one()
+    assert "data-releasomat" not in client.get(f"/inbox/{mine.id}").text
+    client.post("/inbox/delete", data={"ids": [mine.id]})
+    assert adoptable.sent("discarded") == []

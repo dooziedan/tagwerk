@@ -94,7 +94,7 @@
       <input type="hidden" name="show" value="{{ show }}">
       <button type="submit" {% if busy or better.problems %}disabled{% endif %}>Replace library copy</button>
     </form>
-    <form method="post" action="/inbox/{{ t.id }}/delete">
+    <form method="post" action="/inbox/{{ t.id }}/delete" {% if summary.adopted %}data-confirm="This track came from Releasomat: moving it to the trash marks it Don't like there, so it won't be downloaded again. Restoring it within {{ keep_days }} days takes that back." data-confirm-ok="Move to trash"{% endif %}>
       <input type="hidden" name="show" value="{{ show }}">
       <button type="submit" class="secondary outline" {% if busy %}disabled{% endif %}>Move this file to the trash</button>
     </form>
@@ -123,7 +123,7 @@
       {% endfor %}
     </tbody>
   </table>
-  <form method="post" action="/inbox/{{ t.id }}/delete" class="apply-actions">
+  <form method="post" action="/inbox/{{ t.id }}/delete" class="apply-actions" {% if summary.adopted %}data-confirm="This track came from Releasomat: moving it to the trash marks it Don't like there, so it won't be downloaded again. Restoring it within {{ keep_days }} days takes that back." data-confirm-ok="Move to trash"{% endif %}>
     <input type="hidden" name="show" value="{{ show }}">
     <button type="submit" class="secondary" {% if busy %}disabled{% endif %}>Move this file to the trash</button>
   </form>
