@@ -195,6 +195,33 @@ class InboxTrack(SQLModel, table=True):
     scanned_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ReleasomatFile(SQLModel, table=True):
+    """One audio file in the Releasomat area: the folder kept out of the library (ADR 0044).
+
+    Kept apart from ``Track`` on purpose, like ``InboxTrack``: area files are never counted,
+    checked, analysed, tagged or moved. Only what the Releasomat page shows is stored; the
+    tags are read when the file is new or changed (app/area.py, ``sync``).
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    path: str = Field(unique=True, index=True)  # relative to the area folder
+    format: str
+    size: int
+    mtime: float
+    duration: float | None = None
+    bitrate: int | None = None
+    sample_rate: int | None = None
+    bits_per_sample: int | None = None
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    mb_trackid: str | None = None
+    has_cover: bool = False
+    error: str | None = None  # set when the file could not be read
+    found_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    scanned_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class InboxValue(SQLModel, table=True):
     """A value the owner set for an inbox track on its review page (overrides the suggestion).
 

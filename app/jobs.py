@@ -125,6 +125,7 @@ class ScanJob(Job):
                 with Session(engine) as session:
                     skip = area.skipped(preferences.load(session))
                 scan_library(engine, settings.music_dir, progress, skip)
+                area.sync(engine, settings)  # the Releasomat folder's own list (ADR 0044)
             except (FileNotFoundError, EmptyLibraryError) as exc:
                 notifications.problem(
                     "scan",

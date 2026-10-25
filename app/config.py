@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # Tagwerk keeps that folder out of the library once the owner confirmed it in Settings.
     # Empty: nothing changes, Tagwerk works without Releasomat.
     releasomat_folder: str = ""
+    # Optional: Releasomat's address by host IP (e.g. http://192.168.1.10:8430, not localhost) and
+    # its integration key (Releasomat → Settings → Tagwerk, INTEGRATION_API_KEY). With both, the
+    # Releasomat page lists its downloads, and Adopt and Delete work. Never logged or shown.
+    releasomat_url: str = ""
+    releasomat_api_key: str = ""
 
     # Optional: online identification (v0.8). Free keys the owner gets from the services:
     # AcoustID (acoustid.org → new application) for identifying tracks by their sound,

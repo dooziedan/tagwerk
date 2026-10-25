@@ -1,7 +1,8 @@
 """Listening to tracks: the audio for the play bar (app/static/player.js).
 
-- ``/tracks/{id}/audio`` and ``/inbox/{id}/audio``: the file itself, with range requests, so
-  the browser can jump to any point. Read-only.
+- ``/tracks/{id}/audio``, ``/inbox/{id}/audio`` and ``/releasomat/{id}/audio`` (a file in the
+  Releasomat folder, ADR 0044): the file itself, with range requests, so the browser can jump
+  to any point. Read-only.
 - ``…/audio.mp3?start=SECONDS``: for formats browsers can't play (AIFF everywhere, ALAC in most
   browsers), ffmpeg converts on the fly to MP3, starting at ``start``; jumping reloads it there.
 """
@@ -12,9 +13,10 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
+from app import area, preferences
 from app.config import SettingsDep
 from app.db import SessionDep
-from app.models import InboxTrack, Track
+from app.models import InboxTrack, ReleasomatFile, Track
 
 router = APIRouter()
 
@@ -49,6 +51,25 @@ def inbox_audio(track_id: int, session: SessionDep, settings: SettingsDep):
 @router.get("/inbox/{track_id}/audio.mp3", include_in_schema=False)
 def inbox_audio_mp3(track_id: int, session: SessionDep, settings: SettingsDep, start: float = 0):
     return _mp3(settings.import_dir, session.get(InboxTrack, track_id), start)
+
+
+@router.get("/releasomat/{file_id}/audio", include_in_schema=False)
+def releasomat_audio(file_id: int, session: SessionDep, settings: SettingsDep):
+    return _file(_area(session, settings), session.get(ReleasomatFile, file_id))
+
+
+@router.get("/releasomat/{file_id}/audio.mp3", include_in_schema=False)
+def releasomat_audio_mp3(
+    file_id: int, session: SessionDep, settings: SettingsDep, start: float = 0
+):
+    return _mp3(_area(session, settings), session.get(ReleasomatFile, file_id), start)
+
+
+def _area(session, settings) -> Path:
+    root = area.area_dir(settings, preferences.load(session))
+    if root is None:
+        raise HTTPException(404)
+    return root
 
 
 def _path(root: Path, track) -> Path:

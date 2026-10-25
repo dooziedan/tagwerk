@@ -215,13 +215,20 @@ hx-post="{{ action }}" hx-target="#{{ section }}" hx-select="#{{ section }}" hx-
     <section id="releasomat" class="settings-section">
       {{ section_head("releasomat", "telescope", "Releasomat", "Releasomat, your playlist downloader, saves its downloads in its own folder inside the library. Tagwerk can keep that folder out of your library: its files aren't counted, checked, tagged or moved, and stay exactly where they are.") }}
       <dl class="facts">
+        {% if r.url %}
+        <dt>Address</dt><dd><code>{{ r.url }}</code>{% if not r.connected %} <small class="muted">· with <strong>Releasomat API Key</strong> (<code>RELEASOMAT_API_KEY</code>, from Releasomat's Settings → Tagwerk) Tagwerk can ask it about its files</small>{% endif %}</dd>
+        {% endif %}
+        {% if r.last %}
+        <dt>Last contact</dt><dd class="{% if not r.last.ok %}form-error{% endif %}">{{ "✅" if r.last.ok else "⚠️" }} {{ r.last.message }}
+          <small class="muted">· <time data-local datetime="{{ r.last.at | isoutc }}">{{ r.last.at | isoutc }}</time></small></dd>
+        {% endif %}
         {% if r.confirmed %}
         <dt>Kept out</dt><dd>✅ <code>{{ r.music_dir }}/{{ r.confirmed }}</code> <small class="muted">· scans skip it; imports and genre folders never go there</small></dd>
         {% endif %}
         {% if r.proposed and r.folder != r.confirmed %}
-        <dt>Releasomat folder</dt><dd>{% if r.problem %}<span class="form-error">⚠️ <code>{{ r.proposed }}</code>: {{ r.problem }}</span>{% else %}<code>{{ r.music_dir }}/{{ r.folder }}</code> <small class="muted">· from <code>RELEASOMAT_FOLDER</code>, still part of the library</small>{% endif %}</dd>
+        <dt>Releasomat folder</dt><dd>{% if r.problem %}<span class="form-error">⚠️ <code>{{ r.proposed }}</code>: {{ r.problem }}</span>{% else %}<code>{{ r.music_dir }}/{{ r.folder }}</code> <small class="muted">· {% if r.named_by == "Releasomat" %}as Releasomat reports it{% else %}from <code>RELEASOMAT_FOLDER</code>{% endif %}, still part of the library</small>{% endif %}</dd>
         {% elif not r.proposed %}
-        <dt>Releasomat folder</dt><dd class="muted"><small><code>RELEASOMAT_FOLDER</code> isn't set any more: the folder stays out until you treat it as library again.</small></dd>
+        <dt>Releasomat folder</dt><dd class="muted"><small>{% if r.connected %}Press <em>Test connection</em> to ask Releasomat for its folder.{% else %}<code>RELEASOMAT_FOLDER</code> isn't set any more: the folder stays out until you treat it as library again.{% endif %}</small></dd>
         {% endif %}
       </dl>
       {% if errors.releasomat %}<p class="form-error">⚠️ {{ errors.releasomat }}</p>{% endif %}
@@ -239,14 +246,23 @@ hx-post="{{ action }}" hx-target="#{{ section }}" hx-select="#{{ section }}" hx-
       </ul>
       {% endif %}
       <p class="muted"><small>The files themselves aren't touched. Tags Tagwerk already wrote into them stay; the History shows which. {% if r.confirmed %}<code>{{ r.music_dir }}/{{ r.confirmed }}</code> becomes library again on the next scan.{% endif %}</small></p>
-      <form method="post" action="/settings/releasomat/keep-out" {{ saves("/settings/releasomat/keep-out", "releasomat") }} class="section-foot" data-confirm="Keep {{ r.music_dir }}/{{ p.folder }} out of the library?{% if p.tracks %} {{ p.tracks | plural('track') }} leave Tagwerk's lists, with their pending changes and marks.{% endif %} The files stay untouched." data-confirm-ok="Keep it out">
-        <input type="hidden" name="folder" value="{{ r.proposed }}">
-        <button type="submit">Keep this folder out of the library</button>
-      </form>
-      {% elif r.confirmed %}
-      <form method="post" action="/settings/releasomat/library" {{ saves("/settings/releasomat/library", "releasomat") }} class="section-foot" data-confirm="Treat {{ r.music_dir }}/{{ r.confirmed }} as library again? The next scan reads its files into the library, with analysis and checks." data-confirm-ok="Treat as library">
-        <button type="submit" class="outline secondary">Treat it as library again</button>
-      </form>
+      {% endif %}
+      {% if r.precheck or r.confirmed or r.connected %}
+      <div class="section-foot">
+        {% if r.connected %}
+        <form method="post" action="/settings/releasomat/test" {{ saves("/settings/releasomat/test", "releasomat") }}><button class="outline secondary">Test connection</button></form>
+        {% endif %}
+        {% if r.precheck %}
+        <form method="post" action="/settings/releasomat/keep-out" {{ saves("/settings/releasomat/keep-out", "releasomat") }} data-confirm="Keep {{ r.music_dir }}/{{ r.precheck.folder }} out of the library?{% if r.precheck.tracks %} {{ r.precheck.tracks | plural('track') }} leave Tagwerk's lists, with their pending changes and marks.{% endif %} The files stay untouched." data-confirm-ok="Keep it out">
+          <input type="hidden" name="folder" value="{{ r.proposed }}">
+          <button type="submit">Keep this folder out of the library</button>
+        </form>
+        {% elif r.confirmed %}
+        <form method="post" action="/settings/releasomat/library" {{ saves("/settings/releasomat/library", "releasomat") }} data-confirm="Treat {{ r.music_dir }}/{{ r.confirmed }} as library again? The next scan reads its files into the library, with analysis and checks." data-confirm-ok="Treat as library">
+          <button type="submit" class="outline secondary">Treat it as library again</button>
+        </form>
+        {% endif %}
+      </div>
       {% endif %}
     </section>
     {% endif %}

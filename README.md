@@ -103,6 +103,7 @@ All settings are environment variables (the fields in the Unraid template):
 | `IMPORT_DIR` | `/import` | Import inbox (optional) |
 | `NAVIDROME_URL` / `NAVIDROME_USER` / `NAVIDROME_PASSWORD` | empty | Navidrome to rescan after changes (optional; admin user) |
 | `NAVIDROME_LIBRARY` | empty | With several Navidrome libraries: the name of the one using your music folder; only it is rescanned |
+| `RELEASOMAT_URL` / `RELEASOMAT_API_KEY` | empty | Optional, only with Releasomat: its address (server IP, not localhost) and the key from its Settings → Tagwerk. Lets Tagwerk list Releasomat's downloads to adopt or delete |
 | `RELEASOMAT_FOLDER` | empty | Optional, only with [Releasomat](https://github.com/dooziedan/releasomat): its download folder inside the music folder (e.g. `Releasomat`). Settings → Releasomat can then keep it out of the library |
 | `ORIGINALS_DIR` | `/originals` | Where originals go after converting to AIFF (optional) |
 | `ACOUSTID_KEY` / `DISCOGS_TOKEN` | empty | Free keys for online identification (optional) |

@@ -297,12 +297,26 @@ def treat_as_library_api(session: SessionDep, settings: SettingsDep) -> dict:
     return {"kept_out": None, "scan_started": scan_job.start(settings)}
 
 
+@router.post("/api/releasomat/test", tags=["settings"])
+def releasomat_test_api(session: SessionDep, settings: SettingsDep) -> dict:
+    """Ask Releasomat who it is and which files it has (needs RELEASOMAT_URL and
+    RELEASOMAT_API_KEY); remembers the folder it reports."""
+    result = area.test_connection(session, settings)
+    return {"ok": result.ok, "message": result.message}
+
+
 @router.post("/settings/releasomat/{action}", include_in_schema=False)
 async def releasomat_action(
     request: Request, action: str, session: SessionDep, settings: SettingsDep
 ):
-    """Settings → Releasomat: keep the folder out (``keep-out``), or treat it as library
-    again (``library``). Both start a scan, so the lists change right away."""
+    """Settings → Releasomat: test the connection (``test``), keep the folder out
+    (``keep-out``), or treat it as library again (``library``). The last two start a scan, so
+    the lists change right away."""
+    if action == "test":
+        area.test_connection(session, settings)
+        return RedirectResponse("/settings#releasomat", status_code=303)
+    if action not in ("keep-out", "library"):
+        raise HTTPException(404)
     if action == "keep-out":
         form = await read_form(request)
         try:

@@ -1,0 +1,5 @@
+{
+    "integration_api": 1,
+    "error": "wrong_key",
+    "message": "The key is missing or wrong. Send Releasomat's key as 'Authorization: Bearer \u2026'."
+}

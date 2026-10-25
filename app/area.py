@@ -1,8 +1,12 @@
 """The Releasomat area: the folder inside the library where Releasomat, the owner's playlist
 downloader, saves its downloads (ADR 0044).
 
-**Optional.** Tagwerk works in full without Releasomat: with no ``RELEASOMAT_FOLDER`` and no
-confirmed folder, nothing here does anything, and no page mentions Releasomat.
+**Optional.** Tagwerk works in full without Releasomat: with no ``RELEASOMAT_FOLDER``, no
+``RELEASOMAT_URL`` and no confirmed folder, nothing here does anything, and no page mentions
+Releasomat.
+
+The folder is ``RELEASOMAT_FOLDER`` when set, else the one Releasomat reports (``info``),
+remembered so scans and Settings still know it while Releasomat is down.
 
 The area is a discovery folder, not part of the curated library. Once the owner confirmed it
 (Settings → Releasomat, "Keep this folder out of the library"), the library scan skips it: its
@@ -11,30 +15,61 @@ Only the confirmed folder is skipped. This module never touches a file: it only 
 folder's name and counts what leaves Tagwerk's lists.
 """
 
+import json
+import logging
+import unicodedata
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
-from sqlalchemy import func, or_
+from sqlalchemy import Engine, delete, func, or_
 from sqlmodel import Session, col, select
 
-from app import naming, preferences, trash
+from app import naming, preferences, releasomat, trash
 from app.config import Settings
-from app.models import DuplicateTrack, FinalTrack, PendingChange, SecretTrack, Track
+from app.models import (
+    AppSetting,
+    DuplicateTrack,
+    FinalTrack,
+    PendingChange,
+    ReleasomatFile,
+    SecretTrack,
+    Track,
+)
 from app.preferences import Preferences
-from app.scanner import in_folder
+from app.scanner import ScanProgress, find_files, in_folder
+from app.tags import FORMATS, read_file
+
+log = logging.getLogger(__name__)
 
 # The pending change that queues a copy for the library trash (app.writer.TRASH).
 _TRASH = "trash"
+# The folder Releasomat reported last (an ``appsetting`` row, not a preference: the owner
+# doesn't choose it).
+_REPORTED = "releasomat_reported_folder"
 
 
 class FolderProblem(Exception):
     """The folder can't be the Releasomat area (the message says why, in plain words)."""
 
 
-def proposed(settings: Settings) -> str:
-    """The folder the container settings name (``RELEASOMAT_FOLDER``), as typed; empty when
-    none is set."""
-    return settings.releasomat_folder.strip()
+def proposed(settings: Settings, session: Session) -> str:
+    """The Releasomat folder as named: ``RELEASOMAT_FOLDER`` (as typed), else the one
+    Releasomat reported last; empty when neither is known."""
+    return settings.releasomat_folder.strip() or reported(session)
+
+
+def reported(session: Session) -> str:
+    """The folder Releasomat reported last (``GET info``), relative to Navidrome's music folder."""
+    row = session.get(AppSetting, _REPORTED)
+    return json.loads(row.value) if row else ""
+
+
+def remember_reported(session: Session, folder: str) -> None:
+    folder = unicodedata.normalize("NFC", folder.strip())
+    if folder != reported(session):
+        session.merge(AppSetting(key=_REPORTED, value=json.dumps(folder)))
+        session.commit()
 
 
 def confirmed(prefs: Preferences) -> str:
@@ -49,7 +84,8 @@ def skipped(prefs: Preferences) -> tuple[str, ...]:
 
 def configured(settings: Settings, prefs: Preferences) -> bool:
     """True when the owner set Releasomat up at all: only then does Settings show it."""
-    return bool(proposed(settings) or confirmed(prefs))
+    named = settings.releasomat_folder.strip() or settings.releasomat_url.strip()
+    return bool(named or confirmed(prefs))
 
 
 def contains(prefs: Preferences, path: str) -> bool:
@@ -155,26 +191,107 @@ def keep_out(session: Session, settings: Settings, name: str) -> str:
     """The owner's click: keep this folder out of the library from the next scan on. Only the
     folder ``RELEASOMAT_FOLDER`` names can be confirmed. Returns the folder."""
     prefs = preferences.load(session)
-    if name.strip() != proposed(settings):
+    if name.strip() != proposed(settings, session):
         raise FolderProblem("The Releasomat folder changed meanwhile: check the numbers again.")
     folder = check_folder(name, settings, prefs)
+    if folder != prefs.releasomat_area:
+        session.exec(delete(ReleasomatFile))  # paths of another folder: read it again
     preferences.save(session, replace(prefs, releasomat_area=folder))
     return folder
 
 
 def treat_as_library(session: Session) -> None:
     """Undo keep_out(): the next scan reads the folder's files into the library again."""
+    session.exec(delete(ReleasomatFile))  # they become library tracks
     preferences.save(session, replace(preferences.load(session), releasomat_area=""))
+
+
+def area_dir(settings: Settings, prefs: Preferences) -> Path | None:
+    """The folder kept out of the library, on disk; None while there is none."""
+    return settings.music_dir / prefs.releasomat_area if prefs.releasomat_area else None
+
+
+def sync(engine: Engine, settings: Settings, paths: list[str] | None = None) -> ScanProgress:
+    """Keep the ``releasomatfile`` table in step with the area folder (like the inbox check):
+    new and changed files are read, files that are gone are forgotten. ``paths``: only these
+    (relative to the area), e.g. after a Delete. Read-only for the files."""
+    progress = ScanProgress()
+    with Session(engine) as session:
+        root = area_dir(settings, preferences.load(session))
+        if root is None:
+            return progress
+        if not root.is_dir():  # unmounted or removed: keep what is known, change nothing
+            log.warning("Releasomat folder not found: %s", root)
+            return progress
+        query = select(ReleasomatFile)
+        if paths is None:
+            files = find_files(root)[0]
+        else:
+            files = [root / p for p in paths if (root / p).is_file()]
+            query = query.where(col(ReleasomatFile.path).in_(paths))
+        known = {row.path: row for row in session.exec(query)}
+        progress.total = len(files)
+        seen = set()
+        for path in files:
+            rel = path.relative_to(root).as_posix()
+            seen.add(rel)
+            try:
+                stat = path.stat()
+            except OSError:  # removed while reading
+                continue
+            row = known.get(rel)
+            if row and row.mtime == stat.st_mtime and row.size == stat.st_size:
+                progress.unchanged += 1
+            else:
+                _store(session, path, rel, stat, row)
+                if row:
+                    progress.updated += 1
+                else:
+                    progress.added += 1
+            progress.processed += 1
+        for rel, row in known.items():
+            if rel not in seen:
+                session.delete(row)
+                progress.removed += 1
+        session.commit()
+    if progress.added or progress.updated or progress.removed:
+        log.info("Releasomat folder: %d added, %d updated, %d removed", progress.added,
+                 progress.updated, progress.removed)  # fmt: skip
+    return progress
+
+
+def _store(session: Session, path: Path, rel: str, stat, row: ReleasomatFile | None) -> None:
+    """Read one area file's tags (what the Releasomat page shows) into its row."""
+    try:
+        columns = read_file(path).as_columns()
+        values = {k: v for k, v in columns.items() if k in ReleasomatFile.model_fields}
+        values["error"] = None
+    except Exception as exc:  # a broken file is listed as unreadable, not skipped
+        log.warning("Could not read %s: %s", rel, exc)
+        values = {"format": FORMATS[path.suffix.lower()], "error": str(exc)[:500] or "unreadable"}
+    if row is None:
+        row = ReleasomatFile(path=rel, size=stat.st_size, mtime=stat.st_mtime, **values)
+    else:
+        for name in ReleasomatFile.model_fields:
+            if name not in ("id", "path", "found_at"):
+                setattr(row, name, values.get(name, ReleasomatFile.model_fields[name].default))
+        row.size, row.mtime = stat.st_size, stat.st_mtime
+        row.scanned_at = datetime.now(UTC)
+    session.add(row)
 
 
 def overview(session: Session, settings: Settings, prefs: Preferences) -> dict:
     """What Settings → Releasomat shows: the folder, its check, and the numbers before the
     click. ``configured`` False: Settings shows nothing about Releasomat."""
-    folder = proposed(settings)
+    folder = proposed(settings, session)
     found = {
         "configured": configured(settings, prefs),
         "music_dir": settings.music_dir.as_posix(),  # for showing full paths: /music/…
         "proposed": folder,
+        "named_by": "RELEASOMAT_FOLDER" if settings.releasomat_folder.strip() else "Releasomat",
+        "url": settings.releasomat_url.strip(),
+        "connected": releasomat.configured(settings),
+        "last": releasomat.last,
         "confirmed": confirmed(prefs),
         "problem": None,
         "folder": None,  # the proposed folder after its checks
@@ -190,6 +307,48 @@ def overview(session: Session, settings: Settings, prefs: Preferences) -> dict:
     if found["folder"] != found["confirmed"]:
         found["precheck"] = precheck(session, settings.music_dir, found["folder"])
     return found
+
+
+def test_connection(session: Session, settings: Settings) -> releasomat.Result:
+    """Settings → Releasomat → Test: ask Releasomat who it is and which files it has, remember
+    the folder it reports, and check that Tagwerk finds those files in the folder."""
+    try:
+        about = releasomat.info(settings)
+        folder, found = releasomat.files(settings)
+    except releasomat.ReleasomatError as exc:
+        return releasomat.remember(releasomat.Result(False, exc.message))
+    remember_reported(session, folder or about.folder)
+    message = f"Connected to Releasomat {about.version}. It saves into “{about.folder}”."
+    named = proposed(settings, session)
+    try:
+        here = check_folder(named, settings, preferences.load(session))
+    except FolderProblem as exc:
+        return releasomat.remember(releasomat.Result(False, f"{message} {exc}"))
+    seen, total = file_match(settings.music_dir / here, found)
+    where = f"{settings.music_dir.as_posix()}/{here}"
+    if total and not seen:
+        return releasomat.remember(releasomat.Result(False, (
+            f"{message} None of its {releasomat_files(total)} are in {where}: if Tagwerk's music "
+            "folder maps somewhere else than Navidrome's, set RELEASOMAT_FOLDER."
+        )))  # fmt: skip
+    return releasomat.remember(
+        releasomat.Result(True, f"{message} {seen} of {releasomat_files(total)} found in {where}.")
+    )
+
+
+def file_match(folder: Path, found: list[releasomat.AreaFile]) -> tuple[int, int]:
+    """How many of Releasomat's files are in ``folder`` with the size Releasomat reports."""
+    seen = 0
+    for item in found:
+        try:
+            seen += (folder / item.path).stat().st_size == item.size
+        except OSError:
+            continue
+    return seen, len(found)
+
+
+def releasomat_files(count: int) -> str:
+    return f"{count:,} Releasomat file{'' if count == 1 else 's'}"
 
 
 def _count(session: Session, query) -> int:

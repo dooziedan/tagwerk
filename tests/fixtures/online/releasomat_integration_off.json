@@ -1,0 +1,5 @@
+{
+    "integration_api": 1,
+    "error": "integration_off",
+    "message": "The integration is off: Releasomat has no key for Tagwerk (Settings → Tagwerk). Releasomat works the same without it."
+}

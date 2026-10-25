@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "macros.html" import nav_icon, play_button %}
+{% block title %}Releasomat · Tagwerk{% endblock %}
+{% block content %}
+{% set n = prefs.key_notation %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Discovery area · not in your library</span>
+    <h1>Releasomat</h1>
+    <p class="muted page-sub">What Releasomat downloaded for your playlists{% if folder %}, in <code>{{ music_dir }}/{{ folder }}</code>{% endif %}. These files aren't part of your library: Tagwerk doesn't count, check, tag or move them. Listen, and see which you already have.</p>
+  </div>
+  {% if folder %}<form method="post" action="/releasomat/check" class="head-action"><button class="outline secondary">Check again</button></form>{% endif %}
+</div>
+
+{% if not configured %}
+<article class="empty-state">
+  <p><strong>Releasomat isn't set up.</strong></p>
+  <p class="muted">Tagwerk works the same without it.</p>
+</article>
+{% elif not folder %}
+<article class="empty-state">
+  <p><strong>The Releasomat folder is still part of your library.</strong></p>
+  <p class="muted">Keep it out in <a href="/settings#releasomat">Settings → Releasomat</a>{% if proposed %} (<code>{{ music_dir }}/{{ proposed }}</code>){% endif %}: then its downloads are listed here instead of among your tracks.</p>
+</article>
+{% else %}
+{% if connected and not releasomat.answers %}
+<p class="notice" role="status">⚠️ {{ releasomat.problem }} The files are shown as Tagwerk reads them, without their playlists.</p>
+{% elif not connected %}
+<p class="muted"><small>With <code>RELEASOMAT_URL</code> and <code>RELEASOMAT_API_KEY</code> set, this page also shows which playlists contain each file, and the BPM and key the playlist's source knows.</small></p>
+{% endif %}
+
+<section class="kpis" aria-label="Releasomat folder">
+  {% for key, label, count in views %}
+  {% if key in ("all", "new", "better", "low") %}
+  <article class="kpi"><a class="kpi-value" href="/releasomat{% if key != 'all' %}?show={{ key }}{% endif %}">{{ count | number }}</a><span class="kpi-label">{{ {"all": "Files", "new": "Not in your library", "better": "Better sound than your copy", "low": "Low quality"}[key] }}</span></article>
+  {% endif %}
+  {% endfor %}
+</section>
+
+<nav class="view-tabs" aria-label="Show">
+  {% for key, label, count in views %}
+  <a href="/releasomat{% if key != 'all' %}?show={{ key }}{% endif %}"{% if key == show %} aria-current="page"{% endif %}>{{ label }} <span class="view-count">{{ count }}</span></a>
+  {% endfor %}
+</nav>
+
+<form method="get" action="/releasomat" class="area-filter" role="search">
+  {% if show != "all" %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+  {% if playlists %}
+  <select name="playlist" aria-label="Playlist" onchange="this.form.requestSubmit()">
+    <option value="">Every playlist</option>
+    {% for p in playlists %}<option value="{{ p.id }}"{% if p.id == playlist %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <input type="search" name="q" value="{{ q }}" placeholder="Artist, title or file" aria-label="Search">
+  <button type="submit" class="outline secondary">Search</button>
+</form>
+
+{% set already = (views | selectattr(0, "in", ["library", "better"]) | map(attribute=2) | sum) %}
+{% if show in ("library", "better") and already %}
+<p class="notice" role="note">🐞 <strong>Releasomat shouldn't download songs you already have</strong>: it links your copy into its playlists instead. Each file here either came into your library after Releasomat downloaded it (then Releasomat links your copy on its next refresh), or Releasomat missed your copy. If it's the second, it's worth reporting as a Releasomat bug, with the reason shown and your copy's path.</p>
+{% endif %}
+
+{% if not rows %}
+<p class="muted">{% if q or playlist %}Nothing matches.{% elif show == "all" %}No downloads in the Releasomat folder right now.{% else %}No files here right now.{% endif %}</p>
+{% else %}
+<table class="inbox-list area-list">
+  <thead>
+    <tr><th scope="col">Track</th><th scope="col">Sound</th><th scope="col">Playlists</th><th scope="col">Status</th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}{% set f = r.file %}
+    <tr>
+      <td><div class="play-row">
+        {% if not f.error %}{{ play_button(f, "/releasomat/" ~ f.id) }}{% endif %}
+        <span class="area-cover">{% if f.has_cover %}<img src="/releasomat/{{ f.id }}/cover?v={{ f.mtime }}" alt="" loading="lazy" width="40" height="40">{% else %}<span class="cover-planet fill" style="--h: {{ [238, 262, 285, 205, 330, 45, 190, 250][((r.artist or f.path) | length) % 8] }}"><i></i><b></b><em></em></span>{% endif %}</span>
+        <div>
+          <span class="inbox-title">{{ r.title or f.path.rsplit("/", 1)[-1] }}</span>
+          <span class="muted">{{ r.artist or "Unknown artist" }}</span>
+          <small class="muted inbox-file">{{ f.path }}</small>
+        </div>
+      </div></td>
+      <td class="area-sound">
+        {% if f.error %}<span class="status status-warn" title="{{ f.error }}">Unreadable</span>
+        {% else %}
+        <span{% if r.low %} class="area-low"{% endif %}>{{ r.quality }}{% if r.low %} · low{% endif %}</span>
+        <small class="muted">{% if f.duration %}{{ f.duration | mmss }}{% endif %}{% if r.bpm or r.key %} · {% if r.bpm %}{{ r.bpm | bpm }} BPM{% endif %}{% if r.key %} {{ key_label(r.key, n) if key_code(r.key) else r.key }}{% endif %} <span title="From the playlist's source, not measured">(source)</span>{% endif %}</small>
+        {% endif %}
+      </td>
+      <td class="area-playlists">
+        {% for p in r.playlists %}<a class="chip" href="{{ p.url }}" target="_blank" rel="noopener">{{ p.name }}</a>{% endfor %}
+      </td>
+      <td class="inbox-status">
+        {% if r.better %}<span class="status status-better" title="Your copy: {{ r.better.library.path }}">Better sound: {{ r.better.new_quality }}, your copy {{ r.better.old_quality }}</span>
+        {% elif r.matches %}{% set m = r.matches[0] %}<a class="status status-help" href="/tracks/{{ m.track.id }}" title="Your copy: {{ m.track.path }}. Releasomat shouldn't have downloaded it, unless your copy came later.">In your library · {{ m.reason }}</a>
+        {% else %}<span class="status">Not in your library</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if pages > 1 %}
+<nav class="pagination" aria-label="Pages">
+  {% if page > 1 %}<a role="button" class="outline secondary" href="{{ page_link(page - 1) }}">← Newer</a>{% endif %}
+  <span class="muted">Page {{ page }} of {{ pages }} · {{ total | plural('file') }}</span>
+  {% if page < pages %}<a role="button" class="outline secondary" href="{{ page_link(page + 1) }}">Older →</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}

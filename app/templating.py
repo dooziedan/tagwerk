@@ -101,6 +101,22 @@ def pending_count() -> int:
         return 0
 
 
+def releasomat_shown() -> bool:
+    """True when the owner set Releasomat up: only then is it in the menu (ADR 0044)."""
+    try:
+        from sqlmodel import Session
+
+        from app import area, preferences
+        from app.config import get_settings
+        from app.db import get_engine
+
+        settings = get_settings()
+        with Session(get_engine(settings.database_url)) as session:
+            return area.configured(settings, preferences.load(session))
+    except Exception:  # the menu must never break a page
+        return False
+
+
 def inbox_count() -> int:
     """Number of tracks in the import inbox, for the menu badge."""
     try:
@@ -202,6 +218,7 @@ templates.env.globals.update(
     recent=recent,
     pending_count=pending_count,
     inbox_count=inbox_count,
+    releasomat_shown=releasomat_shown,
     unread_notifications=unread_notifications,
     notification_link=notification_link,
     notification_kinds=KINDS,
