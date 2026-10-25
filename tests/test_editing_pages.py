@@ -1,4 +1,7 @@
 import re
+from urllib.parse import quote
+
+import pytest
 
 from app.jobs import scan_job, write_job
 from app.tags import read_file
@@ -272,3 +275,67 @@ def test_the_api_applies_chosen_changes(client, music_dir):
     assert client.post("/api/changes/apply").status_code == 202  # no body: all the rest
     write_job.wait(30)
     assert read_file(music_dir / ALBUM / "tagged.mp3").label == "B"
+
+
+def test_ids_take_pasted_links_and_check_their_kind():
+    from app import writer
+
+    mbid = "0b6a4e7c-3a4f-4b8e-9d0e-1f2a3b4c5d6e"
+    link = f"https://musicbrainz.org/release/{mbid.upper()}"
+    assert writer.normalize("mb_albumid", link) == mbid
+    two = f"https://beta.musicbrainz.org/artist/{mbid}; {mbid.replace('0b', 'aa', 1)}"
+    assert writer.normalize("mb_artistid", two) == f"{mbid}; {mbid.replace('0b', 'aa', 1)}"
+    old_style = "https://www.discogs.com/Some-Artist-Some-Title/release/25124086"
+    assert writer.normalize("discogs_releaseid", old_style) == "25124086"
+    assert writer.normalize("discogs_artistid", "discogs.com/de/artist/1234-Name") == "1234"
+
+    for field, value in [
+        ("mb_albumid", f"https://musicbrainz.org/recording/{mbid}"),
+        ("mb_trackid", f"https://musicbrainz.org/track/{mbid}"),  # a track on a release
+        ("discogs_releaseid", "https://www.discogs.com/master/1234-Name"),
+    ]:
+        with pytest.raises(ValueError, match="That's the link of a"):
+            writer.normalize(field, value)
+
+
+def test_edit_page_sets_musicbrainz_and_discogs_ids(client):
+    ids = scanned(client)
+    track = ids[f"{ALBUM}/tagged.flac"]
+    page = client.get(f"/tracks/{track}/edit").text
+    assert "Track (recording)" in page and 'value="22222222-2222-4222-8222-222222222222"' in page
+
+    mbid = "0b6a4e7c-3a4f-4b8e-9d0e-1f2a3b4c5d6e"
+    wrong = client.post(
+        f"/tracks/{track}/edit",
+        data={"mb_albumid": f"https://musicbrainz.org/recording/{mbid}"},
+    )
+    assert wrong.status_code == 422 and "this field needs a release" in wrong.text
+
+    link = quote(f"https://musicbrainz.org/release/{mbid}", safe="")
+    body = f"mb_albumid={link}&discogs_releaseid=https%3A%2F%2Fwww.discogs.com%2Frelease%2F42-X"
+    client.post(f"/tracks/{track}/edit", content=body, headers=FORM)
+    changes = {
+        c["field"]: c["new_value"] for p in client.get("/api/changes").json() for c in p["changes"]
+    }
+    assert changes == {"mb_albumid": mbid, "discogs_releaseid": "42"}
+
+
+def test_an_id_left_as_it_was_never_blocks_saving(client):
+    ids = scanned(client)
+    track = ids["Unsorted/discogs-ids.flac"]  # musicbrainz_albumid = 25124086
+    page = client.get(f"/tracks/{track}/edit").text
+    assert 'value="25124086"' in page and "Fix IDs" in page
+
+    saved = client.post(f"/tracks/{track}/edit", data={"bpm": "128", "mb_albumid": "25124086"})
+    assert saved.status_code == 200 and "Saved 1 pending change" in saved.text
+
+    typed = client.post(f"/tracks/{track}/edit", data={"mb_albumid": "25124087"})
+    assert typed.status_code == 422 and "A MusicBrainz ID looks like" in typed.text
+
+
+def test_several_tracks_get_album_ids_but_no_track_ids(client):
+    ids = scanned(client)
+    picked = [ids[f"{ALBUM}/tagged.flac"], ids[f"{ALBUM}/tagged.m4a"]]
+    page = client.get("/tracks/edit", params={"ids": picked}).text
+    assert "Album (release)" in page and "Track (recording)" not in page
+    assert 'name="mb_trackid"' not in page and 'name="discogs_trackid"' not in page

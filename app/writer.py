@@ -59,7 +59,7 @@ EDITABLE = {
     "label": "Label",
     "catalognumber": "Catalog number",
 }
-# ID fields: not in the edit form; "Fix IDs" changes them (app/ids.py, ADR 0018).
+# ID fields: their own sections on the edit page (ADR 0045), and "Fix IDs" (app/ids.py, ADR 0018).
 IDS = {
     "mb_trackid": "MusicBrainz track ID",
     "mb_albumid": "MusicBrainz album ID",
@@ -198,12 +198,45 @@ def _normalize_replaygain(field: str, value: str) -> str:
     return f"{number:.6f}"
 
 
+# Links pasted from MusicBrainz or Discogs: the ID is taken out of them (ADR 0045). The page
+# must be the field's kind: a recording's link is no release ID.
+_MB_LINK = re.compile(r"musicbrainz\.org/([a-z-]+)/([0-9a-f-]{36})", re.IGNORECASE)
+_DISCOGS_LINK = re.compile(
+    r"discogs\.com/(?:.*/)?(release|master|artist|label)/(\d+)", re.IGNORECASE
+)
+_LINK_KINDS = {
+    "mb_trackid": "recording",
+    "mb_albumid": "release",
+    "mb_artistid": "artist",
+    "mb_albumartistid": "artist",
+    "discogs_releaseid": "release",
+    "discogs_artistid": "artist",
+}
+
+
+def _id_from_link(field: str, part: str) -> str:
+    """ "https://musicbrainz.org/release/<id>" -> "<id>", "discogs.com/release/25124086-Name"
+    -> "25124086"; anything else stays as it is. Raises ValueError for another kind of page."""
+    is_mb = field.startswith("mb_")
+    found = (_MB_LINK if is_mb else _DISCOGS_LINK).search(part)
+    if not found:
+        return part
+    kind, found_id = found.group(1).lower(), found.group(2)
+    if kind != _LINK_KINDS[field]:
+        service = "MusicBrainz" if is_mb else "Discogs"
+        raise ValueError(
+            f"That's the link of a {service} {kind}, this field needs a {_LINK_KINDS[field]}"
+        )
+    return found_id
+
+
 def _normalize_ids(field: str, value: str) -> str:
     if field == "discogs_trackid":  # one value, its position written as on Discogs ("A1")
         if not DISCOGS_TRACK_RE.match(value):
             raise ValueError("A Discogs track ID is the release and the position, e.g. 33199809-3")
         return value
-    parts = list(dict.fromkeys(p.strip().lower() for p in value.split(";") if p.strip()))
+    parts = [_id_from_link(field, p.strip()).lower() for p in value.split(";") if p.strip()]
+    parts = list(dict.fromkeys(parts))
     if field.startswith("mb_"):
         if not all(MBID_RE.match(p) for p in parts):
             raise ValueError("A MusicBrainz ID looks like 0b6a4e7c-3a4f-4b8e-9d0e-1f2a3b4c5d6e")

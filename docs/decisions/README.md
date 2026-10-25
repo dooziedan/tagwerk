@@ -62,3 +62,4 @@ What gets easier, what gets harder.
 | [0041](0041-genre-and-bpm-weighed.md) | Online genre and BPM weighed together: tempo rules in the genre map read store BPMs at the genre's speed (87 → 174), the measured tempo rules out wrong genres | Accepted (tempos moved by 0042) |
 | [0042](0042-bpm-ranges.md) | BPM ranges are their own Settings section, one row per genre; old tempo lines in the genre map move there | Accepted |
 | [0043](0043-notifications-read-on-opening.md) | Notifications: the bell's menu lists the unread ones (click: open it on the page; ✓: mark as read); on the page, opening reads it and it stays in New until cleared (× or Clear all); Mark as unread; the unread number in the tab's title | Accepted |
+| [0045](0045-ids-on-the-edit-page.md) | MusicBrainz and Discogs IDs on the edit page: prepared fields, an ID or a pasted link, the page's kind checked; IDs left as they were never block saving | Accepted |

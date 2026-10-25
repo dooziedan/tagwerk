@@ -29,8 +29,14 @@ FilterDep = Annotated[TrackFilter, Depends()]
 # Form order: what a DJ edits most comes first.
 FIELD_ORDER = ["bpm", "key", "genre", "comment", "label", "catalognumber",
                "title", "artist", "album", "albumartist", "track", "disc", "date"]  # fmt: skip
-# The edit form's fields: the tags, then the ReplayGain section.
-FORM_FIELDS = {**writer.EDITABLE, **writer.REPLAYGAIN}
+# The edit form's fields: the tags, then the ReplayGain and ID sections.
+FORM_FIELDS = {**writer.EDITABLE, **writer.REPLAYGAIN, **writer.IDS}
+# The ID sections (ADR 0045): short labels under their service's heading. A track's own IDs
+# aren't offered when editing several tracks.
+MUSICBRAINZ = {"mb_trackid": "Track (recording)", "mb_albumid": "Album (release)",
+               "mb_artistid": "Artist", "mb_albumartistid": "Album artist"}  # fmt: skip
+DISCOGS = {"discogs_releaseid": "Release", "discogs_artistid": "Artist", "discogs_trackid": "Track"}
+OWN_IDS = {"mb_trackid", "discogs_trackid"}
 HINTS = {
     "artist": "Several artists: separate with ;",
     "albumartist": "Several: separate with ;",
@@ -44,6 +50,12 @@ HINTS = {
     "replaygain_album_gain": "dB, e.g. -7.1",
     "replaygain_track_peak": "1.0 is full scale, e.g. 0.98",
     "replaygain_album_peak": "1.0 is full scale",
+    "mb_trackid": "The ID or the link of the recording",
+    "mb_albumid": "The ID or the link of the release",
+    "mb_artistid": "Several artists: separate with ;",
+    "mb_albumartistid": "Several: separate with ;",
+    "discogs_releaseid": "The number or the link of the release",
+    "discogs_trackid": "Release and position, e.g. 33199809-3",
 }
 
 
@@ -200,6 +212,13 @@ async def edit_track(request: Request, track_id: int, session: SessionDep, setti
     form = await read_form(request)
     # Only the fields in the form: one it doesn't show (an Opus file's peaks) stays as it is.
     values = {f: str(form.get(f, "")) for f in FORM_FIELDS if f in form}
+    # An ID field left as it was stays as it is, even when it holds something that isn't an ID
+    # (Fix IDs moves those, ADR 0018): only what was typed is checked.
+    waiting = _pending_of(session, track.id)
+    for name in writer.IDS:
+        left = values.get(name, "").strip() == (writer.current_value(track, name) or "")
+        if left and name not in waiting:
+            values.pop(name, None)
     cover, errors = await cover_choice(form, settings)
     # Advanced tags count only while switched on: switched off, they stay as they are.
     adv_open = form.get("advanced") == "on"
@@ -366,6 +385,10 @@ def _edit_page(
                 if many or writer.supports(tracks[0].format, n)
             ],
             "opus": sum(1 for t in tracks if t.format == "opus"),
+            "musicbrainz": [
+                (n, label) for n, label in MUSICBRAINZ.items() if not (many and n in OWN_IDS)
+            ],
+            "discogs": [(n, label) for n, label in DISCOGS.items() if not (many and n in OWN_IDS)],
             "values": values,
             "shared": shared,
             "errors": errors,
