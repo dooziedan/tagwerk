@@ -15,13 +15,15 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app import area, preferences, releasomat, upgrade
+from app import adopt, area, preferences, releasomat, upgrade
 from app.config import Settings, SettingsDep
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import LibraryIndex, Match, is_lossless, quality
+from app.forms import read_form
 from app.jobs import run_now
 from app.keys import to_camelot
 from app.library import LOW_BITRATE_KBPS
@@ -33,6 +35,8 @@ router = APIRouter()
 PAGE_SIZE = 100  # the area can grow to thousands of files: the page shows them in pages
 RECHECK_AFTER = 10  # seconds: opening the page reads the folder again at most this often
 _last_check = 0.0
+# The last Delete's refusals, shown once on the page it leads back to.
+_last_refusals: list[adopt.Outcome] = []
 
 
 @dataclass
@@ -98,7 +102,11 @@ def releasomat_page(
     if area.confirmed(prefs) and _due():
         _check(settings)
     view = _view(settings, session, prefs, show, playlist, q, page)
-    return templates.TemplateResponse(request, "releasomat.html", {"prefs": prefs, **view})
+    note = {k: request.query_params.get(k, "") for k in ("deleted", "refused", "error")}
+    refusals = _last_refusals if note["refused"] else []
+    return templates.TemplateResponse(
+        request, "releasomat.html", {"prefs": prefs, "note": note, "refusals": refusals, **view}
+    )
 
 
 @router.get("/api/releasomat/files", tags=["releasomat"])
@@ -123,6 +131,49 @@ def releasomat_files_api(
         "pages": view["pages"],
         "files": [_json(row) for row in view["rows"]],
     }
+
+
+class FileIds(BaseModel):
+    ids: list[int]  # ids from GET /api/releasomat/files
+
+
+@router.post("/api/releasomat/delete", tags=["releasomat"])
+def releasomat_delete_api(body: FileIds, settings: SettingsDep) -> dict:
+    """Ask Releasomat to delete these files: it deletes them itself (only its own downloads)
+    and marks them Don't like, so they're never downloaded again. Tagwerk touches no file.
+    One answer per file; 409 when Releasomat isn't answering (nothing is deleted then)."""
+    try:
+        outcomes = adopt.delete_files(get_engine(settings.database_url), settings, body.ids)
+    except adopt.NotReady as exc:
+        raise HTTPException(409, str(exc)) from None
+    return {"files": [{"path": o.path, "deleted": o.done, "reason": o.reason} for o in outcomes]}
+
+
+@router.post("/releasomat/delete", include_in_schema=False)
+async def releasomat_delete(request: Request, settings: SettingsDep):
+    """The page's Delete: one row's button (``one``) or the ticked rows (``ids``)."""
+    global _last_refusals
+    form = await read_form(request)
+    one = form.get("one")
+    ids = [int(one)] if one else [int(i) for i in form.getlist("ids")]
+    back = str(form.get("back") or "/releasomat")
+    back = back if back.startswith("/releasomat") else "/releasomat"
+    try:
+        outcomes = adopt.delete_files(get_engine(settings.database_url), settings, ids)
+    except adopt.NotReady as exc:
+        _last_refusals = [adopt.Outcome("", False, str(exc))]
+        return RedirectResponse(_with(back, refused=1), status_code=303)
+    _last_refusals = [o for o in outcomes if not o.done]
+    deleted = sum(o.done for o in outcomes)
+    return RedirectResponse(
+        _with(back, deleted=deleted, refused=len(_last_refusals)), status_code=303
+    )
+
+
+def _with(url: str, **params) -> str:
+    """``url`` with these query parameters added (zeros left out)."""
+    extra = urlencode({k: v for k, v in params.items() if v})
+    return f"{url}{'&' if '?' in url else '?'}{extra}" if extra else url
 
 
 @router.post("/api/releasomat/check", tags=["releasomat"])
@@ -193,6 +244,9 @@ def _view(settings, session, prefs, show, playlist, q, page) -> dict:
 
     return {
         "page_link": page_link,
+        # Delete (and Adopt) only when Releasomat answers: it does the deleting.
+        "can_delete": bool(folder) and releasomat.configured(settings) and problem is None,
+        "here": page_link(page),  # where Delete leads back to
         "configured": area.configured(settings, prefs),
         "folder": folder,
         "proposed": area.proposed(settings, session),

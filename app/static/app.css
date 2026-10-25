@@ -1717,9 +1717,12 @@ a.kpi-value:hover { text-decoration: underline; }
 .area-sound { white-space: nowrap; }
 .area-sound small { display: block; }
 .area-low { color: var(--tw-warn); }
+.area-actions { text-align: right; white-space: nowrap; }
+.area-actions button { margin: 0; width: auto; }
 .area-playlists .chip { margin: 0 0.3rem 0.3rem 0; font-size: 0.78rem; padding: 0.1rem 0.6rem; }
 @media (max-width: 767px) {
-  .area-list tr { grid-template-columns: minmax(0, 1fr); }
   .area-list td { padding-left: 0; }
-  .area-list .area-sound, .area-list .area-playlists, .area-list .inbox-status { grid-column: 1; padding-top: 0; }
+  .area-list .area-sound, .area-list .area-playlists, .area-list .inbox-status, .area-list .area-actions { grid-column: 2; padding-top: 0; text-align: left; }
+  .area-list.no-ticks tr { grid-template-columns: minmax(0, 1fr); }
+  .area-list.no-ticks td { grid-column: 1; }
 }

@@ -237,3 +237,116 @@ def test_downloads_you_already_have_are_flagged_as_a_possible_releasomat_bug(cli
         )
     assert "shouldn't download songs" not in client.get("/releasomat?show=new").text
     assert "Releasomat shouldn't have downloaded it" in client.get("/releasomat").text
+
+
+# --- Delete (step 4) ------------------------------------------------------------------------
+
+
+def ids_of(engine, *paths) -> list[int]:
+    with Session(engine) as session:
+        rows = session.exec(select(ReleasomatFile).where(ReleasomatFile.path.in_(paths)))
+        return [r.id for r in rows]
+
+
+@pytest.fixture
+def releasomat_deletes(kept_out, music_dir, monkeypatch):
+    """Releasomat's side of delete: it removes the files (with the size check). Tagwerk itself
+    must never remove a file in the area: any unlink there fails the test."""
+    import os
+    from pathlib import Path
+
+    real_unlink = os.unlink
+    area_root = (music_dir / AREA).resolve()
+    releasomat_side = False  # True while the fake plays Releasomat deleting a file
+
+    def guarded(path, *args, **kwargs):
+        if not releasomat_side and Path(path).resolve().is_relative_to(area_root):
+            raise AssertionError(f"Tagwerk removed {path}")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", guarded)
+    monkeypatch.setattr(os, "remove", guarded)
+    monkeypatch.setattr(os, "unlink", guarded)
+
+    def delete(body):
+        nonlocal releasomat_side
+        answers = []
+        for ref in body["files"]:
+            target = area_root / ref["path"]
+            if ref.get("size") != target.stat().st_size:
+                answers.append({"asked": ref["path"], "ok": False, "reason": "size differs"})
+                continue
+            releasomat_side = True
+            target.unlink()  # Releasomat's own owner-delete
+            releasomat_side = False
+            answers.append({"asked": ref["path"], "ok": True, "changed": True, "id": ref.get("id"),
+                            "path": ref["path"], "status": "disliked"})  # fmt: skip
+        return {"integration_api": 1, "files": answers}
+
+    kept_out.answers["delete"] = delete
+    return kept_out
+
+
+def test_delete_asks_releasomat_and_the_file_leaves_the_list(client, engine, music_dir,
+                                                             releasomat_deletes):  # fmt: skip
+    ids = ids_of(engine, NEW, SAME)
+    answer = client.post("/api/releasomat/delete", json={"ids": ids}).json()
+    assert answer == {"files": [{"path": NEW, "deleted": True, "reason": None},
+                                {"path": SAME, "deleted": True, "reason": None}]}  # fmt: skip
+    [sent] = releasomat_deletes.sent("delete")
+    assert sent["files"] == [
+        {"path": NEW, "size": (FIXTURES / "untagged.mp3").stat().st_size, "id": 2},
+        {"path": SAME, "size": (FIXTURES / "tagged.mp3").stat().st_size, "id": 3},
+    ]
+    assert {f["path"] for f in rows(client)["files"]} == {BETTER, BROKEN}
+    assert (music_dir / "House" / "Artist One - Silent Track.mp3").exists()  # library untouched
+
+
+def test_the_page_confirms_and_reports(client, engine, releasomat_deletes):
+    html = client.get("/releasomat").text
+    assert (
+        "Releasomat deletes “Someone – Promo” and won't download it again. Still in: Beatport"
+        in html
+    )
+    [one] = ids_of(engine, NEW)
+    page = client.post("/releasomat/delete", data={"one": one, "back": "/releasomat?show=new"})
+    assert page.url.path == "/releasomat" and "show=new" in str(page.url)
+    assert "Releasomat deleted 1 file" in page.text and "Don't like" in page.text
+
+
+def test_a_refusal_changes_nothing_and_says_why(client, engine, music_dir, releasomat_deletes):
+    adopted = "Tagwerk adopted this file; it isn't Releasomat's now."
+    releasomat_deletes.answers["delete"] = {
+        "integration_api": 1,
+        "files": [{"asked": NEW, "ok": False, "reason": adopted}],
+    }
+    page = client.post("/releasomat/delete", data={"ids": ids_of(engine, NEW)})
+    assert "Tagwerk adopted this file" in page.text and (music_dir / AREA / NEW).exists()
+    assert NEW in {f["path"] for f in rows(client)["files"]}
+
+
+def test_yes_but_still_there_keeps_the_row(client, engine, kept_out, music_dir):
+    answer = client.post("/api/releasomat/delete", json={"ids": ids_of(engine, NEW)}).json()
+    assert answer["files"][0]["reason"] == "Releasomat said yes, but the file is still there."
+    assert NEW in {f["path"] for f in rows(client)["files"]}
+
+
+def test_a_changed_file_isnt_sent(client, engine, music_dir, releasomat_deletes):
+    with open(music_dir / AREA / NEW, "ab") as f:
+        f.write(b"more")
+    answer = client.post("/api/releasomat/delete", json={"ids": ids_of(engine, NEW)}).json()
+    assert "press Check again" in answer["files"][0]["reason"]
+    assert releasomat_deletes.sent("delete") == []
+
+
+@pytest.mark.parametrize("down", [503, TimeoutError("timed out")])
+def test_without_releasomat_nothing_is_deleted_and_delete_isnt_offered(client, engine, music_dir,
+                                                                       kept_out, down):  # fmt: skip
+    kept_out.answers["files"] = down
+    releasomat.forget_files()
+    assert (
+        client.post("/api/releasomat/delete", json={"ids": ids_of(engine, NEW)}).status_code == 409
+    )
+    assert (music_dir / AREA / NEW).exists()
+    html = client.get("/releasomat").text
+    assert 'name="one"' not in html and "area-actions" not in html

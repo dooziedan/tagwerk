@@ -24,7 +24,8 @@ class FakeReleasomat:
     """Use as ``monkeypatch.setattr(releasomat.urllib.request, "urlopen", fake)``.
 
     ``answers``: call name ("info", "files", "adopt", …) → a dict (answered with 200), an int
-    (that HTTP error, with the matching saved error body) or an exception to raise. A POST call
+    (that HTTP error, with the matching saved error body), an exception to raise, or a function
+    of the request's body returning one of those (to play Releasomat's side). A POST call
     without an answer of its own answers ok for every file sent.
     """
 
@@ -39,6 +40,8 @@ class FakeReleasomat:
         self.requests.append(request)
         call = request.full_url.rsplit("/", 1)[-1]
         answer = self.answers.get(call)
+        if callable(answer) and not isinstance(answer, Exception):
+            answer = answer(self.body(request))
         if answer is None and request.get_method() == "POST":
             answer = {"integration_api": 1, "files": [
                 {"asked": f["path"], "ok": True, "changed": True, "id": f.get("id"),
