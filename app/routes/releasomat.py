@@ -164,7 +164,26 @@ async def releasomat_adopt(request: Request, session: SessionDep, settings: Sett
     if problem or not adopt_job.start(settings, ids):
         _last_refusals = [adopt.Outcome("", False, problem or BUSY)]
         return RedirectResponse(_with(back, refused=1), status_code=303)
-    return RedirectResponse(back, status_code=303)
+    # done=1: the page shows the result, also when the job ended before the page was built
+    # (then nothing polls, and a refusal used to go unseen).
+    return RedirectResponse(_with(back, done=1), status_code=303)
+
+
+@router.get("/api/releasomat/adopt", tags=["releasomat"])
+def releasomat_adopt_state() -> dict:
+    """The last Adopt: running or done, how many files were adopted, and why others weren't."""
+    p = adopt_job.progress
+    return {
+        "status": adopt_job.status,
+        "started_at": adopt_job.started_at,
+        "finished_at": adopt_job.finished_at,
+        "error": adopt_job.error,
+        "total": p.total,
+        "processed": p.processed,
+        "adopted": p.written,
+        "failed": p.failed,
+        "errors": p.errors,
+    }
 
 
 @router.get("/partials/releasomat/adopt", response_class=HTMLResponse, include_in_schema=False)
