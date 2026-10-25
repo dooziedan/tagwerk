@@ -14,6 +14,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Connection to Releasomat:** with **Releasomat URL** and **Releasomat API Key** (`RELEASOMAT_URL`, `RELEASOMAT_API_KEY`: the key from Releasomat's Settings → Tagwerk), Settings → Releasomat has **Test connection**, Tagwerk learns Releasomat's folder by itself (no `RELEASOMAT_FOLDER` needed) and checks that it finds Releasomat's files there. Without the connection the page still lists the files, without their playlists.
 - Releasomat is optional: without it nothing changes, and Tagwerk never mentions it.
 
+### Fixed
+- **Importing a better-sounding copy no longer slips through by accident.** In the Inbox, **Replace library copies** only appeared on the *Better sound* tab, so on *All* the only button was **Import**, which adds the file as a second copy instead of replacing your library copy. Now Replace shows on every tab as soon as a *Better sound* track is ticked (other ticked tracks just stay in the inbox), and **Import** asks first when better copies are ticked, on the list and on the track's page. Importing them as separate tracks is still possible with **Import anyway**, for a different version.
+
 ## [0.28.0] - 2026-10-18
 
 ### Changed

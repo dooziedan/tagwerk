@@ -158,7 +158,8 @@
   <div class="edit-actions">
     <button type="submit" name="then" value="next">{% if after %}Save and next ›{% else %}Save{% endif %}</button>
     {% if after %}<button type="submit" name="then" value="list" class="secondary outline">Save</button>{% endif %}
-    <button type="submit" name="then" value="import" class="outline" {% if busy or plan.problems %}disabled title="{% set why = plan.problems | join(', ') %}{{ why[:1] | upper ~ why[1:] if why else 'A scan or write is running' }}"{% endif %}>Import</button>
+    <button type="submit" name="then" value="import" class="outline"{% if better %}
+            data-confirm="This file sounds better than your library copy {{ better.upgrade.library.path.rsplit('/', 1)[-1] }}. Importing adds it as a second copy; Replace library copy swaps the old file instead. Import anyway?" data-confirm-ok="Import anyway"{% endif %} {% if busy or plan.problems %}disabled title="{% set why = plan.problems | join(', ') %}{{ why[:1] | upper ~ why[1:] if why else 'A scan or write is running' }}"{% endif %}>Import</button>
     {% if cover.badge or fields | selectattr("origin", "equalto", "you") | list %}<button type="submit" name="reset" value="1" class="secondary outline" formnovalidate>Back to suggestions</button>{% endif %}
     <small class="muted">Save keeps your values for later. Import writes them into the file and moves it into the library; the filename stays the same.</small>
   </div>
