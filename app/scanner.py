@@ -6,6 +6,9 @@ a track (when it was added, its final mark, its analysis, its history):
   keeps its row instead of being removed and added again;
 - a music folder without any audio files while the library has tracks is taken for a share that
   isn't mounted: the scan stops and changes nothing.
+
+Folders in ``skip`` are not library (the Releasomat area the owner confirmed, ADR 0044): their
+files are never read, and rows already in them are removed once, counted on their own.
 """
 
 import logging
@@ -19,7 +22,7 @@ from typing import Any
 from sqlalchemy import Engine
 from sqlmodel import Session, delete, select
 
-from app.models import RawTag, Track
+from app.models import PendingChange, RawTag, Track
 from app.rawtags import RawField
 from app.tags import FORMATS, FileInfo, read_file
 
@@ -48,18 +51,25 @@ class ScanProgress:
     unchanged: int = 0
     moved: int = 0  # moved or renamed outside Tagwerk, recognised by size and date
     removed: int = 0
+    left_for_area: int = 0  # rows removed because their folder is kept out (ADR 0044)
     errors: int = 0
     current: str = ""  # file being read right now
 
 
-def find_files(music_dir: Path) -> tuple[list[Path], set[Path]]:
+def find_files(music_dir: Path, skip: tuple[str, ...] = ()) -> tuple[list[Path], set[Path]]:
     """Supported audio files below ``music_dir``, and .lrc lyrics files (without extension).
 
-    Hidden files and folders (.Trash, macOS ._ files) and @ folders are skipped.
+    Hidden files and folders (.Trash, macOS ._ files) and @ folders are skipped, and so are the
+    folders in ``skip`` (relative to ``music_dir``, e.g. "Releasomat" or "Downloads/Releasomat").
     """
     audio, lyrics = [], set()
     for root, dirs, names in os.walk(music_dir):
-        dirs[:] = sorted(d for d in dirs if not d.startswith((".", "@")))
+        here = Path(root).relative_to(music_dir).as_posix()
+        dirs[:] = sorted(
+            d
+            for d in dirs
+            if not d.startswith((".", "@")) and (d if here == "." else f"{here}/{d}") not in skip
+        )
         for name in sorted(names):
             if name.startswith("."):
                 continue
@@ -71,12 +81,19 @@ def find_files(music_dir: Path) -> tuple[list[Path], set[Path]]:
     return audio, lyrics
 
 
+def in_folder(path: str, folder: str) -> bool:
+    """True when ``path`` is ``folder`` or inside it (both relative, with "/")."""
+    return path == folder or path.startswith(f"{folder}/")
+
+
 class EmptyLibraryError(Exception):
     """The music folder has no audio files, but the library has tracks."""
 
 
-def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> None:
-    files, lrc_files = find_files(music_dir)
+def scan_library(
+    engine: Engine, music_dir: Path, progress: ScanProgress, skip: tuple[str, ...] = ()
+) -> None:
+    files, lrc_files = find_files(music_dir, skip)
     progress.total = len(files)
     log.info("Scan started: %d audio files in %s", len(files), music_dir)
 
@@ -95,10 +112,11 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 )
             )
         }
-        if not files and known:
+        outside = [path for path in known if not any(in_folder(path, f) for f in skip)]
+        if not files and outside:
             # Removing every track would lose final marks, analyses and the history's links.
             raise EmptyLibraryError(
-                f"No audio files in {music_dir}, but {len(known)} tracks in the library. Is the "
+                f"No audio files in {music_dir}, but {len(outside)} tracks in the library. Is the "
                 "music share mounted, and is the Music Library path right? Nothing was changed."
             )
         seen: set[str] = set()
@@ -158,13 +176,30 @@ def scan_library(engine: Engine, music_dir: Path, progress: ScanProgress) -> Non
                 session.commit()
 
         gone = [path for path in known if path not in seen and path not in moved_from]
+        left = [path for path in gone if any(in_folder(path, f) for f in skip)]
+        if left:
+            _forget_kept_copies(session, [known[path].id for path in left])
         for start in range(0, len(gone), 500):  # SQLite limits the number of query parameters
             session.exec(delete(Track).where(Track.path.in_(gone[start : start + 500])))
-        progress.removed = len(gone)
+        progress.left_for_area = len(left)
+        progress.removed = len(gone) - len(left)
         session.commit()
 
     progress.current = ""
     log.info("Scan finished: %s", progress)
+
+
+def _forget_kept_copies(session: Session, track_ids: list[int]) -> None:
+    """Library copies queued for the trash in favour of a copy that leaves the library: the
+    decision is dropped, so the library copy stays (field "trash" is app.writer.TRASH)."""
+    keep = [str(i) for i in track_ids]
+    for start in range(0, len(keep), 500):
+        session.exec(
+            delete(PendingChange).where(
+                PendingChange.field == "trash",
+                PendingChange.new_value.in_(keep[start : start + 500]),
+            )
+        )
 
 
 def store_file(

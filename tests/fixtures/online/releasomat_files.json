@@ -1,0 +1,141 @@
+{
+    "integration_api": 1,
+    "folder": "Releasomat",
+    "files": [
+        {
+            "id": 1,
+            "path": "Bicep/Bicep - Glue.aiff",
+            "size": 9576,
+            "downloaded_at": "2026-10-25T09:30:00Z",
+            "downloader": "slskd",
+            "format": "aiff",
+            "bitrate": null,
+            "wanted": {
+                "artist": "Bicep",
+                "title": "Glue",
+                "album": null,
+                "duration": null,
+                "isrc": null,
+                "mbid": null,
+                "bpm": 129.0,
+                "key": "C Minor"
+            },
+            "playlists": [
+                {
+                    "id": 2,
+                    "name": "Beatport Top 100",
+                    "url": "http://localhost:8439/playlists/2"
+                },
+                {
+                    "id": 1,
+                    "name": "Weekly Exploration",
+                    "url": "http://localhost:8439/playlists/1"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "path": "Calibre/Calibre - Mr Right On.mp3",
+            "size": 4707,
+            "downloaded_at": "2026-10-25T09:30:00Z",
+            "downloader": "slskd",
+            "format": "mp3",
+            "bitrate": 320,
+            "wanted": {
+                "artist": "Calibre",
+                "title": "Mr Right On",
+                "album": null,
+                "duration": null,
+                "isrc": null,
+                "mbid": null,
+                "bpm": 174.0,
+                "key": null
+            },
+            "playlists": [
+                {
+                    "id": 1,
+                    "name": "Weekly Exploration",
+                    "url": "http://localhost:8439/playlists/1"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "path": "Fisher/Fisher - Losing It (Extended Mix).mp3",
+            "size": 4707,
+            "downloaded_at": "2026-10-25T09:30:00Z",
+            "downloader": "slskd",
+            "format": "mp3",
+            "bitrate": 320,
+            "wanted": {
+                "artist": "Fisher",
+                "title": "Losing It (Extended Mix)",
+                "album": null,
+                "duration": null,
+                "isrc": null,
+                "mbid": null,
+                "bpm": 126.0,
+                "key": "A Minor"
+            },
+            "playlists": [
+                {
+                    "id": 2,
+                    "name": "Beatport Top 100",
+                    "url": "http://localhost:8439/playlists/2"
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "path": "Netsky/Netsky - Rio.aiff",
+            "size": 9740,
+            "downloaded_at": "2026-10-25T09:30:00Z",
+            "downloader": "slskd",
+            "format": "aiff",
+            "bitrate": null,
+            "wanted": {
+                "artist": "Netsky",
+                "title": "Rio",
+                "album": null,
+                "duration": null,
+                "isrc": null,
+                "mbid": null,
+                "bpm": null,
+                "key": null
+            },
+            "playlists": [
+                {
+                    "id": 1,
+                    "name": "Weekly Exploration",
+                    "url": "http://localhost:8439/playlists/1"
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "path": "Peggy Gou/Peggy Gou - Track 19.mp3",
+            "size": 4707,
+            "downloaded_at": "2026-10-25T09:30:00Z",
+            "downloader": "slskd",
+            "format": "mp3",
+            "bitrate": 320,
+            "wanted": {
+                "artist": "Peggy Gou",
+                "title": "Track 19",
+                "album": null,
+                "duration": null,
+                "isrc": null,
+                "mbid": null,
+                "bpm": null,
+                "key": null
+            },
+            "playlists": [
+                {
+                    "id": 1,
+                    "name": "Weekly Exploration",
+                    "url": "http://localhost:8439/playlists/1"
+                }
+            ]
+        }
+    ]
+}

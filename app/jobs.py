@@ -19,7 +19,9 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app import (
+    adopt,
     analysis,
+    area,
     convert,
     duplicates,
     final,
@@ -121,7 +123,10 @@ class ScanJob(Job):
             try:
                 if not settings.music_dir.is_dir():
                     raise FileNotFoundError(f"Music folder not found: {settings.music_dir}")
-                scan_library(engine, settings.music_dir, progress)
+                with Session(engine) as session:
+                    skip = area.skipped(preferences.load(session))
+                scan_library(engine, settings.music_dir, progress, skip)
+                area.sync(engine, settings)  # the Releasomat folder's own list (ADR 0044)
             except (FileNotFoundError, EmptyLibraryError) as exc:
                 notifications.problem(
                     "scan",
@@ -143,9 +148,30 @@ class ScanJob(Job):
                 engine,
             )
             report_unreadable(engine)
+            report_left_for_area(engine, progress, skip)
             after_library_change(engine, settings)
 
         return self._start(work, progress)
+
+
+def report_left_for_area(engine, progress: ScanProgress, skip: tuple[str, ...]) -> bool:
+    """After the first scan that kept the Releasomat folder out (ADR 0044): how many tracks
+    left the library lists. Once: the next scans find no rows there any more."""
+    if not progress.left_for_area:
+        return False
+    folder = ", ".join(f"/{f}" for f in skip)
+    return notifications.notify(
+        "releasomat",
+        "done",
+        f"{notifications.many(progress.left_for_area, 'track')} left the library: they're in "
+        "the Releasomat folder",
+        f"Tagwerk keeps {folder} out of the library now, as you confirmed in Settings. The files "
+        "are untouched; their analysis, pending changes and marks in Tagwerk went with them. "
+        "Settings → Releasomat can treat the folder as library again.",
+        "Scan",
+        "/settings#releasomat",
+        engine,
+    )
 
 
 def report_unreadable(engine) -> bool:
@@ -749,11 +775,36 @@ def image_store(settings: Settings) -> ImageStore:
     return ImageStore(settings.config_dir / "images")
 
 
+class AdoptJob(Job):
+    """Adopt (ADR 0044): Releasomat files into the import inbox, never beside a scan or write."""
+
+    def __init__(self) -> None:
+        super().__init__("adopt", progress=WriteProgress(action="adopt"))
+
+    def start(self, settings: Settings, ids: list[int]) -> bool:
+        progress = WriteProgress(action="adopt")
+
+        def work() -> None:
+            engine = get_engine(settings.database_url)
+            try:
+                adopt.adopt_files(engine, settings, ids, progress)
+            except adopt.NotReady as exc:
+                progress.errors.append(str(exc))
+                progress.failed = progress.total
+                return
+            if progress.written:  # looked up online and analysed, as after an inbox check
+                identify_job.start(settings)
+                analysis_job.start(settings)
+
+        return self._start(work, progress)
+
+
 scan_job = ScanJob()
 inbox_job = InboxJob()
 write_job = WriteJob()
 identify_job = IdentifyJob()
 analysis_job = AnalysisJob()
+adopt_job = AdoptJob()
 
 
 def run_now(work: Callable[[], Any]) -> tuple[bool, Any]:
@@ -768,5 +819,5 @@ def run_now(work: Callable[[], Any]) -> tuple[bool, Any]:
 
 
 def busy() -> bool:
-    """True while any job (scan, inbox scan, apply, undo) is running."""
-    return scan_job.running or inbox_job.running or write_job.running
+    """True while any job (scan, inbox scan, apply, undo, adopt) is running."""
+    return scan_job.running or inbox_job.running or write_job.running or adopt_job.running

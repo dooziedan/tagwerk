@@ -28,7 +28,7 @@ from pathlib import Path, PurePosixPath
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import genres, naming, navidrome, preferences, tagcopy, writer
+from app import area, genres, naming, navidrome, preferences, tagcopy, writer
 from app.changes import WriteProgress
 from app.config import Settings
 from app.importer import move_file
@@ -86,7 +86,7 @@ def plan(session: Session, settings: Settings, tracks: list[Track]) -> list[Plan
     """What converting these tracks would do; tracks that can't be converted say why."""
     prefs = preferences.load(session)
     genre_map = genres.of(prefs)
-    existing = naming.existing_folders(settings.music_dir)
+    existing = naming.existing_folders(settings.music_dir, area.skipped(prefs))
     pending = set(
         session.exec(
             select(PendingChange.track_id).where(
@@ -106,7 +106,10 @@ def plan(session: Session, settings: Settings, tracks: list[Track]) -> list[Plan
             prefs.folder_layout, prefs.folder_pattern, values, prefs.genre_folders, existing
         )
         target = f"{folder}/{PurePosixPath(track.path).stem}.aiff"
-        item = Plan(track, target, _skip_reason(settings, track, target, targets, pending))
+        skip = _skip_reason(settings, track, target, targets, pending)
+        if not skip and area.contains(prefs, target):  # never into the folder kept out
+            skip = "the AIFF would land in the Releasomat folder: change the folder pattern"
+        item = Plan(track, target, skip)
         if not item.skip:
             targets.add(target.lower())
         result.append(item)

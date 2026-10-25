@@ -17,6 +17,7 @@
   <div>
     <h1>{{ summary.title or t.path.rsplit("/", 1)[-1] }}</h1>
     <p class="track-sub">{{ summary.artist or "Unknown artist" }}</p>
+    {% if summary.adopted %}<p><span class="status status-releasomat">From Releasomat</span>{% if summary.releasomat_playlists %} <small class="muted">in {{ summary.releasomat_playlists | join(", ") }}</small>{% endif %}</p>{% endif %}
     <p class="muted"><small>{{ t.format | upper }}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <code>{{ t.path }}</code></small></p>
     {% if not t.error %}<p class="track-actions">{{ play_button(t, "/inbox/" ~ t.id, "Play") }}</p>{% endif %}
     {% if summary.missing and not better %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}
@@ -93,7 +94,7 @@
       <input type="hidden" name="show" value="{{ show }}">
       <button type="submit" {% if busy or better.problems %}disabled{% endif %}>Replace library copy</button>
     </form>
-    <form method="post" action="/inbox/{{ t.id }}/delete">
+    <form method="post" action="/inbox/{{ t.id }}/delete" {% if summary.adopted %}data-confirm="This track came from Releasomat: moving it to the trash marks it Don't like there, so it won't be downloaded again. Restoring it within {{ keep_days }} days takes that back." data-confirm-ok="Move to trash"{% endif %}>
       <input type="hidden" name="show" value="{{ show }}">
       <button type="submit" class="secondary outline" {% if busy %}disabled{% endif %}>Move this file to the trash</button>
     </form>
@@ -122,7 +123,7 @@
       {% endfor %}
     </tbody>
   </table>
-  <form method="post" action="/inbox/{{ t.id }}/delete" class="apply-actions">
+  <form method="post" action="/inbox/{{ t.id }}/delete" class="apply-actions" {% if summary.adopted %}data-confirm="This track came from Releasomat: moving it to the trash marks it Don't like there, so it won't be downloaded again. Restoring it within {{ keep_days }} days takes that back." data-confirm-ok="Move to trash"{% endif %}>
     <input type="hidden" name="show" value="{{ show }}">
     <button type="submit" class="secondary" {% if busy %}disabled{% endif %}>Move this file to the trash</button>
   </form>

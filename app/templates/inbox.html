@@ -63,7 +63,7 @@
   <tbody>
     {% for r, in_views in rows %}{% set t = r.track %}
     <tr data-views="{{ in_views | join(' ') }}"{% if show not in in_views %} hidden{% endif %}>
-      <td class="check-col"><input type="checkbox" name="ids" form="inbox-import" value="{{ t.id }}" aria-label="Select {{ t.title or t.path }}" onchange="inboxSelection()"></td>
+      <td class="check-col"><input type="checkbox" name="ids" form="inbox-import" value="{{ t.id }}" aria-label="Select {{ t.title or t.path }}" onchange="inboxSelection()"{% if r.adopted %} data-releasomat{% endif %}></td>
       <td><div class="play-row">
         {% if not t.error %}{{ play_button(t, "/inbox/" ~ t.id) }}{% endif %}
         <div>
@@ -75,6 +75,7 @@
         </div>
       </div></td>
       <td class="inbox-status">
+        {% if r.adopted %}<span class="status status-releasomat" title="Adopted from Releasomat{% if r.releasomat_playlists %}: in {{ r.releasomat_playlists | join(', ') }}{% endif %}">From Releasomat</span>{% endif %}
         {% if r.secret %}<span class="status status-secret" title="An edit or bootleg: never looked up online, no cover needed">Secret</span>{% endif %}
         {% if r.better %}<span class="status status-better" title="Sounds better than {{ r.better.library.path }}: {{ r.better.new_quality }} instead of {{ r.better.old_quality }}">Better sound</span>
         {% elif r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}
@@ -137,8 +138,12 @@
     const visible = visibleBoxes(), all = document.getElementById("inbox-all");
     all.checked = visible.length > 0 && visible.every((b) => b.checked);
     document.getElementById("inbox-import-button").textContent = n === 1 ? "Import 1 track" : `Import ${n} tracks`;
+    // Adopted from Releasomat (ADR 0044): it is told, and marks them Don't like.
+    const adopted = document.querySelectorAll("input[name=ids][data-releasomat]:checked").length;
+    const releasomat = !adopted ? "" : n === 1 ? " It came from Releasomat: it will be marked Don't like there and not downloaded again."
+      : ` ${adopted === n ? (n === 2 ? "Both" : "All of them") : adopted + " of them"} came from Releasomat: ${adopted === 1 ? "it" : "they"} will be marked Don't like there and not downloaded again.`;
     document.getElementById("inbox-delete-button").dataset.confirm =
-      `Move ${n === 1 ? "1 file" : n + " files"} to the trash? You can restore them for {{ keep_days }} days.`;
+      `Move ${n === 1 ? "1 file" : n + " files"} to the trash? You can restore them for {{ keep_days }} days.` + releasomat;
     document.body.classList.toggle("with-action-bar", n > 0);  // room so the bar covers nothing
   }
 </script>

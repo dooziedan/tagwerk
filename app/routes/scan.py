@@ -58,6 +58,7 @@ def scan_state(job: ScanJob) -> dict:
         "unchanged": p.unchanged,
         "moved": p.moved,
         "removed": p.removed,
+        "left_for_area": p.left_for_area,
         "errors": p.errors,
         "current": p.current,
     }

@@ -106,6 +106,10 @@ class Preferences:
     # Messages the owner chose not to see again (keys of HINTS).
     hidden_hints: list[str] = field(default_factory=list)
 
+    # Settings → Releasomat (ADR 0044): the folder the owner confirmed to keep out of the
+    # library, relative to MUSIC_DIR (e.g. "Releasomat"). Empty: every folder is library.
+    releasomat_area: str = ""
+
 
 def load(session: Session) -> Preferences:
     stored = {row.key: json.loads(row.value) for row in session.exec(select(AppSetting))}
@@ -144,7 +148,7 @@ def _validated(prefs: Preferences) -> Preferences:
         value = getattr(prefs, names)
         value = value if isinstance(value, list) else []
         setattr(prefs, names, [str(g).strip() for g in value if str(g).strip()])
-    for text in ("folder_pattern", "filename_pattern", "genre_map"):
+    for text in ("folder_pattern", "filename_pattern", "genre_map", "releasomat_area"):
         setattr(prefs, text, str(getattr(prefs, text) or ""))
     prefs.genre_map, prefs.bpm_ranges = _ranges_moved(prefs.genre_map, prefs.bpm_ranges)
     prefs.folder_pattern = prefs.folder_pattern.strip() or default.folder_pattern

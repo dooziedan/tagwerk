@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     # rescanned). Empty: all libraries are rescanned.
     navidrome_library: str = ""
 
+    # Optional: Releasomat, the owner's playlist downloader, saves its downloads in its own
+    # folder inside the library (ADR 0044). Its name relative to MUSIC_DIR, e.g. "Releasomat".
+    # Tagwerk keeps that folder out of the library once the owner confirmed it in Settings.
+    # Empty: nothing changes, Tagwerk works without Releasomat.
+    releasomat_folder: str = ""
+    # Optional: Releasomat's address by host IP (e.g. http://192.168.1.10:8430, not localhost) and
+    # its integration key (Releasomat → Settings → Tagwerk, INTEGRATION_API_KEY). With both, the
+    # Releasomat page lists its downloads, and Adopt and Delete work. Never logged or shown.
+    releasomat_url: str = ""
+    releasomat_api_key: str = ""
+
     # Optional: online identification (v0.8). Free keys the owner gets from the services:
     # AcoustID (acoustid.org → new application) for identifying tracks by their sound,
     # Discogs (discogs.com → Settings → Developers → personal token) for labels and catalogs.

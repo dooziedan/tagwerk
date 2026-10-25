@@ -1,0 +1,32 @@
+{
+    "integration_api": 1,
+    "files": [
+        {
+            "asked": "Netsky/Netsky - Rio.aiff",
+            "ok": true,
+            "changed": true,
+            "reason": null,
+            "id": 4,
+            "path": "Netsky/Netsky - Rio.aiff",
+            "status": "adopted"
+        },
+        {
+            "asked": "Bicep/Bicep - Glue.aiff",
+            "ok": false,
+            "changed": false,
+            "reason": "The file at this path has another size than the one sent: it may be a different file now. Nothing was changed.",
+            "id": 1,
+            "path": "Bicep/Bicep - Glue.aiff",
+            "status": "done"
+        },
+        {
+            "asked": "Nobody/Nothing.mp3",
+            "ok": false,
+            "changed": false,
+            "reason": "Releasomat doesn't know a file at this path.",
+            "id": null,
+            "path": null,
+            "status": null
+        }
+    ]
+}

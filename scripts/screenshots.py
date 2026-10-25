@@ -35,6 +35,12 @@ def first_track_id(base: str, query: str = "") -> int | None:
     return tracks[0]["id"] if tracks else None
 
 
+def releasomat_folder(base: str) -> str | None:
+    """The Releasomat folder kept out of the library, if any."""
+    with urllib.request.urlopen(f"{base}/api/releasomat/files") as r:
+        return json.load(r)["folder"] or None
+
+
 def first_inbox_id(base: str, better: bool = False) -> int | None:
     """The first readable inbox track; ``better``: the first that is a better copy."""
     with urllib.request.urlopen(f"{base}/api/inbox") as r:
@@ -79,6 +85,9 @@ def main(base: str, out: Path) -> int:
         pages["inbox-track"] = f"/inbox/{inbox}"
     if better := first_inbox_id(base, better=True):
         pages["inbox-better"] = f"/inbox/{better}"
+    if releasomat_folder(base):  # optional (ADR 0044): only when Releasomat is set up
+        pages["releasomat"] = "/releasomat"
+        pages["releasomat-adopted"] = "/releasomat?show=adopted"
 
     errors: list[str] = []
     count = 0

@@ -1,13 +1,14 @@
 """The Inbox page: new music in the import folder, before it joins the library."""
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlmodel import select
+from sqlmodel import Session, select
 
-from app import genres, identify, preferences, secret, trash, upgrade, writer
+from app import adopt, area, genres, identify, preferences, secret, trash, upgrade, writer
 from app.config import SettingsDep, get_settings
 from app.covers import find_cover
 from app.db import SessionDep, get_engine
@@ -30,7 +31,7 @@ from app.inbox import (
 )
 from app.inbox import suggestions as inbox_suggestions
 from app.jobs import identify_job, image_store, inbox_job, run_now, scan_job, write_job
-from app.models import InboxTrack
+from app.models import InboxTrack, ReleasomatAdoption
 from app.navigation import reload_page
 from app.proposals import still_missing
 from app.routes.analysis import audio_context
@@ -138,6 +139,11 @@ class InboxRow:
     duplicates: list[Match]  # likely copies already in the library
     secret: bool = False  # an edit or bootleg: never looked up online, no cover needed
     better: upgrade.Upgrade | None = None  # sounds better than its library copy (ADR 0037)
+    adopted: ReleasomatAdoption | None = None  # adopted from Releasomat (ADR 0044)
+
+    @property
+    def releasomat_playlists(self) -> list[str]:
+        return json.loads(self.adopted.playlists) if self.adopted else []
 
     @property
     def ready(self) -> bool:
@@ -224,7 +230,7 @@ def _summary(session, track: InboxTrack, library: LibraryIndex, known: Known) ->
     better = upgrade.find(track, duplicates)
     return InboxRow(
         track, value["title"], value["artist"], changes, edited, missing, duplicates, is_secret,
-        better,
+        better, known.adopted,
     )  # fmt: skip
 
 
@@ -491,15 +497,19 @@ def _move_to_trash(session, settings, ids: list[int]) -> tuple[bool, tuple[int, 
     tracks = list(session.exec(select(InboxTrack).where(InboxTrack.id.in_(ids))))
 
     def work() -> tuple[int, list[str]]:
-        moved, errors = 0, []
+        moved, errors, paths = 0, [], []
         for track in tracks:
             try:
                 trash.delete(settings.import_dir, track.path)
+                paths.append(track.path)
                 session.delete(track)  # its saved values go with it (ON DELETE CASCADE)
                 moved += 1
             except (trash.TrashError, OSError) as exc:
                 errors.append(f"{track.path}: {exc}")
+        from_releasomat = area.note_discarded(session, paths)  # Releasomat: Don't like
         session.commit()
+        if from_releasomat:
+            adopt.send_notices_soon(get_engine(settings.database_url), settings)
         return moved, errors
 
     inbox_job.wait(30)  # the quick check started by opening the page finishes first
@@ -515,7 +525,12 @@ def _restore(settings, entry: str) -> tuple[bool, str | trash.TrashError]:
             path = trash.restore(settings.import_dir, entry)
         except (trash.TrashError, OSError) as exc:
             return trash.TrashError(str(exc))
-        scan_inbox(get_engine(settings.database_url), settings.import_dir, ScanProgress())
+        engine = get_engine(settings.database_url)
+        scan_inbox(engine, settings.import_dir, ScanProgress())
+        with Session(engine) as session:
+            if area.note_restored(session, path):  # thrown away from Releasomat: back again
+                session.commit()
+                adopt.send_notices_soon(engine, settings)
         return path
 
     inbox_job.wait(30)

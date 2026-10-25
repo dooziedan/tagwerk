@@ -1,0 +1,23 @@
+{
+    "integration_api": 1,
+    "files": [
+        {
+            "asked": "Calibre/Calibre - Mr Right On.mp3",
+            "ok": false,
+            "changed": false,
+            "reason": "Send the file's size with delete. Nothing was deleted.",
+            "id": 2,
+            "path": "Calibre/Calibre - Mr Right On.mp3",
+            "status": "done"
+        },
+        {
+            "asked": "Fisher/Fisher - Losing It (Extended Mix).mp3",
+            "ok": false,
+            "changed": false,
+            "reason": "The file at this path has another size than the one sent: it may be a different file now. Nothing was changed.",
+            "id": 3,
+            "path": "Fisher/Fisher - Losing It (Extended Mix).mp3",
+            "status": "done"
+        }
+    ]
+}

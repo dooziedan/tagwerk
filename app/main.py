@@ -28,6 +28,7 @@ from app.routes import (
     mix_names,
     notifications,
     player,
+    releasomat,
     replaygain,
     scan,
     secret,
@@ -99,4 +100,5 @@ app.include_router(secret.router)
 app.include_router(ids.router)
 app.include_router(analysis.router)
 app.include_router(player.router)
+app.include_router(releasomat.router)
 app.include_router(library.router)

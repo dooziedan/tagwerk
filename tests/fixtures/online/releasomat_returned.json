@@ -1,0 +1,14 @@
+{
+    "integration_api": 1,
+    "files": [
+        {
+            "asked": "Netsky/Netsky - Rio.aiff",
+            "ok": true,
+            "changed": true,
+            "reason": null,
+            "id": 4,
+            "path": "Netsky/Netsky - Rio.aiff",
+            "status": "done"
+        }
+    ]
+}

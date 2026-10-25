@@ -18,7 +18,7 @@ from pathlib import Path, PurePosixPath
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import genres, naming, preferences, writer
+from app import area, genres, naming, preferences, writer
 from app.changes import WriteProgress
 from app.models import ChangeEntry, ChangeSet, Track
 
@@ -45,7 +45,7 @@ def proposals(session: Session, music_dir: Path) -> list[FolderProposal]:
     if prefs.folder_layout != "genre":
         return []
     genre_map = genres.of(prefs)
-    allowed = prefs.genre_folders or naming.existing_folders(music_dir)
+    allowed = prefs.genre_folders or naming.existing_folders(music_dir, area.skipped(prefs))
     kept = {g.lower() for g in prefs.kept_unsorted}
     unsorted = PurePosixPath(naming.UNSORTED)
     found: dict[str, FolderProposal] = {}
@@ -59,8 +59,8 @@ def proposals(session: Session, music_dir: Path) -> list[FolderProposal]:
         if proposal is None:
             spelling = naming.genre_folder(genre, allowed) or genre  # as the folder is spelled
             folder = naming.folder("genre", "", {"genre": spelling}, [spelling])
-            if folder == naming.UNSORTED:
-                continue  # a genre that makes no folder name, e.g. "?"
+            if folder == naming.UNSORTED or area.contains(prefs, folder):
+                continue  # a genre that makes no folder name ("?"), or the Releasomat folder
             proposal = FolderProposal(genre, folder, (music_dir / folder).is_dir(), [])
             found[genre.lower()] = proposal
         proposal.moves.append(Move(track, f"{proposal.folder}/{path.name}"))

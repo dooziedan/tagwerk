@@ -14,7 +14,7 @@
   {% if job.status == "done" %}
   <small class="muted">
     Last scan: {{ p.added | number }} added, {{ p.updated | number }} updated,{% if p.moved %} {{ p.moved | number }} moved,{% endif %}
-    {{ p.unchanged | number }} unchanged, {{ p.removed | number }} removed{% if p.errors %}, ⚠️ {{ p.errors | number }} errors{% endif %}.
+    {{ p.unchanged | number }} unchanged, {{ p.removed | number }} removed{% if p.left_for_area %}, {{ p.left_for_area | number }} left the library (Releasomat folder){% endif %}{% if p.errors %}, ⚠️ {{ p.errors | number }} errors{% endif %}.
   </small>
   {% elif job.status == "failed" %}
   <small>❌ Scan failed: {{ job.error }}</small>
