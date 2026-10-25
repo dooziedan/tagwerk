@@ -53,6 +53,15 @@
     {% for name, label in replaygain %}{{ field_row(name, label) }}{% endfor %}
     {% if opus %}<small class="muted">{% if many %}{{ opus | plural('Opus file') }} among them: Opus{% else %}Opus{% endif %} keeps only the gains (in its own R128 fields), no peaks{% if many %}; peaks are skipped there{% endif %}.</small>{% endif %}
   </fieldset>
+  <fieldset class="edit-section">
+    <legend><strong>MusicBrainz</strong> <small class="muted">paste an ID, or the link of its page on musicbrainz.org</small></legend>
+    {% if not many and tracks[0].mbid_invalid %}<p class="form-error"><small>⚠️ Some of these fields hold values that aren't MusicBrainz IDs. <strong>Fix IDs</strong> on the track page moves Discogs numbers to their own fields, or replace them here.</small></p>{% endif %}
+    {% for name, label in musicbrainz %}{{ field_row(name, label) }}{% endfor %}
+  </fieldset>
+  <fieldset class="edit-section">
+    <legend><strong>Discogs</strong> <small class="muted">paste a number, or the link of its page on discogs.com</small></legend>
+    {% for name, label in discogs %}{{ field_row(name, label) }}{% endfor %}
+  </fieldset>
   {% if not many %}{% include "partials/advanced_tags.html" %}{% endif %}
   <div class="edit-actions">
     <button type="submit">Save as pending change</button>
