@@ -209,6 +209,33 @@ def test_the_inbox_page_offers_to_replace(client, engine, settings, inbox, libra
     assert "Replaced with a better copy" in history and "tagged.mp3" in history
 
 
+def test_import_asks_first_and_replace_shows_on_every_tab(client, settings, inbox, library):
+    """Pressing Import on a better copy added a second copy without a word: Replace only
+    showed on the Better sound tab. Now the row is marked for the script, which shows Replace
+    on any tab and makes Import ask; the track page's Import asks too."""
+    listing = client.get("/inbox").text
+    assert f'value="{inbox}" aria-label' in listing and "data-better" in listing
+    assert 'id="inbox-upgrade-button" hidden' in listing  # shown by the script once ticked
+    page = client.get(f"/inbox/{inbox}").text
+    assert "Importing adds it as a second copy" in page
+    assert 'data-confirm-ok="Import anyway"' in page
+
+
+def test_replace_from_the_list_skips_tracks_that_arent_better(
+    client, engine, settings, inbox, library
+):
+    from app.jobs import write_job
+
+    shutil.copy(FIXTURES / "tagged.ogg", settings.import_dir / "other.ogg")  # nothing to replace
+    scan_inbox(engine, settings.import_dir, ScanProgress())
+    with Session(engine) as session:
+        ids = [t.id for t in session.exec(select(InboxTrack))]
+    client.post("/inbox/upgrade", data={"ids": ids, "show": "all"})
+    write_job.wait(30)
+    assert write_job.progress.written == 1 and write_job.progress.failed == 0
+    assert (settings.import_dir / "other.ogg").exists()
+
+
 def test_a_better_copy_is_not_listed_as_in_library(engine, settings, inbox, library):
     """Trashing everything on the In library tab must never take a better copy along (#96)."""
     from app.routes.inbox import VIEWS, _rows

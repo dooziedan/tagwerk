@@ -318,10 +318,12 @@ def inbox_upgrade_api(track_ids: list[int], settings: SettingsDep) -> dict:
 
 
 @router.post("/inbox/upgrade", include_in_schema=False)
-async def inbox_upgrade(request: Request, settings: SettingsDep):
-    """Replace with the ticked tracks (on the Better sound tab)."""
+async def inbox_upgrade(request: Request, session: SessionDep, settings: SettingsDep):
+    """Replace with the ticked better copies. The button shows on any tab once one is ticked;
+    other ticked tracks just stay in the inbox (no "can't replace" errors for them)."""
     form = await read_form(request)
     ids = [int(i) for i in form.getlist("ids") if str(i).isdigit()]
+    ids = [u.inbox.id for u in upgrade.upgrades(session, settings, ids)] if ids else []
     return _start_upgrade(ids, settings, _view(form.get("show")))
 
 
