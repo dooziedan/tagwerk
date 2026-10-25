@@ -29,9 +29,13 @@ from app import naming, preferences, releasomat, trash
 from app.config import Settings
 from app.models import (
     AppSetting,
+    ChangeEntry,
+    ChangeSet,
     DuplicateTrack,
     FinalTrack,
+    InboxTrack,
     PendingChange,
+    ReleasomatAdoption,
     ReleasomatFile,
     SecretTrack,
     Track,
@@ -258,6 +262,83 @@ def sync(engine: Engine, settings: Settings, paths: list[str] | None = None) -> 
         log.info("Releasomat folder: %d added, %d updated, %d removed", progress.added,
                  progress.updated, progress.removed)  # fmt: skip
     return progress
+
+
+@dataclass
+class Adopted:
+    """One adoption and where its file is now (the Releasomat page's Adopted tab)."""
+
+    record: ReleasomatAdoption
+    where: str  # inbox, library, discarded, returned, gone
+    link: str | None = None  # its inbox or library page
+    path: str | None = None  # where it is now, if known
+
+    @property
+    def playlists(self) -> list[str]:
+        return json.loads(self.record.playlists or "[]")
+
+
+WHERE = {
+    "inbox": "In the Inbox",
+    "library": "In your library",
+    "discarded": "Thrown away in the Inbox",
+    "returned": "Back in the Releasomat folder (the move failed)",
+    "gone": "Gone from the Inbox",
+}
+
+
+def adopted(session: Session, settings: Settings) -> list[Adopted]:
+    """Every adoption, newest first, with where the file is now: thrown away or back in the
+    area (stored), in the inbox (the file is there: also after an import was undone, before the
+    inbox check lists it again), imported into the library (an import or better copy from its
+    inbox path after the adoption, not undone), else gone (removed by hand). A few queries for
+    all of them."""
+    records = list(session.exec(select(ReleasomatAdoption).order_by(
+        ReleasomatAdoption.adopted_at.desc(), ReleasomatAdoption.id.desc())))  # fmt: skip
+    paths = list({r.inbox_path for r in records})
+    in_inbox: dict[str, int] = {}
+    imported: dict[str, list[tuple]] = {}
+    for start in range(0, len(paths), 500):  # SQLite limits the number of parameters
+        part = paths[start : start + 500]
+        for track_id, path in session.exec(
+            select(InboxTrack.id, InboxTrack.path).where(col(InboxTrack.path).in_(part))
+        ):
+            in_inbox[path] = track_id
+        moves = (
+            select(
+                ChangeEntry.moved_from, ChangeEntry.track_id, ChangeEntry.path,
+                ChangeSet.applied_at,
+            )
+            .join(ChangeSet, ChangeSet.id == ChangeEntry.changeset_id)
+            .where(
+                col(ChangeEntry.moved_from).in_(part),
+                col(ChangeSet.kind).in_(["import", "upgrade"]),
+                col(ChangeEntry.undone).is_(False),
+                ChangeEntry.error.is_(None),
+            )
+        )  # fmt: skip
+        for moved_from, track_id, path, applied_at in session.exec(moves):
+            imported.setdefault(moved_from, []).append((applied_at, track_id, path))
+    found = []
+    for record in records:
+        if record.state in ("discarded", "returned"):
+            found.append(Adopted(record, record.state))
+        elif (settings.import_dir / record.inbox_path).is_file():
+            track_id = in_inbox.get(record.inbox_path)
+            link = f"/inbox/{track_id}" if track_id else "/inbox"
+            found.append(Adopted(record, "inbox", link, record.inbox_path))
+        elif later := [m for m in imported.get(record.inbox_path, [])
+                       if _utc(m[0]) >= _utc(record.adopted_at)]:  # fmt: skip
+            _at, track_id, path = max(later, key=lambda m: _utc(m[0]))
+            link = f"/tracks/{track_id}" if track_id else None
+            found.append(Adopted(record, "library", link, path))
+        else:
+            found.append(Adopted(record, "gone"))
+    return found
+
+
+def _utc(when: datetime) -> datetime:
+    return when if when.tzinfo else when.replace(tzinfo=UTC)
 
 
 def _store(session: Session, path: Path, rel: str, stat, row: ReleasomatFile | None) -> None:

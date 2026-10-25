@@ -17,6 +17,7 @@
   <div>
     <h1>{{ summary.title or t.path.rsplit("/", 1)[-1] }}</h1>
     <p class="track-sub">{{ summary.artist or "Unknown artist" }}</p>
+    {% if summary.adopted %}<p><span class="status status-releasomat">From Releasomat</span>{% if summary.releasomat_playlists %} <small class="muted">in {{ summary.releasomat_playlists | join(", ") }}</small>{% endif %}</p>{% endif %}
     <p class="muted"><small>{{ t.format | upper }}{% if t.duration %} · {{ t.duration | mmss }}{% endif %} · <code>{{ t.path }}</code></small></p>
     {% if not t.error %}<p class="track-actions">{{ play_button(t, "/inbox/" ~ t.id, "Play") }}</p>{% endif %}
     {% if summary.missing and not better %}<p><span class="status status-help">Needs {{ summary.missing | join(", ") | lower }}</span></p>{% endif %}

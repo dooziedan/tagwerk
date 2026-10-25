@@ -75,6 +75,7 @@
         </div>
       </div></td>
       <td class="inbox-status">
+        {% if r.adopted %}<span class="status status-releasomat" title="Adopted from Releasomat{% if r.releasomat_playlists %}: in {{ r.releasomat_playlists | join(', ') }}{% endif %}">From Releasomat</span>{% endif %}
         {% if r.secret %}<span class="status status-secret" title="An edit or bootleg: never looked up online, no cover needed">Secret</span>{% endif %}
         {% if r.better %}<span class="status status-better" title="Sounds better than {{ r.better.library.path }}: {{ r.better.new_quality }} instead of {{ r.better.old_quality }}">Better sound</span>
         {% elif r.duplicates %}<span class="status status-dup" title="{% for m in r.duplicates %}{{ m.track.path }} ({{ m.reason }}){% if not loop.last %}, {% endif %}{% endfor %}">In library</span>{% endif %}

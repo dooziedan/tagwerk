@@ -24,10 +24,11 @@ from app.covers import find_cover
 from app.db import SessionDep, get_engine
 from app.duplicates import LibraryIndex, Match, is_lossless, quality
 from app.forms import read_form
-from app.jobs import run_now
+from app.jobs import adopt_job, busy, run_now
 from app.keys import to_camelot
 from app.library import LOW_BITRATE_KBPS
 from app.models import ReleasomatFile
+from app.navigation import reload_page
 from app.templating import templates
 
 router = APIRouter()
@@ -86,6 +87,12 @@ VIEWS = {
     "better": ("Better sound", lambda r: r.better is not None),
     "low": ("Low quality", lambda r: r.low),
 }
+ADOPTED = "adopted"  # the tab with what was adopted (area.adopted), not area files
+BUSY = "A scan, import or write is running: try again when it's finished."
+
+
+class FileIds(BaseModel):
+    ids: list[int]  # ids from GET /api/releasomat/files
 
 
 @router.get("/releasomat", response_class=HTMLResponse, include_in_schema=False)
@@ -105,8 +112,82 @@ def releasomat_page(
     note = {k: request.query_params.get(k, "") for k in ("deleted", "refused", "error")}
     refusals = _last_refusals if note["refused"] else []
     return templates.TemplateResponse(
-        request, "releasomat.html", {"prefs": prefs, "note": note, "refusals": refusals, **view}
+        request,
+        "releasomat.html",
+        {"prefs": prefs, "note": note, "refusals": refusals, "job": adopt_job, **view},
     )
+
+
+@router.get("/api/releasomat/adoptions", tags=["releasomat"])
+def releasomat_adoptions_api(session: SessionDep, settings: SettingsDep) -> list[dict]:
+    """What was adopted from Releasomat into the inbox, newest first, and where each file is
+    now: inbox, library, discarded (thrown away in the inbox), returned (the move failed) or
+    gone (removed by hand)."""
+    return [
+        {
+            "id": a.record.id,
+            "area_path": a.record.area_path,
+            "inbox_path": a.record.inbox_path,
+            "releasomat_id": a.record.releasomat_id,
+            "title": a.record.title,
+            "artist": a.record.artist,
+            "playlists": a.playlists,
+            "adopted_at": a.record.adopted_at,
+            "where": a.where,
+            "path": a.path,
+        }
+        for a in area.adopted(session, settings)
+    ]
+
+
+@router.post("/api/releasomat/adopt", status_code=202, tags=["releasomat"])
+def releasomat_adopt_api(body: FileIds, session: SessionDep, settings: SettingsDep) -> dict:
+    """Adopt these files into the import inbox (/import/Releasomat/…): Releasomat is told first
+    and leaves them alone from then on; then each file moves like an import. Runs in the
+    background (GET /partials/releasomat/adopt shows how far); 409 with the reason when
+    Releasomat, the folder or /import isn't ready, or another job runs."""
+    problem = _cannot_start(session, settings)
+    if problem or not adopt_job.start(settings, body.ids):
+        raise HTTPException(409, problem or BUSY)
+    return {"started": True}
+
+
+@router.post("/releasomat/adopt", include_in_schema=False)
+async def releasomat_adopt(request: Request, session: SessionDep, settings: SettingsDep):
+    """The page's Adopt: one row's button (``one``) or the ticked rows (``ids``)."""
+    global _last_refusals
+    form = await read_form(request)
+    one = form.get("one")
+    ids = [int(one)] if one else [int(i) for i in form.getlist("ids")]
+    back = _back(form)
+    problem = _cannot_start(session, settings)
+    if problem or not adopt_job.start(settings, ids):
+        _last_refusals = [adopt.Outcome("", False, problem or BUSY)]
+        return RedirectResponse(_with(back, refused=1), status_code=303)
+    return RedirectResponse(back, status_code=303)
+
+
+@router.get("/partials/releasomat/adopt", response_class=HTMLResponse, include_in_schema=False)
+def releasomat_adopt_partial(request: Request, was_running: bool = False):
+    response = templates.TemplateResponse(request, "partials/adopt_status.html", {"job": adopt_job})
+    if was_running and not adopt_job.running:
+        reload_page(request, response, done=True)  # the list changed: show it with the result
+    return response
+
+
+def _cannot_start(session: Session, settings: Settings) -> str | None:
+    if busy() or adopt_job.running:
+        return BUSY
+    try:
+        adopt.ready(settings, session)
+    except adopt.NotReady as exc:
+        return str(exc)
+    return None
+
+
+def _back(form) -> str:
+    back = str(form.get("back") or "/releasomat")
+    return back if back.startswith("/releasomat") else "/releasomat"
 
 
 @router.get("/api/releasomat/files", tags=["releasomat"])
@@ -133,10 +214,6 @@ def releasomat_files_api(
     }
 
 
-class FileIds(BaseModel):
-    ids: list[int]  # ids from GET /api/releasomat/files
-
-
 @router.post("/api/releasomat/delete", tags=["releasomat"])
 def releasomat_delete_api(body: FileIds, settings: SettingsDep) -> dict:
     """Ask Releasomat to delete these files: it deletes them itself (only its own downloads)
@@ -156,8 +233,7 @@ async def releasomat_delete(request: Request, settings: SettingsDep):
     form = await read_form(request)
     one = form.get("one")
     ids = [int(one)] if one else [int(i) for i in form.getlist("ids")]
-    back = str(form.get("back") or "/releasomat")
-    back = back if back.startswith("/releasomat") else "/releasomat"
+    back = _back(form)
     try:
         outcomes = adopt.delete_files(get_engine(settings.database_url), settings, ids)
     except adopt.NotReady as exc:
@@ -227,9 +303,10 @@ def _view(settings, session, prefs, show, playlist, q, page) -> dict:
         {p.id: p for f in known.values() for p in f.playlists}.values(),
         key=lambda p: p.name.lower(),
     )
-    show = show if show in VIEWS else "all"
+    adoptions = area.adopted(session, settings) if folder else []
+    show = show if show in VIEWS or show == ADOPTED else "all"
     words = q.strip().casefold()
-    shown = [
+    shown = [] if show == ADOPTED else [
         r for r in rows
         if VIEWS[show][1](r)
         and (playlist is None or any(p.id == playlist for p in r.playlists))
@@ -253,7 +330,14 @@ def _view(settings, session, prefs, show, playlist, q, page) -> dict:
         "music_dir": settings.music_dir.as_posix(),
         "connected": releasomat.configured(settings),
         "releasomat": {"answers": problem is None, "problem": problem},
-        "views": [(key, label, sum(map(test, rows))) for key, (label, test) in VIEWS.items()],
+        "views": [(key, label, sum(map(test, rows))) for key, (label, test) in VIEWS.items()]
+        + ([(ADOPTED, "Adopted", len(adoptions))] if adoptions or show == ADOPTED else []),
+        "adoptions": adoptions,
+        "where": area.WHERE,
+        # Adopt moves files into the import inbox: only with /import, and while Releasomat answers.
+        "can_adopt": bool(folder) and releasomat.configured(settings) and problem is None
+        and settings.import_dir.is_dir(),
+        "import_missing": not settings.import_dir.is_dir(),
         "show": show,
         "playlists": playlists,
         "playlist": playlist,

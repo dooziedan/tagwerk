@@ -19,6 +19,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app import (
+    adopt,
     analysis,
     area,
     convert,
@@ -774,11 +775,36 @@ def image_store(settings: Settings) -> ImageStore:
     return ImageStore(settings.config_dir / "images")
 
 
+class AdoptJob(Job):
+    """Adopt (ADR 0044): Releasomat files into the import inbox, never beside a scan or write."""
+
+    def __init__(self) -> None:
+        super().__init__("adopt", progress=WriteProgress(action="adopt"))
+
+    def start(self, settings: Settings, ids: list[int]) -> bool:
+        progress = WriteProgress(action="adopt")
+
+        def work() -> None:
+            engine = get_engine(settings.database_url)
+            try:
+                adopt.adopt_files(engine, settings, ids, progress)
+            except adopt.NotReady as exc:
+                progress.errors.append(str(exc))
+                progress.failed = progress.total
+                return
+            if progress.written:  # looked up online and analysed, as after an inbox check
+                identify_job.start(settings)
+                analysis_job.start(settings)
+
+        return self._start(work, progress)
+
+
 scan_job = ScanJob()
 inbox_job = InboxJob()
 write_job = WriteJob()
 identify_job = IdentifyJob()
 analysis_job = AnalysisJob()
+adopt_job = AdoptJob()
 
 
 def run_now(work: Callable[[], Any]) -> tuple[bool, Any]:
@@ -793,5 +819,5 @@ def run_now(work: Callable[[], Any]) -> tuple[bool, Any]:
 
 
 def busy() -> bool:
-    """True while any job (scan, inbox scan, apply, undo) is running."""
-    return scan_job.running or inbox_job.running or write_job.running
+    """True while any job (scan, inbox scan, apply, undo, adopt) is running."""
+    return scan_job.running or inbox_job.running or write_job.running or adopt_job.running

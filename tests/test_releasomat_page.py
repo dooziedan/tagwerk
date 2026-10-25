@@ -9,6 +9,7 @@ from sqlalchemy import event
 from sqlmodel import Session, select
 
 from app import area, preferences, releasomat
+from app import models as page_models
 from app.config import get_settings
 from app.db import get_engine
 from app.jobs import scan_job
@@ -350,3 +351,207 @@ def test_without_releasomat_nothing_is_deleted_and_delete_isnt_offered(client, e
     assert (music_dir / AREA / NEW).exists()
     html = client.get("/releasomat").text
     assert 'name="one"' not in html and "area-actions" not in html
+
+
+# --- Adopt (step 5) -------------------------------------------------------------------------
+
+
+@pytest.fixture
+def adoptable(kept_out, engine, settings, music_dir):
+    """An import folder, and area files older than 2 minutes (read again by the area check)."""
+    import os
+
+    settings.import_dir.mkdir()
+    old = __import__("time").time() - 3600
+    for path in (music_dir / AREA).rglob("*.*"):
+        os.utime(path, (old, old))
+    area.sync(engine, settings)
+    return kept_out
+
+
+def adopt_now(client, engine, *paths, expect=202):
+    from app.jobs import adopt_job
+
+    answer = client.post("/api/releasomat/adopt", json={"ids": ids_of(engine, *paths)})
+    assert answer.status_code == expect, answer.text
+    adopt_job.wait(10)
+    return adopt_job.progress
+
+
+def test_adopt_tells_releasomat_first_then_moves_the_file_into_the_inbox(
+    client, engine, settings, music_dir, adoptable
+):
+    source = music_dir / AREA / NEW
+    seen_before_moving = []
+
+    def releasomat_adopts(body):  # the file must still be in the area when Releasomat is asked
+        seen_before_moving.append(source.exists())
+        return {"integration_api": 1, "files": [
+            {"asked": f["path"], "ok": True, "changed": True, "id": f.get("id"),
+             "path": f["path"], "status": "adopted"} for f in body["files"]]}  # fmt: skip
+
+    adoptable.answers["adopt"] = releasomat_adopts
+    progress = adopt_now(client, engine, NEW)
+    assert (progress.written, progress.failed) == (1, 0)
+    assert seen_before_moving == [True]
+    assert adoptable.sent("adopt")[0]["files"] == [
+        {"path": NEW, "size": (FIXTURES / "untagged.mp3").stat().st_size, "id": 2}
+    ]
+    target = settings.import_dir / "Releasomat" / NEW
+    assert target.read_bytes() == (FIXTURES / "untagged.mp3").read_bytes()
+    assert not source.exists() and not source.parent.exists()  # the empty folder went too
+    assert NEW not in {f["path"] for f in rows(client)["files"]}
+
+    inbox = client.get("/inbox").text
+    assert "From Releasomat" in inbox and "in Beatport Top 100" in inbox
+    [adopted] = client.get("/api/releasomat/adoptions").json()
+    assert (adopted["where"], adopted["releasomat_id"]) == ("inbox", 2)
+    assert adopted["playlists"] == ["Beatport Top 100"]
+    assert "In the Inbox" in client.get("/releasomat?show=adopted").text
+
+
+def test_releasomat_not_answering_moves_nothing(client, engine, settings, music_dir, adoptable):
+    adoptable.answers["adopt"] = TimeoutError("timed out")
+    progress = adopt_now(client, engine, NEW, SAME)
+    assert progress.written == 0 and "didn't answer" in progress.errors[0]
+    assert "Nothing was adopted" in progress.errors[0]
+    assert (music_dir / AREA / NEW).exists() and (music_dir / AREA / SAME).exists()
+    assert not list(settings.import_dir.rglob("*.*"))
+    assert client.get("/api/releasomat/adoptions").json() == []
+
+
+def test_a_file_releasomat_refuses_stays(client, engine, settings, music_dir, adoptable):
+    adoptable.answers["adopt"] = lambda body: {"integration_api": 1, "files": [
+        {"asked": f["path"], "ok": f["path"] != SAME, "id": f.get("id"),
+         "reason": None if f["path"] != SAME else "The file at this path has another size"}
+        for f in body["files"]]}  # fmt: skip
+    progress = adopt_now(client, engine, NEW, SAME)
+    assert (progress.written, progress.failed) == (1, 1)
+    assert progress.errors == [f"{SAME}: The file at this path has another size"]
+    assert (music_dir / AREA / SAME).exists()
+    assert (settings.import_dir / "Releasomat" / NEW).exists()
+
+
+@pytest.mark.parametrize("problem", ["recent", "taken", "changed", "unreadable"])
+def test_files_that_cant_be_adopted_are_refused_before_releasomat_is_asked(
+    client, engine, settings, music_dir, adoptable, problem
+):
+    import os
+
+    path, file = (BROKEN if problem == "unreadable" else NEW), music_dir / AREA / NEW
+    if problem == "recent":  # maybe still being copied
+        os.utime(file, None)
+        area.sync(engine, settings)
+    elif problem == "taken":
+        (settings.import_dir / "Releasomat" / "B").mkdir(parents=True)
+        (settings.import_dir / "Releasomat" / NEW).write_bytes(b"someone else's")
+    elif problem == "changed":
+        with open(file, "ab") as f:
+            f.write(b"more")
+    progress = adopt_now(client, engine, path)
+    assert progress.written == 0 and progress.failed == 1
+    reason = progress.errors[0]
+    assert {"recent": "still new", "taken": "already in the inbox", "changed": "press Check again",
+            "unreadable": "can't be read"}[problem] in reason  # fmt: skip
+    assert adoptable.sent("adopt") == []
+    if problem == "taken":
+        assert (settings.import_dir / "Releasomat" / NEW).read_bytes() == b"someone else's"
+
+
+def test_a_failed_move_leaves_the_original_and_tells_releasomat(
+    client, engine, settings, music_dir, adoptable, monkeypatch
+):
+    from app import adopt as adopt_module
+    from app.writer import WriteError
+
+    def broken_copy(source, target):
+        raise WriteError("the copy differs from the original; nothing was moved")
+
+    monkeypatch.setattr(adopt_module, "move_file", broken_copy)
+    progress = adopt_now(client, engine, NEW)
+    assert progress.failed == 1 and "the move failed" in progress.errors[0]
+    assert (music_dir / AREA / NEW).exists()
+    assert adoptable.sent("returned") == [{"why": "move_failed", "files": [
+        {"path": NEW, "size": (FIXTURES / "untagged.mp3").stat().st_size, "id": 2}]}]  # fmt: skip
+    [record] = client.get("/api/releasomat/adoptions").json()
+    assert record["where"] == "returned"
+    with Session(engine) as session:
+        assert session.exec(select(page_models.ReleasomatAdoption)).one().notice == ""  # taken
+
+
+def test_a_returned_notice_waits_when_releasomat_is_gone_in_that_second(
+    client, engine, settings, music_dir, adoptable, monkeypatch
+):
+    from app import adopt as adopt_module
+
+    def full_disk(source, target):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(adopt_module, "move_file", full_disk)
+    adoptable.answers["returned"] = 503
+    adopt_now(client, engine, NEW)
+    with Session(engine) as session:
+        record = session.exec(select(page_models.ReleasomatAdoption)).one()
+    assert (record.state, record.notice) == ("returned", "returned")
+    assert "error 503" in record.notice_error and record.notice_since
+
+
+def test_if_only_removing_the_original_fails_the_inbox_copy_goes(
+    client, engine, settings, music_dir, adoptable, monkeypatch
+):
+    """The file is never in both places."""
+    from pathlib import Path
+
+    real_unlink = Path.unlink
+    source = (music_dir / AREA / NEW).resolve()
+
+    def unlink(path, *args, **kwargs):
+        if Path(path).resolve() == source:
+            raise PermissionError("Permission denied")
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    progress = adopt_now(client, engine, NEW)
+    assert progress.failed == 1 and (music_dir / AREA / NEW).exists()
+    assert not (settings.import_dir / "Releasomat" / NEW).exists()
+    assert adoptable.sent("returned")[0]["why"] == "move_failed"
+
+
+def test_without_an_import_folder_adopt_isnt_offered(client, engine, kept_out):
+    html = client.get("/releasomat").text
+    assert "map <strong>/import</strong>" in html and 'formaction="/releasomat/adopt"' not in html
+    answer = client.post("/api/releasomat/adopt", json={"ids": ids_of(engine, NEW)})
+    assert answer.status_code == 409 and "map /import" in answer.json()["detail"]
+
+
+def test_never_beside_another_job(client, engine, adoptable):
+    from app import jobs
+
+    with jobs._library_lock:  # a scan or write is running
+        adopt_now(client, engine, NEW, expect=409)
+    assert adoptable.sent("adopt") == []
+
+
+def test_where_an_adopted_file_is_now(client, engine, settings, music_dir, adoptable):
+    """Inbox → library (import) → Inbox again (undo) → gone (removed by hand)."""
+    from app.changes import WriteProgress
+    from app.importer import import_tracks
+    from app.inbox import scan_inbox
+    from app.scanner import ScanProgress
+    from app.undo import undo_changeset
+
+    adopt_now(client, engine, BETTER)  # tagged: ready to import
+    where = lambda: client.get("/api/releasomat/adoptions").json()[0]["where"]  # noqa: E731
+    assert where() == "inbox"
+    with Session(engine) as session:
+        inbox_id = session.exec(select(page_models.InboxTrack.id)).one()
+    imported = WriteProgress(action="import")
+    import_tracks(engine, settings.import_dir, settings.music_dir, [inbox_id], imported)
+    assert imported.written == 1 and where() == "library"
+    undone = WriteProgress(action="undo")
+    undo_changeset(engine, settings.music_dir, imported.changeset_id, undone,
+                   import_dir=settings.import_dir, settings=settings)  # fmt: skip
+    assert where() == "inbox"
+    (settings.import_dir / "Releasomat" / BETTER).unlink()
+    scan_inbox(engine, settings.import_dir, ScanProgress())
+    assert where() == "gone"

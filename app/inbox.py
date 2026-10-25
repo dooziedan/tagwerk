@@ -13,7 +13,14 @@ from sqlalchemy import Engine
 from sqlmodel import Session, col, func, select
 
 from app import analysis, genres, identify, secret, tempo, writer
-from app.models import InboxAnalysis, InboxTrack, InboxValue, OnlineLookup, SecretInboxTrack
+from app.models import (
+    InboxAnalysis,
+    InboxTrack,
+    InboxValue,
+    OnlineLookup,
+    ReleasomatAdoption,
+    SecretInboxTrack,
+)
 from app.proposals import Proposal, propose
 from app.scanner import ScanProgress, find_files
 from app.tags import FORMATS, read_file
@@ -143,6 +150,8 @@ class Known:
     analysed: InboxAnalysis | None  # BPM and key from the audio (None: not analysed yet)
     secret: bool
     genre_map: genres.GenreMap
+    # Adopted from Releasomat (ADR 0044): the "From Releasomat" chip and its playlists.
+    adopted: ReleasomatAdoption | None = None
 
 
 def load_known(session: Session, tracks: list[InboxTrack]) -> dict[int, Known]:
@@ -163,16 +172,30 @@ def load_known(session: Session, tracks: list[InboxTrack]) -> dict[int, Known]:
         answers.setdefault(row.track_id, []).append(row)
     analysed = {row.track_id: row for row in _rows_for(session, InboxAnalysis, ids)}
     hidden = secret.secret_ids(session, ids, inbox=True)
+    adopted = adoptions_for(session, [t.path for t in tracks])
     return {
-        i: Known(
-            mine.get(i, {}),
-            identify.found_in(answers.get(i, []), genre_map, explain_them=False),
-            analysed.get(i),
-            i in hidden,
+        t.id: Known(
+            mine.get(t.id, {}),
+            identify.found_in(answers.get(t.id, []), genre_map, explain_them=False),
+            analysed.get(t.id),
+            t.id in hidden,
             genre_map,
+            adopted.get(t.path),
         )
-        for i in ids
+        for t in tracks
     }
+
+
+def adoptions_for(session: Session, paths: list[str]) -> dict[str, ReleasomatAdoption]:
+    """The Releasomat adoptions of these inbox files (by inbox path), still adopted."""
+    found = {}
+    for start in range(0, len(paths), 500):  # SQLite limits the number of parameters
+        query = select(ReleasomatAdoption).where(
+            col(ReleasomatAdoption.inbox_path).in_(paths[start : start + 500]),
+            ReleasomatAdoption.state == "adopted",
+        )
+        found |= {a.inbox_path: a for a in session.exec(query.order_by(ReleasomatAdoption.id))}
+    return found
 
 
 def _rows_for(session: Session, table, track_ids: list[int]) -> list:

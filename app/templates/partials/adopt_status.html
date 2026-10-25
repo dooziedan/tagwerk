@@ -1,0 +1,24 @@
+{# Progress of Adopt (ADR 0044). Polls itself while running, reloads the page when done; the
+   result shows once, on that reload (done=1, see app/navigation.py). #}
+{% from "macros.html" import toast %}
+{% set p = job.progress %}
+{% if job.running %}
+<article id="adopt-status" class="job-card" role="status" hx-get="/partials/releasomat/adopt?was_running=true" hx-trigger="every 1s" hx-swap="outerHTML">
+  <div class="job-head">
+    <strong><span aria-busy="true"></span>Adopting into the Inbox…</strong>
+    {% if p.total %}<span class="job-count"><b>{{ p.processed | number }}</b> of {{ p.total | plural('file') }}</span>{% endif %}
+  </div>
+  <progress {% if p.total %}value="{{ p.processed }}" max="{{ p.total }}"{% endif %}></progress>
+  <small class="muted job-foot">{% if p.current %}<span class="current-file">{{ p.current }}</span> · {% endif %}You can leave this page: it goes on in the background.</small>
+</article>
+{% elif job.status in ("done", "failed") and request.query_params.get("done") %}
+<div id="adopt-status" class="toasts">
+{% if job.error %}{% call toast("warn") %}❌ Adopt failed: {{ job.error }}{% endcall %}
+{% else %}
+{% if p.written %}{% call toast() %}✅ Adopted {{ p.written | plural('track') }}. {{ "It waits" if p.written == 1 else "They wait" }} in the <a href="/inbox">Inbox</a>.{% endcall %}{% endif %}
+{% for error in p.errors %}{% call toast("warn") %}{{ error }}{% endcall %}{% endfor %}
+{% endif %}
+</div>
+{% else %}
+<div id="adopt-status" hidden></div>
+{% endif %}

@@ -1,5 +1,6 @@
 """The Inbox page: new music in the import folder, before it joins the library."""
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -30,7 +31,7 @@ from app.inbox import (
 )
 from app.inbox import suggestions as inbox_suggestions
 from app.jobs import identify_job, image_store, inbox_job, run_now, scan_job, write_job
-from app.models import InboxTrack
+from app.models import InboxTrack, ReleasomatAdoption
 from app.navigation import reload_page
 from app.proposals import still_missing
 from app.routes.analysis import audio_context
@@ -138,6 +139,11 @@ class InboxRow:
     duplicates: list[Match]  # likely copies already in the library
     secret: bool = False  # an edit or bootleg: never looked up online, no cover needed
     better: upgrade.Upgrade | None = None  # sounds better than its library copy (ADR 0037)
+    adopted: ReleasomatAdoption | None = None  # adopted from Releasomat (ADR 0044)
+
+    @property
+    def releasomat_playlists(self) -> list[str]:
+        return json.loads(self.adopted.playlists) if self.adopted else []
 
     @property
     def ready(self) -> bool:
@@ -224,7 +230,7 @@ def _summary(session, track: InboxTrack, library: LibraryIndex, known: Known) ->
     better = upgrade.find(track, duplicates)
     return InboxRow(
         track, value["title"], value["artist"], changes, edited, missing, duplicates, is_secret,
-        better,
+        better, known.adopted,
     )  # fmt: skip
 
 

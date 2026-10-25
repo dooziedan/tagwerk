@@ -222,6 +222,29 @@ class ReleasomatFile(SQLModel, table=True):
     scanned_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ReleasomatAdoption(SQLModel, table=True):
+    """A file the owner adopted from the Releasomat area into the inbox (ADR 0044): the record
+    of adoptions, as the trash is the record of trash moves. Adopt writes no tags, so it isn't in
+    the History. Where the file is now (inbox, library, gone) is worked out from the inbox and
+    the History; ``state`` holds only what can't be: thrown away, or back in the area."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    area_path: str  # where it was, relative to the area folder
+    inbox_path: str = Field(index=True)  # where it went, relative to IMPORT_DIR
+    releasomat_id: int | None = None  # Releasomat's file id, sent along with later notices
+    size: int
+    title: str | None = None
+    artist: str | None = None
+    playlists: str = "[]"  # JSON: the names of the Releasomat playlists it was in
+    adopted_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    # adopted; discarded (thrown away in the inbox); returned (the move failed: it never left)
+    state: str = "adopted"
+    # A notice Releasomat hasn't taken yet ("discarded", "restored", "returned"); "": none.
+    notice: str = ""
+    notice_since: datetime | None = None
+    notice_error: str | None = None  # why the last try failed
+
+
 class InboxValue(SQLModel, table=True):
     """A value the owner set for an inbox track on its review page (overrides the suggestion).
 

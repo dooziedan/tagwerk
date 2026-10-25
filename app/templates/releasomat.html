@@ -28,10 +28,13 @@
   <p class="muted">Keep it out in <a href="/settings#releasomat">Settings → Releasomat</a>{% if proposed %} (<code>{{ music_dir }}/{{ proposed }}</code>){% endif %}: then its downloads are listed here instead of among your tracks.</p>
 </article>
 {% else %}
+{% include "partials/adopt_status.html" %}
 {% if connected and not releasomat.answers %}
 <p class="notice" role="status">⚠️ {{ releasomat.problem }} The files are shown as Tagwerk reads them, without their playlists.</p>
 {% elif not connected %}
-<p class="muted"><small>With <code>RELEASOMAT_URL</code> and <code>RELEASOMAT_API_KEY</code> set, this page also shows which playlists contain each file, and the BPM and key the playlist's source knows.</small></p>
+<p class="muted"><small>With <code>RELEASOMAT_URL</code> and <code>RELEASOMAT_API_KEY</code> set, this page also shows which playlists contain each file and the BPM and key the playlist's source knows, and you can adopt or delete files.</small></p>
+{% elif import_missing %}
+<p class="notice" role="note">Adopting moves tracks into the import inbox: map <strong>/import</strong> in the container template (<em>Import Inbox</em>). Until then you can listen and delete here.</p>
 {% endif %}
 
 <section class="kpis" aria-label="Releasomat folder">
@@ -65,7 +68,24 @@
 <p class="notice" role="note">🐞 <strong>Releasomat shouldn't download songs you already have</strong>: it links your copy into its playlists instead. Each file here either came into your library after Releasomat downloaded it (then Releasomat links your copy on its next refresh), or Releasomat missed your copy. If it's the second, it's worth reporting as a Releasomat bug, with the reason shown and your copy's path.</p>
 {% endif %}
 
-{% if not rows %}
+{% if show == "adopted" %}
+{% if not adoptions %}<p class="muted">Nothing adopted yet.</p>{% else %}
+<p class="muted"><small>Adopted tracks went into the Inbox; from there they are imported like any new track. Adopting writes no tags, so it isn't in the History: this list is its record.</small></p>
+<table class="inbox-list area-list no-ticks">
+  <thead><tr><th scope="col">Track</th><th scope="col">Adopted</th><th scope="col">Playlists then</th><th scope="col">Now</th></tr></thead>
+  <tbody>
+    {% for a in adoptions %}{% set rec = a.record %}
+    <tr>
+      <td><span class="inbox-title">{{ rec.title or rec.area_path.rsplit("/", 1)[-1] }}</span> <span class="muted">{{ rec.artist or "Unknown artist" }}</span><small class="muted inbox-file">{{ rec.area_path }}</small></td>
+      <td class="area-sound"><small class="muted"><time data-local data-medium datetime="{{ rec.adopted_at | isoutc }}">{{ rec.adopted_at | isoutc }}</time></small></td>
+      <td class="area-playlists">{% for name in a.playlists %}<span class="chip">{{ name }}</span>{% endfor %}</td>
+      <td class="inbox-status">{% if a.link %}<a class="status{% if a.where == 'library' %} status-better{% endif %}" href="{{ a.link }}"{% if a.path %} title="{{ a.path }}"{% endif %}>{{ where[a.where] }}</a>{% else %}<span class="status{% if a.where == 'returned' %} status-help{% endif %}">{{ where[a.where] }}</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% elif not rows %}
 <p class="muted">{% if q or playlist %}Nothing matches.{% elif show == "all" %}No downloads in the Releasomat folder right now.{% else %}No files here right now.{% endif %}</p>
 {% else %}
 <form id="area-form" method="post" action="/releasomat/delete"><input type="hidden" name="back" value="{{ here }}"></form>
@@ -104,6 +124,7 @@
         {% else %}<span class="status">Not in your library</span>{% endif %}
       </td>
       {% if can_delete %}<td class="area-actions">
+        {% if can_adopt and not f.error %}<button type="submit" form="area-form" formaction="/releasomat/adopt" name="one" value="{{ f.id }}" class="outline secondary small" title="Move it into the Inbox, to import it like any new track">Adopt</button>{% endif %}
         <button type="submit" form="area-form" name="one" value="{{ f.id }}" class="outline secondary small"
                 data-confirm="Releasomat deletes “{{ name }}” and won't download it again.{% if r.playlists %} Still in: {{ r.playlists | map(attribute='name') | join(', ') }}.{% endif %}" data-confirm-ok="Delete">Delete</button>
       </td>{% endif %}
@@ -116,8 +137,9 @@
 <div class="action-bar" id="area-actions" hidden>
   <div class="container action-bar-inner">
     <strong id="area-count"></strong>
+    {% if can_adopt %}<button type="submit" form="area-form" formaction="/releasomat/adopt" id="area-adopt">Adopt</button>{% endif %}
     <button type="submit" form="area-form" class="outline secondary" id="area-delete" data-confirm-ok="Delete">Delete</button>
-    <small class="muted">Releasomat deletes the files itself and marks them <em>Don't like</em>: it won't download them again.</small>
+    <small class="muted">{% if can_adopt %}<strong>Adopt</strong> moves the files into the Inbox, where they're identified and imported like any new track. {% endif %}<strong>Delete</strong>: Releasomat deletes the files itself and marks them <em>Don't like</em>, so it won't download them again.</small>
   </div>
 </div>
 <script>
@@ -130,6 +152,8 @@
       document.getElementById("area-count").textContent = n + " selected";
       const button = document.getElementById("area-delete");
       button.textContent = n === 1 ? "Delete 1 track" : `Delete ${n} tracks`;
+      const adoptButton = document.getElementById("area-adopt");
+      if (adoptButton) adoptButton.textContent = n === 1 ? "Adopt 1 track" : `Adopt ${n} tracks`;
       const lists = [...new Set(ticked.flatMap((b) => b.dataset.playlists ? b.dataset.playlists.split("|") : []))];
       button.dataset.confirm = (n === 1 ? `Releasomat deletes “${ticked[0].dataset.name}”` : `Releasomat deletes these ${n} files`) +
         ` and won't download ${n === 1 ? "it" : "them"} again.` + (lists.length ? ` Still in: ${lists.join(", ")}.` : "");
