@@ -230,12 +230,13 @@ def test_no_area_rows_while_prefs_say_nothing_is_kept_out(engine, settings):
 
 
 def test_downloads_you_already_have_are_flagged_as_a_possible_releasomat_bug(client, kept_out):
-    """Releasomat links library songs instead of downloading them (owner, 2026-10-25)."""
+    """Releasomat links library songs instead of downloading them (owner, 2026-10-25). It keeps
+    using a download it already has, so the notice says how to switch to the library copy."""
     for show in ("library", "better"):
-        assert (
-            "Releasomat shouldn't download songs you already have"
-            in client.get(f"/releasomat?show={show}").text
-        )
+        page = client.get(f"/releasomat?show={show}").text
+        assert "Releasomat shouldn't download songs you already have" in page
+        assert "keeps using its own download as long as the file is here" in page
+        assert "To use your copy instead" in page
     assert "shouldn't download songs" not in client.get("/releasomat?show=new").text
     assert "Releasomat shouldn't have downloaded it" in client.get("/releasomat").text
 

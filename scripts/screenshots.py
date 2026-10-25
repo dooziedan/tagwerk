@@ -87,6 +87,7 @@ def main(base: str, out: Path) -> int:
         pages["inbox-better"] = f"/inbox/{better}"
     if releasomat_folder(base):  # optional (ADR 0044): only when Releasomat is set up
         pages["releasomat"] = "/releasomat"
+        pages["releasomat-library"] = "/releasomat?show=library"  # the "use your copy" notice
         pages["releasomat-adopted"] = "/releasomat?show=adopted"
 
     errors: list[str] = []
