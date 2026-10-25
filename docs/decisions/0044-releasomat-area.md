@@ -272,7 +272,10 @@ sketch below, or adds to it:
   job of its own; the library scan reads it too.
 - The Releasomat page flags files on its *In your library* and *Better sound* tabs as a possible
   Releasomat bug: Releasomat links songs the library has instead of downloading them (owner,
-  2026-10-25), so such a file came into the library later or Releasomat missed the copy.
+  2026-10-25), so such a file came into the library later or Releasomat missed the copy. Either
+  way Releasomat keeps using a download it has, so the notice gives the way to the library copy:
+  correct its title and artist if they differ (often why Releasomat missed it), then Delete the
+  download; Releasomat links the copy on its next refresh.
 - Adopt removes the folders a file leaves when they are empty (only `rmdir`).
 - The Adopted tab counts a file as in the Inbox when it is on disk there (also right after an
   import was undone, before the inbox check lists it again).

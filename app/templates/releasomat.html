@@ -65,7 +65,15 @@
 
 {% set already = (views | selectattr(0, "in", ["library", "better"]) | map(attribute=2) | sum) %}
 {% if show in ("library", "better") and already %}
-<p class="notice" role="note">🐞 <strong>Releasomat shouldn't download songs you already have</strong>: it links your copy into its playlists instead. Each file here either came into your library after Releasomat downloaded it (then Releasomat links your copy on its next refresh), or Releasomat missed your copy. If it's the second, it's worth reporting as a Releasomat bug, with the reason shown and your copy's path.</p>
+<div class="notice" role="note">
+  <p>🐞 <strong>Releasomat shouldn't download songs you already have</strong>: it links your copy into its playlists instead. So your copy came into the library after the download, or Releasomat didn't recognise it, often because its title or artist is written differently (the remix name outside the brackets, say). Either way, Releasomat keeps using its own download as long as the file is here, even once your copy's tags are right. <strong>To use your copy instead:</strong></p>
+  <ol>
+    <li>Correct your copy's title and artist if they differ, and wait until Navidrome has scanned it.</li>
+    <li><strong>Delete</strong> the download here. Releasomat marks the track <em>Don't like</em> and links your copy on its next refresh.</li>
+    <li>After that refresh, <strong>Undo</strong> on the playlist's page in Releasomat takes back <em>Don't like</em> if you want; your copy stays linked.</li>
+  </ol>
+  <p><small class="muted">Better sound than your copy? Instead of Delete, <strong>Adopt</strong> it and replace your copy in the Inbox. If your copy's title and artist are right and Releasomat downloaded it anyway, it's worth reporting as a Releasomat bug, with the reason shown and your copy's path.</small></p>
+</div>
 {% endif %}
 
 {% if show == "adopted" %}
