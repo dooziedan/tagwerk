@@ -657,3 +657,37 @@ def test_other_inbox_files_send_nothing(client, engine, settings, adopted, adopt
     assert "data-releasomat" not in client.get(f"/inbox/{mine.id}").text
     client.post("/inbox/delete", data={"ids": [mine.id]})
     assert adoptable.sent("discarded") == []
+
+
+def test_a_quick_adopt_still_shows_its_result_and_logs_refusals(
+    client, engine, settings, music_dir, adoptable, caplog
+):
+    """The job may end before the page it leads back to is built: then nothing polls, and a
+    refusal used to go unseen ("the Adopt button does nothing")."""
+    import logging
+    import os
+
+    from app.jobs import adopt_job
+
+    os.utime(music_dir / AREA / NEW, None)  # a fresh download: refused for 2 minutes
+    area.sync(engine, settings)
+    caplog.set_level(logging.WARNING)
+    [one] = ids_of(engine, NEW)
+    answer = client.post("/releasomat/adopt", data={"one": one}, follow_redirects=False)
+    assert answer.headers["location"] == "/releasomat?done=1"
+    adopt_job.wait(10)  # done before the page is asked for
+    page = client.get(answer.headers["location"]).text
+    assert "Not adopted: " in page and "the file is still new" in page
+    assert f"Not adopted: {NEW}: the file is still new" in caplog.text
+    state = client.get("/api/releasomat/adopt").json()
+    assert (state["status"], state["adopted"], state["failed"]) == ("done", 0, 1)
+
+    adoptable.answers["files"] = TimeoutError("timed out")  # Releasomat busy with a refresh
+    releasomat.forget_files()
+    os.utime(music_dir / AREA / NEW, (1, 1))
+    area.sync(engine, settings)
+    client.post("/releasomat/adopt", data={"one": one})
+    adopt_job.wait(10)
+    page = client.get("/releasomat?done=1").text
+    assert "Releasomat didn&#39;t answer" in page and "Nothing was adopted" in page
+    assert "Adopt stopped: Releasomat didn't answer" in caplog.text

@@ -789,6 +789,7 @@ class AdoptJob(Job):
             try:
                 adopt.adopt_files(engine, settings, ids, progress)
             except adopt.NotReady as exc:
+                log.warning("Adopt stopped: %s", exc)
                 progress.errors.append(str(exc))
                 progress.failed = progress.total
                 return

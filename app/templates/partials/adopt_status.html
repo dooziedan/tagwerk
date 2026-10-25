@@ -16,7 +16,8 @@
 {% if job.error %}{% call toast("warn") %}❌ Adopt failed: {{ job.error }}{% endcall %}
 {% else %}
 {% if p.written %}{% call toast() %}✅ Adopted {{ p.written | plural('track') }}. {{ "It waits" if p.written == 1 else "They wait" }} in the <a href="/inbox">Inbox</a>.{% endcall %}{% endif %}
-{% for error in p.errors %}{% call toast("warn") %}{{ error }}{% endcall %}{% endfor %}
+{# Refusals stay until closed: they say why a file is still here (ADR 0044). #}
+{% if p.errors %}{% call toast("warn") %}⚠️ Not adopted{% if p.errors | length == 1 %}: {{ p.errors[0] }}{% else %}:{% for error in p.errors %}<br>• {{ error }}{% endfor %}{% endif %}{% endcall %}{% endif %}
 {% endif %}
 </div>
 {% else %}

@@ -259,6 +259,7 @@ def _note_error(engine, area_path: str, message: str) -> None:
 
 
 def _failed(progress: WriteProgress, path: str, reason: str) -> None:
+    log.warning("Not adopted: %s: %s", path, reason)  # also in the container log
     progress.failed += 1
     progress.processed += 1
     progress.errors.append(f"{path}: {reason}")
