@@ -1255,6 +1255,16 @@ table.work-fields thead th { letter-spacing: 0.08em; font-size: 0.64rem; }
 .top-menu > summary::after { display: none; }
 .top-menu { margin: 0; }
 .top-menu > summary.menu-button { padding: 0; border: 1px solid var(--tw-line); }
+/* Its list: every page, grouped like the sidebar, at the bar's right edge. A phone screen is
+   shorter than the list, so it scrolls (the bar stays put, so the page can't scroll it). */
+details.dropdown.top-menu > summary + ul { left: auto; right: 0; min-width: 14rem; max-height: calc(100vh - 6rem); overflow-y: auto; }
+.top-menu li.menu-group { padding-top: 0.75rem; padding-bottom: 0.2rem; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--tw-ink-3); }
+.top-menu li.menu-group:first-child { padding-top: 0.35rem; }
+.top-menu a.menu-link { display: flex; align-items: center; gap: 0.65rem; }
+.top-menu a.menu-link svg { flex: none; width: 18px; height: 18px; color: var(--tw-ink-3); }
+.top-menu a.menu-link[aria-current="page"] { text-decoration: none; }
+.top-menu a.menu-link[aria-current="page"] svg { color: var(--tw-gold); }
+.top-menu a.menu-link .count-badge { margin-left: auto; }
 .small-link { font-size: 0.85rem; }
 .task-list .grow small a.ok-link { color: var(--tw-ok); font-weight: 500; }
 .task-list .grow small a.check-link { color: var(--tw-check); font-weight: 500; }

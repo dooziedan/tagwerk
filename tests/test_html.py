@@ -75,3 +75,24 @@ def test_form_error_page_has_balanced_tags(client, pages, engine):
     checker = TagChecker()
     checker.feed(response.text)
     assert checker.problems == []
+
+
+def test_the_phone_menu_has_every_page_of_the_sidebar(client, monkeypatch):
+    """Narrow windows and phones only have the top bar's menu: it must reach every page the
+    sidebar does (it used to be a separate list that missed Inbox, Changes and API)."""
+    import re
+
+    from app import templating
+
+    for shown in (False, True):
+        globals_ = templating.templates.env.globals
+        monkeypatch.setitem(globals_, "releasomat_shown", lambda shown=shown: shown)
+        html = client.get("/").text
+        side = html.split('<aside class="side"', 1)[1].split("</aside>", 1)[0]
+        menu = html.split('<details class="dropdown top-menu">', 1)[1].split("</details>", 1)[0]
+        links = lambda part: re.findall(r'<a class="[^"]*" href="([^"]+)"', part)  # noqa: E731
+        assert links(menu) == links(side)
+        assert {"/inbox", "/changes", "/docs", "/settings"} <= set(links(menu))
+        assert ("/releasomat" in links(menu)) is shown
+        groups = re.findall(r'<li class="menu-group">(\w+)</li>', menu)
+        assert groups == ["Library", "Work", "Tools", "System"]

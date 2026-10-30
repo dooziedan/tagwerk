@@ -271,9 +271,8 @@ class InboxJob(Job):
         if not ids:
             return False
         progress = WriteProgress(action="import")
-        import_tracks(
-            engine, settings.import_dir, settings.music_dir, ids, progress, image_store(settings)
-        )
+        import_tracks(engine, settings.import_dir, settings.music_dir, ids, progress,
+                      image_store(settings), settings)  # fmt: skip
         after_library_change(engine, settings)
         self.auto_import = progress
         log.info("Imported %d complete inbox tracks automatically", progress.written)
@@ -388,9 +387,8 @@ class WriteJob(Job):
         images = image_store(settings)
 
         def work() -> None:
-            import_tracks(
-                engine, settings.import_dir, settings.music_dir, track_ids, progress, images
-            )
+            import_tracks(engine, settings.import_dir, settings.music_dir, track_ids, progress,
+                          images, settings)  # fmt: skip
             after_library_change(engine, settings)
             navidrome.rescan_after_write(settings, progress.written)
 

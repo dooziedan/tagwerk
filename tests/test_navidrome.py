@@ -133,3 +133,69 @@ def test_test_connection_shows_libraries_and_choice(nd_settings, monkeypatch):
     message = navidrome.ping(nd_settings).message
     assert "Libraries: “Music Library”, “Audiobooks”" in message
     assert "Rescans only “Music Library”" in message
+
+
+# --- Waiting until Navidrome lists moved files (ADR 0046) --------------------------------------
+
+
+@pytest.fixture
+def scanning(settings, monkeypatch):
+    """Navidrome set up in the test settings (notifications go to the test database)."""
+    from tests.fake_navidrome import URL, ScanningNavidrome
+
+    monkeypatch.setattr(settings, "navidrome_url", URL)
+    monkeypatch.setattr(settings, "navidrome_user", "admin")
+    monkeypatch.setattr(settings, "navidrome_password", "secret")
+    fake = ScanningNavidrome(settings.music_dir)
+    monkeypatch.setattr(navidrome.urllib.request, "urlopen", fake)
+    return settings, fake
+
+
+def moved_file(music_dir, name="Someone - Promo.mp3"):
+    import shutil
+
+    from tests.conftest import FIXTURES
+
+    path = music_dir / "House" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURES / "untagged.mp3", path)  # no title tag: Navidrome uses the filename
+    return navidrome.Moved(path.stem, path.stat().st_size, "mp3")
+
+
+def test_a_running_scan_is_waited_for_then_tagwerk_scans_and_searches(engine, scanning):
+    settings, fake = scanning
+    fake.polls = fake.running = 2  # someone else's scan, started before the move: may miss it
+    files = [moved_file(settings.music_dir),
+             navidrome.Moved("Someone - Promo", 999, "mp3")]  # fmt: skip
+    result, listed = navidrome.wait_until_listed(settings, files, sleep=lambda _: None)
+    assert result.ok and listed == [True, False]  # the size has to match too
+    assert fake.calls == ["getScanStatus", "getScanStatus", "startScan", "getScanStatus",
+                          "getScanStatus", "search3", "search3"]  # fmt: skip
+    assert len(fake.scans) == 2  # the other scan, then Tagwerk's own
+
+
+def test_a_scan_that_doesnt_finish_isnt_waited_for_forever(engine, scanning):
+    settings, fake = scanning
+    fake.endless = True
+    waits = []
+    result, listed = navidrome.wait_until_listed(
+        settings, [moved_file(settings.music_dir)], sleep=waits.append
+    )
+    assert not result.ok and "didn't finish within 3 minutes" in result.message
+    assert listed == [None] and sum(waits) >= navidrome.SCAN_WAIT
+    assert "search3" not in fake.calls
+
+
+def test_a_search_without_answer_leaves_listed_open(engine, scanning, monkeypatch):
+    settings, fake = scanning
+
+    def no_search(url, timeout):
+        if "/rest/search3" in url:
+            raise urllib.error.HTTPError(url, 500, "Internal Server Error", {}, None)
+        return fake(url, timeout)
+
+    monkeypatch.setattr(navidrome.urllib.request, "urlopen", no_search)
+    result, listed = navidrome.wait_until_listed(
+        settings, [moved_file(settings.music_dir)], sleep=lambda _: None
+    )
+    assert result.ok and listed == [None]  # the scan is done; that's all Tagwerk knows

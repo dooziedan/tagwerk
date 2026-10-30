@@ -54,14 +54,14 @@ Files are never modified directly from a form or a lookup:
 | `app/undo.py` | Undo of an applied change set: tags from the snapshots, then each feature puts its files back (import, better copy, AIFF, final rename, genre folder). Sits above those modules, so none of them imports in a circle | 0.25.1 |
 | `app/keys.py` | Parse keys in any notation to Camelot; display as Camelot / Open Key / musical | 0.3 |
 | `app/preferences.py` | Key notation, effects, import and final-track choices, stored in the `appsetting` table | 0.3 |
-| `app/navidrome.py` | Asks Navidrome to rescan after a write (Subsonic `startScan`, salted-token login, standard library only) | 0.7 |
+| `app/navidrome.py` | Asks Navidrome to rescan after a write (Subsonic `startScan`, salted-token login, standard library only); waits for a scan before renaming, converting and replacing (`scanned_since`) and before tagging adopted files (`wait_until_listed`: its own scan, then `search3` by title, size and extension, [ADR 0046](decisions/0046-adopted-tracks-stay-the-same-song.md)) | 0.7 |
 | `app/inbox.py` | Keeps the `inboxtrack` table in sync with the import folder; the owner's values per track (`inboxvalue`) and the review of each field. Pages read what is stored about all inbox tracks at once (`load_known`, [ADR 0038](decisions/0038-fast-inbox.md)) | 0.7 |
 | `app/proposals.py` | Suggestions from filenames and clean-up rules (pure functions, recalculated when shown) | 0.7 |
 | `app/genres.py` | The genre map: spelling variants, subgenre → main genre, and each genre's usual tempo ([ADR 0041](decisions/0041-genre-and-bpm-weighed.md)) | 0.7 |
 | `app/tempo.py` | Half or double time: reads a BPM at its genre's tempo, checks a genre against the measured tempo ([ADR 0041](decisions/0041-genre-and-bpm-weighed.md)) | 0.26 |
 | `app/genre_merge.py` | Genre spellings page: genres written in several ways, merged into one spelling as pending changes | 0.17 |
 | `app/mix_names.py` | Mix names page: titles with "(club remix)" written as "(Club Remix)" (the inbox's clean-up rule), staged as pending changes ([ADR 0026](decisions/0026-mix-names.md)) | 0.17.1 |
-| `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back | 0.7 |
+| `app/importer.py` | Import: write tags, copy → verify → delete into the library (filename unchanged); undo moves back. Files adopted from Releasomat (with Navidrome set up) go the other way round: moved with their old tags, one Navidrome scan for all of them, then tagged in the library, so Navidrome keeps the song ([ADR 0046](decisions/0046-adopted-tracks-stay-the-same-song.md)) | 0.7 |
 | `app/upgrade.py` | Better copies: inbox files that sound clearly better than their library copy (lossless over lossy, higher resolution, ≥ 1.2× bitrate) replace it, with its tags, folder and name (new extension); the old file goes to the library trash; undo; automatic when switched on ([ADR 0037](decisions/0037-better-copies.md)) | 0.24 |
 | `app/convert.py` | Converting lossless tracks to AIFF with ffmpeg (ffprobe decides what is lossless): check, convert, verify, move the original to `/originals`; undo ([ADR 0013](decisions/0013-convert-to-aiff.md)) | 0.7 |
 | `app/tagcopy.py` | Translates all tags and pictures of a FLAC, WAV or ALAC file into ID3 frames (Picard's mapping) for the AIFF | 0.7 |

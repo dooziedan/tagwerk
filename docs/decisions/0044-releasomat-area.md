@@ -110,7 +110,7 @@ accident would silently turn the downloads back into library tracks.
 | Undo (`undo.py`) | | an entry whose file is now inside the area is refused ("this file is in the Releasomat folder now"), so Tagwerk never writes there |
 | Inbox | | adopted files arrive in `/import/Releasomat/…` with a **From Releasomat** chip and their playlists (loaded in `inbox.load_known`, [ADR 0038](0038-fast-inbox.md)); everything else as usual: lookup, BPM/key, duplicates, better copies, review or automatic import, secret mark |
 | Inbox trash (`routes/inbox.py`) | | an adopted file thrown away: Releasomat is told (*discarded*); restored within 30 days: told again (*restored*) |
-| Navidrome | rescans the whole library | unchanged: Navidrome must see the area for Releasomat's playlists. No rescan after Adopt (the file isn't library yet); the import rescans as before |
+| Navidrome | rescans the whole library | unchanged: Navidrome must see the area for Releasomat's playlists. No rescan after Adopt (the file isn't library yet); the import rescans as before (adopted files: moved first, tags after Navidrome's scan, [ADR 0046](0046-adopted-tracks-stay-the-same-song.md)) |
 | Player | plays area files as library tracks | read-only audio routes for area files (▶ on the Releasomat page), same helpers |
 | Notifications | | a topic **Releasomat** (on): the one-time "N tracks left the library", a notice Releasomat hasn't taken for a day, the folder changed or vanished. Nothing for new downloads |
 | Menu | | Work → **Releasomat** after Inbox, without a number, only when Releasomat is configured |
@@ -242,13 +242,17 @@ CLAUDE.md gets these changes when this record is accepted:
   included staged BPM/key) stay in the files; the History shows which. A library copy the owner
   trashed in favour of a download (Duplicates page) would leave the library without that song:
   the pre-check lists duplicate groups whose kept copy is in the area.
-- **Navidrome IDs and play counts.** Adopt and import give the song a new path, sometimes new tags,
-  and the file is out of Navidrome's sight while it waits in the inbox: meanwhile it is missing from
-  the Releasomat playlist. Recent Navidrome versions can reconnect a missing song to a file that
-  comes back elsewhere by its persistent ID, which by default uses the MusicBrainz recording ID;
-  worth checking on the owner's version. Tagwerk keeps Releasomat's MusicBrainz ID, which gives that
-  the best chance. If Navidrome doesn't reconnect, Releasomat finds the library copy on its next
-  refresh (ADR 0009) and plays or stars made on the download are lost.
+- **Navidrome IDs and play counts** (corrected by [ADR 0046](0046-adopted-tracks-stay-the-same-song.md)).
+  Adopt and import give the song a new path, sometimes new tags, and the file is out of Navidrome's
+  sight while it waits in the inbox: meanwhile Navidrome hides it in the Releasomat playlist.
+  Navidrome (0.55 and later) keeps such a *missing* song and gives it to a file that turns up
+  elsewhere with the same persistent ID. By default that ID comes from album artist, album, disc
+  and track number and title, or from the MusicBrainz *release track* ID; the MusicBrainz
+  recording ID that Releasomat writes isn't part of it (this risk first said it was). An import
+  that improves the title or album would change it, so adopted files are imported in two steps:
+  moved with Releasomat's tags, scanned by Navidrome, then tagged in place (ADR 0046). If Navidrome
+  still makes a new song (it didn't confirm in time), Releasomat finds the library copy on its next
+  refresh (ADR 0009) and plays or stars made on the download stay with the old, missing song.
 - **Files arriving while Tagwerk reads.** Releasomat writes downloads under a hidden name and renames
   them when complete, so its own files never appear half-written. Files copied into the area by hand
   can: the area check lists them as unreadable or short and reads them again once they change, and

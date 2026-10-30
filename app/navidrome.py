@@ -1,7 +1,7 @@
 """Telling Navidrome to rescan after Tagwerk changed files (optional).
 
 Uses the Subsonic API that Navidrome implements (``startScan``, ``getScanStatus``, ``ping``,
-``getMusicFolders``).
+``getMusicFolders``, ``search3``).
 Needs the Navidrome address and a user with admin rights, set as container variables
 (NAVIDROME_URL, _USER, _PASSWORD). With several Navidrome libraries, NAVIDROME_LIBRARY names the
 one Tagwerk works on; only that one is rescanned (``startScan?target=<id>:``, Navidrome 0.59+;
@@ -11,6 +11,7 @@ token, never stored or logged by Tagwerk. Standard library only: no extra depend
 
 import contextlib
 import hashlib
+import http.client
 import json
 import logging
 import secrets
@@ -101,7 +102,8 @@ def _report(result: Result, what: str) -> None:
         )  # fmt: skip
 
 
-# How long renaming waits for Navidrome to finish a scan, and how often it asks.
+# How long renaming, converting, replacing and importing adopted tracks wait for Navidrome to
+# finish a scan, and how often they ask.
 SCAN_WAIT = 180  # seconds
 SCAN_POLL = 2
 
@@ -148,6 +150,76 @@ def scanned_since(settings: Settings, changed_at: float, sleep=time.sleep) -> Re
             return Result(False, "Navidrome is still scanning; try again in a few minutes.")
         sleep(SCAN_POLL)
         waited += SCAN_POLL
+
+
+@dataclass
+class Moved:
+    """A file Tagwerk moved into the library, as Navidrome's search finds it."""
+
+    title: str  # its title tag; Navidrome uses the filename without extension when there is none
+    size: int  # in bytes
+    suffix: str  # the extension without the dot, lower case ("mp3")
+
+
+def wait_until_listed(
+    settings: Settings, files: list[Moved], sleep=time.sleep
+) -> tuple[Result, list[bool | None]]:
+    """Let Navidrome scan files Tagwerk just moved, and check that it lists them (ADR 0046).
+
+    A running scan would ignore Tagwerk's request, so it is waited for first; then Tagwerk
+    starts its own scan and waits until it is done (``lastScan`` changes), up to SCAN_WAIT.
+    Then each file is looked for with ``search3``: Navidrome's Subsonic API makes up a song's
+    path from its tags, so a song with the file's title, exact size and extension stands for
+    "listed at its new place" (songs whose file is gone aren't found).
+
+    Returns (result, listed): ``result.ok`` when that scan finished; ``listed`` per file True or
+    False, or None when Navidrome's search didn't answer (then the finished scan is all
+    Tagwerk knows). Never raises.
+    """
+    unknown: list[bool | None] = [None] * len(files)
+    if not configured(settings):
+        return Result(False, "Navidrome isn't set up."), unknown
+    what = "Waiting for Navidrome's scan before writing the tags of adopted tracks"
+    started = False
+    before = None  # the last scan before Tagwerk's own
+    waited = 0.0  # the pauses; the clock counts the answers' time too (up to TIMEOUT each)
+    since = time.monotonic()
+    while True:
+        result, scanning, last_scan = scan_status(settings)
+        if not result.ok or not waited:  # it answered: once is enough to know
+            _report(result, what)
+        if not result.ok:
+            return Result(False, f"Can't check Navidrome's scan: {result.message}"), unknown
+        if not scanning and started and last_scan != before:
+            break  # Tagwerk's scan (or one started after the files moved) is done
+        if not scanning and not started:
+            before = last_scan
+            result = start_scan(settings)
+            _report(result, what)
+            if not result.ok:
+                return result, unknown
+            started = True
+        if waited >= SCAN_WAIT or time.monotonic() - since >= SCAN_WAIT:
+            late = f"Navidrome's scan didn't finish within {SCAN_WAIT // 60} minutes."
+            return Result(False, late), unknown
+        sleep(SCAN_POLL)
+        waited += SCAN_POLL
+    listed = [_listed(settings, f) for f in files]
+    found = sum(1 for seen in listed if seen)
+    return Result(True, f"Navidrome scanned and lists {found} of {len(files)}."), listed
+
+
+def _listed(settings: Settings, moved: Moved) -> bool | None:
+    """Whether Navidrome's search finds a song of this file; None if it didn't answer."""
+    params = {"query": moved.title, "songCount": 200, "artistCount": 0, "albumCount": 0}
+    result, body = _call(settings, "search3", params)
+    if not result.ok:
+        return None
+    songs = body.get("searchResult3", {}).get("song", [])
+    return any(
+        s.get("size") == moved.size and str(s.get("suffix", "")).lower() == moved.suffix
+        for s in songs
+    )
 
 
 def _libraries(settings: Settings) -> tuple[list[tuple[str, str]], Result | None]:
@@ -200,7 +272,7 @@ def _call(settings: Settings, endpoint: str, params: dict | None = None) -> tupl
             body = json.load(response).get("subsonic-response", {})
     except urllib.error.HTTPError as exc:
         return Result(False, f"Navidrome answered with error {exc.code}. Is the address right?"), {}
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as exc:
         reason = getattr(exc, "reason", exc)
         return Result(
             False,

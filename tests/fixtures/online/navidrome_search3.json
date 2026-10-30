@@ -1,0 +1,77 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.64.2 (10114574)",
+    "openSubsonic": true,
+    "searchResult3": {
+      "song": [
+        {
+          "id": "3ydtFGGxmM1hV9AJWsoXpL",
+          "parent": "7nj57Q3y2CM8CVC3tNHfSD",
+          "isDir": false,
+          "title": "Silent Track",
+          "album": "Fixture Album",
+          "artist": "Artist One • Artist Two",
+          "track": 3,
+          "year": 2021,
+          "genre": "Electronic",
+          "coverArt": "mf-3ydtFGGxmM1hV9AJWsoXpL",
+          "size": 4707,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "bitRate": 36,
+          "path": "Fixture Artist/Fixture Album/01-03 - Silent Track.mp3",
+          "discNumber": 1,
+          "created": "2026-10-30T18:46:19.710304631Z",
+          "albumId": "7nj57Q3y2CM8CVC3tNHfSD",
+          "artistId": "5CFLlrcAjywbI577YUqwsD",
+          "type": "music",
+          "bpm": 126,
+          "comment": "Whatsapp Unreleased",
+          "sortName": "silent track",
+          "mediaType": "song",
+          "musicBrainzId": "11111111-1111-4111-8111-111111111111",
+          "isrc": [],
+          "genres": [
+            {
+              "name": "Electronic"
+            }
+          ],
+          "replayGain": {
+            "trackGain": -6.2
+          },
+          "channelCount": 1,
+          "samplingRate": 8000,
+          "bitDepth": 0,
+          "moods": [],
+          "artists": [
+            {
+              "id": "5CFLlrcAjywbI577YUqwsD",
+              "name": "Artist One"
+            },
+            {
+              "id": "6PjdNPpWZhgT3Erk7ALxUs",
+              "name": "Artist Two"
+            }
+          ],
+          "displayArtist": "Artist One • Artist Two",
+          "albumArtists": [
+            {
+              "id": "3fqn6fOUD3F7Tlqh8xKJ61",
+              "name": "Fixture Artist"
+            }
+          ],
+          "displayAlbumArtist": "Fixture Artist",
+          "contributors": [],
+          "displayComposer": "",
+          "explicitStatus": "",
+          "groupings": [],
+          "works": [],
+          "movements": []
+        }
+      ]
+    }
+  }
+}
