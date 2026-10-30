@@ -115,6 +115,8 @@ def main(base: str, out: Path) -> int:
                             count += 1
                         shot = out / f"{{}}-{style}-{scheme}-{device}-{engine}.png"
                         count += bell(page, base, shot)
+                        if device == "phone":
+                            count += top_menu(page, base, shot)
                         context.close()
                 browser.close()
                 print(f"{style:5} {engine:9} done", flush=True)
@@ -137,6 +139,23 @@ def bell(page, base: str, path: str) -> int:
     item.click()
     page.wait_for_selector("#bell-card .note-card")
     page.screenshot(path=str(path).format("bell-card"))
+    return 2
+
+
+def top_menu(page, base: str, path: str) -> int:
+    """The top bar's menu open (narrow windows and phones): every page, grouped like the
+    sidebar, and scrolled to its end, where Settings and API are."""
+    page.goto(base + "/inbox", wait_until="networkidle")
+    page.locator("details.top-menu > summary").click()
+    menu = page.locator("details.top-menu > ul")
+    menu.wait_for()
+    # Pico fades a dropdown in: wait until it is fully there.
+    page.wait_for_function(
+        "getComputedStyle(document.querySelector('details.top-menu > ul')).opacity === '1'"
+    )
+    page.screenshot(path=str(path).format("top-menu"))
+    menu.evaluate("list => list.scrollTo(0, list.scrollHeight)")
+    page.screenshot(path=str(path).format("top-menu-end"))
     return 2
 
 

@@ -20,7 +20,13 @@
   {% elif c.kind == "final" %}<p class="muted"><small>{% if e.moved_from and e.moved_from != e.path %}Renamed: <code>{{ e.moved_from.rsplit("/", 1)[-1] }}</code> → <code>{{ e.path.rsplit("/", 1)[-1] }}</code>{% else %}{{ c.fields }}{% endif %}{% if e.undone %} (undone){% endif %}</small></p>
   {% elif c.kind == "upgrade" %}{% set d = e.details | fromjson %}<p class="muted"><small>{% if e.moved_from %}From the inbox: <code>{{ e.moved_from }}</code> ({{ d.new }}) replaced <code>{{ d.replaced }}</code> ({{ d.old }}); the old file is in the <a href="/duplicates#trash">library trash</a>{% else %}Not replaced{% endif %}{% if e.undone %} (undone){% endif %}</small></p>
   {% elif e.moved_from and c.kind == "folder" %}<p class="muted"><small>Moved: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>
-  {% elif e.moved_from %}<p class="muted"><small>Imported from the inbox: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>{% endif %}
+  {% elif e.moved_from %}<p class="muted"><small>Imported from the inbox: <code>{{ e.moved_from }}</code> → <code>{{ e.path }}</code>{% if e.undone %} (moved back){% endif %}</small></p>
+  {% if e.details %}{% set d = e.details | fromjson %}<p class="muted navidrome-steps"><small>Adopted from Releasomat: {{ {
+    "listed": "moved with its old tags first; the new tags were written once Navidrome listed it here, so Navidrome keeps it as the same song (plays, stars, playlists).",
+    "scanned": "moved with its old tags first; the new tags were written once Navidrome had scanned it here, so Navidrome keeps it as the same song (plays, stars, playlists).",
+    "unlisted": "moved with its old tags first, but Navidrome's scan didn't list it here; the new tags were written anyway.",
+    "unconfirmed": "Navidrome didn't confirm the move (" ~ (d.why or "no answer").rstrip(".") ~ "); the new tags were written anyway, so Navidrome may list it as a new song.",
+  }.get(d.navidrome, "") }}</small></p>{% endif %}{% endif %}
   {% if c.kind not in ("folder", "final", "convert") %}
   <table class="diff"><tbody>
     {% for name, (old, new) in diff.items() %}

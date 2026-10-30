@@ -10,6 +10,14 @@ Per track (ADR 0007):
    deleted. **The filename never changes.**
 5. The track joins the library database; the import is recorded in the history, and undo
    restores the tags and moves the file back into the inbox.
+
+**Files adopted from Releasomat** (ADR 0044) go the other way round when Navidrome is set up
+(ADR 0046): Navidrome knows a moved file as the same song only by tags like title and album, so
+changing them in the same step would make a new song and leave the old one (with its plays, stars
+and place in playlists) behind as missing. So the file moves first, with the tags it has; then
+Navidrome scans (once for all such files of an import) and lists it at its new place; only then
+are the new tags written there, and the usual rescan follows. If Navidrome doesn't confirm within
+3 minutes, the tags are written anyway: the import never waits for good or fails over it.
 """
 
 import hashlib
@@ -19,17 +27,28 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from sqlalchemy import Engine
 from sqlmodel import Session, col, select
 
-from app import analysis, area, genres, identify, ids, naming, preferences, secret, writer
+from app import (
+    analysis,
+    area,
+    genres,
+    identify,
+    ids,
+    naming,
+    navidrome,
+    preferences,
+    secret,
+    writer,
+)
 from app.changes import WriteProgress, sources_json
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.duplicates import LibraryIndex
 from app.images import ImageStore
-from app.inbox import add_file, owner_values, review
+from app.inbox import add_file, adoptions_for, owner_values, review
 from app.models import (
     ChangeEntry,
     ChangeSet,
@@ -210,8 +229,14 @@ def import_tracks(
     track_ids: list[int],
     progress: WriteProgress,
     images: ImageStore | None = None,
+    settings: Settings | None = None,
 ) -> None:
-    """Import inbox tracks. Tracks that can't be imported stay in the inbox with a reason."""
+    """Import inbox tracks. Tracks that can't be imported stay in the inbox with a reason.
+
+    Adopted files with tags to write are moved first; their tags follow one Navidrome scan for
+    all of them (see the module docstring).
+    """
+    settings = settings or get_settings()  # Navidrome, for adopted files
     with Session(engine) as session:
         tracks = session.exec(
             select(InboxTrack).where(col(InboxTrack.id).in_(track_ids)).order_by(InboxTrack.path)
@@ -222,6 +247,8 @@ def import_tracks(
         session.commit()
         progress.changeset_id = changeset.id
         labels = set()
+        two_steps = _two_steps(session, settings, tracks)
+        moved: list[tuple[ImportPlan, ChangeEntry]] = []  # adopted, waiting for Navidrome
 
         for track in tracks:
             progress.current = track.path
@@ -236,28 +263,77 @@ def import_tracks(
             try:
                 if item.problems:
                     raise writer.WriteError(", ".join(item.problems))
+                if track.id in two_steps and item.changes:
+                    _move_first(item, import_dir, music_dir)
+                    moved.append((item, entry))
+                    continue  # its tags and its History entry follow Navidrome's scan, below
                 _import_one(session, item, import_dir, music_dir, entry, images)
-                labels.update(item.changes)
-                progress.written += 1
-                changeset.written += 1
+                _done(item, progress, changeset, labels)
             except Exception as exc:
-                log.warning("Could not import %s: %s", track.path, exc)
-                session.rollback()
-                entry.error = str(exc)[:500]
-                entry.moved_from = None  # nothing was moved
-                progress.failed += 1
-                changeset.failed += 1
-                progress.errors.append(f"{track.path}: {entry.error}")
-            session.add(entry)
-            session.add(changeset)
-            session.commit()
-            progress.processed += 1
+                _failed(session, entry, exc, progress, changeset)
+            _save(session, changeset, entry, progress)
+
+        if moved:  # one scan for all of them, then their tags
+            progress.current = "Waiting for Navidrome's scan"
+            files = [_as_navidrome_sees(item) for item, _ in moved]
+            try:
+                result, listed = navidrome.wait_until_listed(settings, files)
+            except Exception as exc:  # the files are moved: their tags must follow anyway
+                log.exception("Waiting for Navidrome failed")
+                result, listed = navidrome.Result(False, str(exc)), [None] * len(files)
+            log.info("Before tagging %d adopted track(s): %s", len(moved), result.message)
+            for (item, entry), seen in zip(moved, listed, strict=True):
+                progress.current = item.destination
+                entry.details = json.dumps(_navidrome_note(result, seen))
+                try:
+                    _tags_after_move(session, item, import_dir, music_dir, entry, images)
+                    _done(item, progress, changeset, labels)
+                except Exception as exc:
+                    _failed(session, entry, exc, progress, changeset)
+                _save(session, changeset, entry, progress)
 
         names = [writer.label(f) for f in sorted(labels, key=writer.label_order)]
         changeset.fields = ", ".join(["Import", *names])
         session.add(changeset)
         session.commit()
     progress.current = ""
+
+
+def _two_steps(session: Session, settings: Settings, tracks: list[InboxTrack]) -> set[int]:
+    """The tracks adopted from Releasomat: imported in two steps when Navidrome is set up."""
+    if not navidrome.configured(settings):
+        return set()
+    adopted = adoptions_for(session, [t.path for t in tracks])
+    return {t.id for t in tracks if t.path in adopted}
+
+
+def _done(item: ImportPlan, progress: WriteProgress, changeset: ChangeSet, labels: set) -> None:
+    labels.update(item.changes)
+    progress.written += 1
+    changeset.written += 1
+
+
+def _failed(
+    session: Session, entry: ChangeEntry, exc: Exception, progress: WriteProgress,
+    changeset: ChangeSet,
+) -> None:  # fmt: skip
+    path = entry.moved_from  # the inbox path
+    log.warning("Could not import %s: %s", path, exc)
+    session.rollback()
+    entry.error = str(exc)[:500]
+    entry.moved_from = None  # nothing was moved
+    progress.failed += 1
+    changeset.failed += 1
+    progress.errors.append(f"{path}: {entry.error}")
+
+
+def _save(
+    session: Session, changeset: ChangeSet, entry: ChangeEntry, progress: WriteProgress
+) -> None:
+    session.add(entry)
+    session.add(changeset)
+    session.commit()
+    progress.processed += 1
 
 
 def _import_one(
@@ -268,6 +344,66 @@ def _import_one(
     entry: ChangeEntry,
     images: ImageStore | None = None,
 ) -> None:
+    """The usual import: write the tags in the inbox, then move the file."""
+    source, target = _checked(item, import_dir, music_dir)
+    snapshot = writer.write(source, item.changes, images) if item.changes else None
+    try:
+        move_file(source, target)
+    except Exception:
+        if snapshot:
+            writer.undo(source, snapshot)  # leave the inbox file as it was
+        raise
+    _into_library(session, item, target, entry, snapshot)
+
+
+def _move_first(item: ImportPlan, import_dir: Path, music_dir: Path) -> None:
+    """Step 1 of an adopted file's import (ADR 0046): it moves with the tags it has."""
+    source, target = _checked(item, import_dir, music_dir)
+    move_file(source, target)
+
+
+def _tags_after_move(
+    session: Session,
+    item: ImportPlan,
+    import_dir: Path,
+    music_dir: Path,
+    entry: ChangeEntry,
+    images: ImageStore | None = None,
+) -> None:
+    """Step 3 of an adopted file's import: the new tags go into the file at its library place.
+    If writing fails, the file goes back into the inbox as it was, like a failed import."""
+    source = import_dir / item.track.path
+    target = music_dir / item.destination
+    try:
+        snapshot = writer.write(target, item.changes, images)
+    except Exception as exc:
+        try:
+            move_file(target, source)  # same time and size: the inbox list still knows it
+        except Exception as back:
+            raise writer.WriteError(
+                f"{exc}; moving it back into the inbox failed too ({back}): it is in the "
+                "library with its old tags"
+            ) from exc
+        raise
+    _into_library(session, item, target, entry, snapshot)
+
+
+def _as_navidrome_sees(item: ImportPlan) -> navidrome.Moved:
+    """The adopted file as Navidrome lists it after step 1: still with the inbox file's tags."""
+    name = PurePosixPath(item.track.path)
+    title = item.track.title or name.stem  # Navidrome's title for a file without one
+    return navidrome.Moved(title, item.track.size, name.suffix.lstrip(".").lower())
+
+
+def _navidrome_note(result: navidrome.Result, listed: bool | None) -> dict:
+    """For the History: how an adopted file's import went (ADR 0046)."""
+    if not result.ok:
+        return {"navidrome": "unconfirmed", "why": result.message}
+    return {"navidrome": {True: "listed", False: "unlisted", None: "scanned"}[listed]}
+
+
+def _checked(item: ImportPlan, import_dir: Path, music_dir: Path) -> tuple[Path, Path]:
+    """(inbox file, library place), after checking that the move can be done."""
     track = item.track
     source = import_dir / track.path
     target = music_dir / item.destination
@@ -279,16 +415,15 @@ def _import_one(
             f"{item.destination} already exists in the library; the file was not renamed "
             "or overwritten"
         )
+    return source, target
 
-    snapshot = writer.write(source, item.changes, images) if item.changes else None
-    try:
-        move_file(source, target)
-    except Exception:
-        if snapshot:
-            writer.undo(source, snapshot)  # leave the inbox file as it was
-        raise
+
+def _into_library(
+    session: Session, item: ImportPlan, target: Path, entry: ChangeEntry, snapshot: dict | None
+) -> None:
+    """The moved file joins the library database; the inbox track goes."""
+    track = item.track
     entry.snapshot = json.dumps(snapshot) if snapshot else None
-
     stat = target.stat()
     library_track = store_file(session, target, item.destination, stat, False, None)
     # The file keeps its download date; the library counts it from now (library growth).
